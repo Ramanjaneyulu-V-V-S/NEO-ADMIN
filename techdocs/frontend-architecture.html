@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBSupportApp -- Frontend Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<style>
+/* ========== RESET & BASE ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f8fafc;
+  color: #1e293b;
+  line-height: 1.7;
+  font-size: 15px;
+}
+
+/* ========== HEADER ========== */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: #0f172a;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+.header-brand .logo-icon {
+  width: 32px;
+  height: 32px;
+  background: #0A66C2;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+}
+.header-brand span.sep {
+  color: #475569;
+  font-weight: 300;
+  margin: 0 2px;
+}
+.header-brand span.sub {
+  color: #94a3b8;
+  font-weight: 400;
+  font-size: 15px;
+}
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 8px;
+  margin-right: 12px;
+  border-radius: 6px;
+}
+.hamburger:hover { background: rgba(255,255,255,0.1); }
+.hamburger svg { width: 22px; height: 22px; }
+
+/* ========== SIDEBAR ========== */
+.sidebar {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  background: #1e293b;
+  overflow-y: auto;
+  z-index: 900;
+  padding: 16px 0;
+  transition: transform 0.3s ease;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+.sidebar-label {
+  padding: 12px 20px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: #64748b;
+}
+.sidebar a {
+  display: block;
+  padding: 8px 20px 8px 24px;
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 400;
+  border-left: 3px solid transparent;
+  transition: all 0.15s ease;
+  line-height: 1.5;
+}
+.sidebar a:hover {
+  color: #e2e8f0;
+  background: rgba(255,255,255,0.04);
+}
+.sidebar a.active {
+  color: #fff;
+  background: rgba(10, 102, 194, 0.15);
+  border-left-color: #0A66C2;
+  font-weight: 500;
+}
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 899;
+}
+
+/* ========== MAIN CONTENT ========== */
+.main {
+  margin-left: 280px;
+  margin-top: 60px;
+  padding: 40px 48px 80px;
+  max-width: 1040px;
+}
+.main > section { margin-bottom: 56px; }
+
+/* ========== TYPOGRAPHY ========== */
+h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+  line-height: 1.25;
+}
+.page-desc {
+  font-size: 16px;
+  color: #64748b;
+  margin-bottom: 40px;
+  line-height: 1.6;
+}
+h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e2e8f0;
+  scroll-margin-top: 80px;
+}
+h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-top: 32px;
+  margin-bottom: 14px;
+  scroll-margin-top: 80px;
+}
+h4 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #334155;
+  margin-top: 24px;
+  margin-bottom: 10px;
+}
+p {
+  margin-bottom: 14px;
+  color: #334155;
+}
+ul, ol {
+  margin-bottom: 14px;
+  padding-left: 24px;
+}
+li {
+  margin-bottom: 6px;
+  color: #334155;
+}
+strong { font-weight: 600; color: #1e293b; }
+
+/* ========== TABLES ========== */
+.table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 24px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+thead th {
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+tbody td {
+  padding: 10px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  vertical-align: top;
+}
+tbody tr:nth-child(even) { background: #f8fafc; }
+tbody tr:hover { background: #eff6ff; }
+tbody tr:last-child td { border-bottom: none; }
+td code, th code {
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  color: #7c3aed;
+}
+
+/* ========== CODE BLOCKS ========== */
+pre.code-block {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  border: 1px solid #1e293b;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+pre.code-block code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+  color: inherit;
+}
+.code-label {
+  display: inline-block;
+  background: #1e293b;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 3px 10px;
+  border-radius: 6px 6px 0 0;
+  margin-bottom: -1px;
+  position: relative;
+  top: 1px;
+}
+/* Syntax highlights */
+.kw { color: #c084fc; }
+.str { color: #34d399; }
+.cm { color: #64748b; }
+.fn { color: #60a5fa; }
+.num { color: #fbbf24; }
+.op { color: #94a3b8; }
+
+/* inline code */
+code {
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: #7c3aed;
+}
+
+/* ========== MERMAID DIAGRAMS ========== */
+.diagram-wrapper {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 28px 24px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  text-align: center;
+}
+.diagram-wrapper pre.mermaid {
+  text-align: center;
+  margin: 0 auto;
+}
+.diagram-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #64748b;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+/* ========== INFO/WARNING BOXES ========== */
+.callout {
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  font-size: 14px;
+  line-height: 1.6;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.callout-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+}
+.callout-info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+.callout-info .callout-icon { color: #2563eb; }
+.callout-warning {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+.callout-warning .callout-icon { color: #d97706; }
+.callout strong { color: inherit; }
+
+/* ========== FILE REFERENCE ========== */
+.file-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  color: #475569;
+  margin-bottom: 14px;
+}
+.file-ref svg { width: 14px; height: 14px; color: #64748b; }
+
+/* ========== PROJECT TREE ========== */
+.project-tree {
+  background: #0f172a;
+  color: #cbd5e1;
+  border-radius: 10px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.8;
+  border: 1px solid #1e293b;
+  overflow-x: auto;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.project-tree .folder { color: #60a5fa; font-weight: 500; }
+.project-tree .file { color: #e2e8f0; }
+.project-tree .comment { color: #64748b; }
+
+/* ========== HR ========== */
+hr {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 40px 0;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 900px) {
+  .hamburger { display: block; }
+  .sidebar {
+    transform: translateX(-100%);
+    width: 280px;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.3);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-overlay.open { display: block; }
+  .main {
+    margin-left: 0;
+    padding: 32px 20px 60px;
+  }
+}
+
+/* ========== PRINT ========== */
+@media print {
+  .header, .sidebar, .hamburger, .sidebar-overlay { display: none !important; }
+  .main {
+    margin-left: 0 !important;
+    margin-top: 0 !important;
+    padding: 20px !important;
+    max-width: 100% !important;
+  }
+  body { background: #fff; font-size: 12px; }
+  h2 { break-after: avoid; }
+  .table-wrapper, .diagram-wrapper, pre.code-block { break-inside: avoid; }
+  .diagram-wrapper { border: 1px solid #ccc; }
+}
+</style>
+</head>
+<body>
+
+<!-- ========== HEADER ========== -->
+<header class="header">
+  <button class="hamburger" id="hamburgerBtn" aria-label="Toggle navigation">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  </button>
+  <div class="header-brand">
+    <div class="logo-icon">NB</div>
+    NBSupportApp <span class="sep">|</span> <span class="sub">Frontend Architecture</span>
+  </div>
+</header>
+
+<!-- ========== SIDEBAR ========== -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-label">Documentation</div>
+  <a href="#overview" data-section="overview">1. Overview</a>
+  <a href="#architecture" data-section="architecture">2. Application Architecture</a>
+  <a href="#project-structure" data-section="project-structure">3. Project Structure</a>
+  <a href="#routing" data-section="routing">4. Routing Architecture</a>
+  <a href="#auth" data-section="auth">5. Authentication Flow</a>
+  <a href="#pages" data-section="pages">6. Page Components</a>
+  <a href="#layout" data-section="layout">7. Layout Components</a>
+  <a href="#interaction" data-section="interaction">8. Component Interaction</a>
+  <a href="#state" data-section="state">9. State Management</a>
+  <a href="#api" data-section="api">10. API Integration</a>
+  <a href="#styling" data-section="styling">11. Styling &amp; Design System</a>
+  <a href="#modals" data-section="modals">12. Modal Patterns</a>
+  <a href="#search-pagination" data-section="search-pagination">13. Search &amp; Pagination</a>
+  <a href="#conventions" data-section="conventions">14. Conventions</a>
+</nav>
+
+<!-- ========== MAIN CONTENT ========== -->
+<div class="main">
+
+  <h1>NBSupportApp &mdash; Frontend Architecture</h1>
+  <p class="page-desc">Enterprise support-desk frontend for managing Documentum ECM cases, workflows, groups, and users.</p>
+
+  <!-- ===== 1. OVERVIEW ===== -->
+  <section id="overview">
+    <h2>1. Overview</h2>
+    <p>NBSupportApp is an enterprise support-desk frontend for managing Documentum ECM cases, workflows, groups, and users. It is built on the following stack:</p>
+
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Layer</th><th>Technology</th><th>Version</th></tr></thead>
+        <tbody>
+          <tr><td>UI Framework</td><td>React</td><td>19.2</td></tr>
+          <tr><td>Build Tool</td><td>Vite</td><td>7.2</td></tr>
+          <tr><td>CSS Framework</td><td>Tailwind CSS</td><td>3.4</td></tr>
+          <tr><td>Routing</td><td>React Router DOM</td><td>7.13</td></tr>
+          <tr><td>HTTP Client</td><td>axios</td><td>1.13</td></tr>
+          <tr><td>Animation</td><td>framer-motion</td><td>12.29</td></tr>
+          <tr><td>Icons</td><td>lucide-react</td><td>0.563</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>The frontend communicates with a Spring Boot backend at <code>http://localhost:8080/api</code> and persists minimal client state in <code>localStorage</code> (authenticated user session, query history).</p>
+  </section>
+
+  <!-- ===== 2. APPLICATION ARCHITECTURE ===== -->
+  <section id="architecture">
+    <h2>2. Application Architecture</h2>
+
+    <div class="diagram-wrapper">
+      <div class="diagram-title">Application Architecture Diagram</div>
+      <pre class="mermaid">
+flowchart TB
+    subgraph Browser["Browser"]
+        direction TB
+        main["main.jsx\n(React root)"]
+        app["App.jsx\n(BrowserRouter)"]
+        main --> app
+
+        subgraph Routes["Route Tree"]
+            login["/login\nLoginPage"]
+            dashboard["/dashboard\nMainLayout"]
+            cases["/dashboard/cases\nCasesPage"]
+            workflows["/dashboard/workflows\nWorkflowsPage"]
+            groups["/dashboard/groups\nGroupsPage"]
+            users["/dashboard/users\nUsersPage"]
+            queryRoute["/dashboard/query\nQueryPage"]
+        end
+
+        app --> login
+        app --> dashboard
+        dashboard --> cases
+        dashboard --> workflows
+        dashboard --> groups
+        dashboard --> users
+        dashboard --> queryRoute
+
+        subgraph Layout["Layout Shell"]
+            sidebar["Sidebar"]
+            topbar["Topbar"]
+            outlet["Outlet (page content)"]
+        end
+
+        dashboard --> sidebar
+        dashboard --> topbar
+        dashboard --> outlet
+    end
+
+    subgraph API["API Layer"]
+        axiosInstance["axios instance\nbaseURL: /api"]
+    end
+
+    subgraph Backend["Spring Boot Backend"]
+        authAPI["/api/auth/*"]
+        casesAPI["/api/cases/*"]
+        workflowsAPI["/api/workflows/*"]
+        groupsAPI["/api/groups/*"]
+        usersAPI["/api/users/*"]
+        queryAPI["/api/query/*"]
+        settingsAPI["/api/settings"]
+    end
+
+    cases --> axiosInstance
+    workflows --> axiosInstance
+    groups --> axiosInstance
+    users --> axiosInstance
+    queryRoute --> axiosInstance
+    login --> axiosInstance
+    topbar --> axiosInstance
+
+    axiosInstance --> authAPI
+    axiosInstance --> casesAPI
+    axiosInstance --> workflowsAPI
+    axiosInstance --> groupsAPI
+    axiosInstance --> usersAPI
+    axiosInstance --> queryAPI
+    axiosInstance --> settingsAPI
+      </pre>
+    </div>
+  </section>
+
+  <!-- ===== 3. PROJECT STRUCTURE ===== -->
+  <section id="project-structure">
+    <h2>3. Project Structure</h2>
+
+    <div class="project-tree"><span class="folder">frontend/</span>
+  index.html                      <span class="comment"># HTML entry point (title: "NB ECM")</span>
+  vite.config.js                  <span class="comment"># Vite config -- React plugin</span>
+  tailwind.config.js              <span class="comment"># Tailwind config -- Inter font, brand palette</span>
+  package.json                    <span class="comment"># Dependencies &amp; scripts</span>
+  <span class="folder">src/</span>
+    main.jsx                      <span class="comment"># React 19 createRoot, StrictMode</span>
+    App.jsx                       <span class="comment"># BrowserRouter, route definitions</span>
+    App.css                       <span class="comment"># Legacy Vite scaffold styles (unused)</span>
+    index.css                     <span class="comment"># Tailwind directives, Inter import, scrollbar styles</span>
+    <span class="folder">api/</span>
+      axios.js                    <span class="comment"># Shared axios instance (baseURL, JSON headers)</span>
+    <span class="folder">hooks/</span>
+      useQueryHistory.js          <span class="comment"># Custom hook -- localStorage query history</span>
+    <span class="folder">components/</span>
+      <span class="folder">layout/</span>
+        MainLayout.jsx            <span class="comment"># Dashboard shell (Sidebar + Topbar + Outlet)</span>
+        Sidebar.jsx               <span class="comment"># Left nav with NavLink items</span>
+        Topbar.jsx                <span class="comment"># Top bar -- profile dropdown, login ticket generator</span>
+      EditUserProfileModal.jsx    <span class="comment"># Modal form for editing user profile fields</span>
+      ManageMembersModal.jsx      <span class="comment"># Two-panel modal for group membership management</span>
+    <span class="folder">pages/</span>
+      LoginPage.jsx               <span class="comment"># Split-screen login with framer-motion</span>
+      CasesPage.jsx               <span class="comment"># Case search, table, workflow detail modal</span>
+      WorkflowsPage.jsx           <span class="comment"># Process selector + workflow instance grid</span>
+      GroupsPage.jsx              <span class="comment"># Group search, table, ManageMembersModal trigger</span>
+      UsersPage.jsx               <span class="comment"># User directory with client-side sort/filter</span>
+      QueryPage.jsx               <span class="comment"># DQL query editor with history &amp; column filters</span></div>
+  </section>
+
+  <!-- ===== 4. ROUTING ARCHITECTURE ===== -->
+  <section id="routing">
+    <h2>4. Routing Architecture</h2>
+
+    <div class="diagram-wrapper">
+      <div class="diagram-title">Route Flow</div>
+      <pre class="mermaid">
+flowchart LR
+    root["/ (root)"] -->|Redirect| loginPage["/login"]
+    loginPage -->|On auth success| dashIndex["/dashboard"]
+    dashIndex -->|Redirect| casesRoute["/dashboard/cases"]
+
+    subgraph Protected["MainLayout wrapper"]
+        casesRoute
+        wfRoute["/dashboard/workflows"]
+        grpRoute["/dashboard/groups"]
+        usrRoute["/dashboard/users"]
+        qryRoute["/dashboard/query"]
+    end
+      </pre>
+    </div>
+
+    <h3>Route Table</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Path</th><th>Component</th><th>Layout</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>/</code></td><td><code>Navigate</code></td><td>--</td><td>Redirects to <code>/login</code></td></tr>
+          <tr><td><code>/login</code></td><td><code>LoginPage</code></td><td>None (standalone)</td><td>Authentication form</td></tr>
+          <tr><td><code>/dashboard</code></td><td><code>MainLayout</code></td><td>Sidebar + Topbar</td><td>Layout wrapper with <code>&lt;Outlet&gt;</code></td></tr>
+          <tr><td><code>/dashboard</code> (index)</td><td><code>Navigate</code></td><td>MainLayout</td><td>Redirects to <code>/dashboard/cases</code></td></tr>
+          <tr><td><code>/dashboard/cases</code></td><td><code>CasesPage</code></td><td>MainLayout</td><td>Case search &amp; workflow inspection</td></tr>
+          <tr><td><code>/dashboard/workflows</code></td><td><code>WorkflowsPage</code></td><td>MainLayout</td><td>Workflow instance browser</td></tr>
+          <tr><td><code>/dashboard/groups</code></td><td><code>GroupsPage</code></td><td>MainLayout</td><td>Group management</td></tr>
+          <tr><td><code>/dashboard/users</code></td><td><code>UsersPage</code></td><td>MainLayout</td><td>User directory &amp; profile editing</td></tr>
+          <tr><td><code>/dashboard/query</code></td><td><code>QueryPage</code></td><td>MainLayout</td><td>DQL query console</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== 5. AUTHENTICATION FLOW ===== -->
+  <section id="auth">
+    <h2>5. Authentication Flow</h2>
+
+    <div class="diagram-wrapper">
+      <div class="diagram-title">Authentication Sequence</div>
+      <pre class="mermaid">
+sequenceDiagram
+    actor User
+    participant LP as LoginPage
+    participant API as axios (/api/auth)
+    participant LS as localStorage
+    participant Router as React Router
+    participant ML as MainLayout
+    participant TB as Topbar
+
+    User->>LP: Enter username, password, repository
+    LP->>API: POST /auth/login {username, password, repository}
+    API-->>LP: {authenticated: true, userDetails: {...}}
+    LP->>LS: setItem("user", JSON.stringify(userDetails))
+    LP->>Router: navigate("/dashboard")
+    Router->>ML: Render MainLayout
+    ML->>TB: Mount Topbar
+    TB->>LS: getItem("user") -- parse JSON
+    TB->>TB: Display user initials, privileges
+    Note over TB: Profile dropdown shows name, email, privileges
+    User->>TB: Click "Sign Out"
+    TB->>LS: removeItem("user")
+    TB->>Router: navigate("/login")
+      </pre>
+    </div>
+
+    <h3>Key Details</h3>
+    <ul>
+      <li>Credentials are sent as <code>{username, password, repository}</code> where repository defaults to <code>"NABARDUAT"</code>.</li>
+      <li>On success, the server returns <code>userDetails</code> containing <code>properties.user_name</code>, <code>properties.user_address</code>, and <code>properties.user_privileges</code>.</li>
+      <li>The Topbar reads <code>localStorage("user")</code> on mount and conditionally renders (<code>if (!user) return null</code>).</li>
+      <li>There is no token-based auth interceptor -- the session is server-managed.</li>
+    </ul>
+  </section>
+
+  <!-- ===== 6. PAGE COMPONENTS ===== -->
+  <section id="pages">
+    <h2>6. Page Components</h2>
+
+    <!-- 6.1 LoginPage -->
+    <h3 id="pages-login">6.1 LoginPage</h3>
+    <div class="file-ref">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      src/pages/LoginPage.jsx
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Aspect</th><th>Detail</th></tr></thead>
+        <tbody>
+          <tr><td>Layout</td><td>Split screen -- left brand panel (blue <code>#0A66C2</code>), right form (white card on <code>#F8F9FA</code>)</td></tr>
+          <tr><td>Animation</td><td><code>framer-motion</code> fade-in + slide-up on the form card</td></tr>
+          <tr><td>State</td><td><code>formData {username, password, repository}</code>, <code>isLoading</code>, <code>error</code></td></tr>
+          <tr><td>API Calls</td><td><code>POST /auth/login</code></td></tr>
+          <tr><td>Features</td><td>Remember-me checkbox (UI only), forgot password link, error toast, loading spinner</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 6.2 CasesPage -->
+    <h3 id="pages-cases">6.2 CasesPage</h3>
+    <div class="file-ref">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      src/pages/CasesPage.jsx
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Aspect</th><th>Detail</th></tr></thead>
+        <tbody>
+          <tr><td>Purpose</td><td>Search cases by case number, view workflow details for a case</td></tr>
+          <tr><td>State</td><td><code>cases[]</code>, <code>page</code>, <code>pageSize</code>, <code>hasNextPage</code>, <code>totalEstimate</code>, <code>caseNumber</code> (input), <code>activeSearch</code>, <code>isDefaultLoad</code></td></tr>
+          <tr><td>API Calls</td><td><code>GET /cases/search?caseNumber=&amp;page=&amp;size=</code>, <code>GET /settings</code>, <code>GET /workflows/case/{objectId}</code>, <code>POST /workflows/{id}/restart</code>, <code>POST /workflows/{id}/activity/{actId}/retry</code></td></tr>
+          <tr><td>Search</td><td>Server-side search with pagination. Default load (empty search) shows recent cases.</td></tr>
+          <tr><td>Modals</td><td><strong>Workflow Detail Modal</strong> -- full-screen overlay with sidebar for multiple workflows, activity table with restart/retry actions, log viewer sub-modal</td></tr>
+          <tr><td>Pagination</td><td>Server-side cursor-based (<code>hasNext</code> flag). Page-size selector: 5, 10, 25, 50.</td></tr>
+          <tr><td>Status Badges</td><td>Maps numeric Documentum runtime states (0-5) to colored pill badges (Running, Halted, Failed, Finished, Terminated)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 6.3 WorkflowsPage -->
+    <h3 id="pages-workflows">6.3 WorkflowsPage</h3>
+    <div class="file-ref">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      src/pages/WorkflowsPage.jsx
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Aspect</th><th>Detail</th></tr></thead>
+        <tbody>
+          <tr><td>Purpose</td><td>Browse workflow instances filtered by process definition</td></tr>
+          <tr><td>State</td><td><code>processes[]</code>, <code>selectedProcess</code>, <code>workflows[]</code>, <code>page</code>, <code>pageSize</code>, <code>hasNextPage</code>, <code>hasPrevPage</code>, <code>totalEstimate</code></td></tr>
+          <tr><td>API Calls</td><td><code>GET /workflows/processes</code>, <code>GET /workflows/instances?processName=&amp;page=&amp;size=</code></td></tr>
+          <tr><td>Data Parsing</td><td>Expects Documentum REST structure: <code>response.data.entries[].content.properties</code></td></tr>
+          <tr><td>Pagination</td><td>Server-side via <code>links[]</code> array (<code>rel: 'next'</code>). Page-size selector: 5, 10, 25, 50.</td></tr>
+          <tr><td>Features</td><td>Process dropdown filter, skeleton loading rows, status badge mapping</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 6.4 GroupsPage -->
+    <h3 id="pages-groups">6.4 GroupsPage</h3>
+    <div class="file-ref">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      src/pages/GroupsPage.jsx
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Aspect</th><th>Detail</th></tr></thead>
+        <tbody>
+          <tr><td>Purpose</td><td>Search and manage Documentum groups and their members</td></tr>
+          <tr><td>State</td><td><code>groups[]</code>, <code>page</code>, <code>pageSize</code>, <code>hasNextPage</code>, <code>totalEstimate</code>, <code>groupName</code> (input), <code>selectedGroup</code>, <code>isModalOpen</code></td></tr>
+          <tr><td>API Calls</td><td><code>GET /groups/search?groupName=&amp;page=&amp;size=</code></td></tr>
+          <tr><td>Pagination</td><td>Server-side (<code>hasNext</code> flag). Auto-loads all groups on mount.</td></tr>
+          <tr><td>Features</td><td>Member count display (users + nested groups), "Manage" button per row opens <code>ManageMembersModal</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 6.5 UsersPage -->
+    <h3 id="pages-users">6.5 UsersPage</h3>
+    <div class="file-ref">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      src/pages/UsersPage.jsx
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Aspect</th><th>Detail</th></tr></thead>
+        <tbody>
+          <tr><td>Purpose</td><td>Full user directory with client-side filtering and sorting</td></tr>
+          <tr><td>State</td><td><code>allUsers[]</code> (full dataset), <code>currentPage</code>, <code>pageSize</code> (fixed 15), <code>searchQuery</code>, <code>sortConfig {key, direction}</code>, <code>selectedUser</code>, <code>isEditModalOpen</code></td></tr>
+          <tr><td>API Calls</td><td><code>GET /users/profiles?page=1&amp;size=2000</code> (fetches all users at once)</td></tr>
+          <tr><td>Pagination</td><td><strong>Client-side</strong> -- data sliced from the in-memory array</td></tr>
+          <tr><td>Sort</td><td>Client-side multi-column sort (Name, UIN, Department, Grade, Designation) via <code>useMemo</code>. Click column headers to toggle <code>asc</code>/<code>desc</code>.</td></tr>
+          <tr><td>Filter</td><td>Client-side instant filter across name, login_name, UIN, department, designation</td></tr>
+          <tr><td>Features</td><td>Total count badge, <code>SortableHeader</code> sub-component, Edit button per row opens <code>EditUserProfileModal</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 6.6 QueryPage -->
+    <h3 id="pages-query">6.6 QueryPage</h3>
+    <div class="file-ref">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      src/pages/QueryPage.jsx
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Aspect</th><th>Detail</th></tr></thead>
+        <tbody>
+          <tr><td>Purpose</td><td>Execute arbitrary DQL queries against the Documentum repository</td></tr>
+          <tr><td>State</td><td><code>allRows[]</code>, <code>columns[]</code>, <code>query</code> (textarea), <code>activeQuery</code>, <code>resultLimit</code>, <code>columnFilters{}</code>, <code>currentPage</code>, <code>pageSize</code></td></tr>
+          <tr><td>API Calls</td><td><code>POST /query/execute {dql, limit}</code></td></tr>
+          <tr><td>Custom Hook</td><td><code>useQueryHistory</code> -- stores up to 25 queries in <code>localStorage</code> with deduplication</td></tr>
+          <tr><td>Pagination</td><td><strong>Client-side</strong> -- all rows fetched, then paginated in-browser</td></tr>
+          <tr><td>Column Filters</td><td>Per-column text filter inputs in the table header, applied client-side via <code>useMemo</code></td></tr>
+          <tr><td>Features</td><td>Selective execution (highlight text + Ctrl/Cmd+Enter), query history dropdown with copy/load, configurable <code>RETURN_TOP</code> limit (100-10000), monospace textarea, keyboard shortcut</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== 7. LAYOUT COMPONENTS ===== -->
+  <section id="layout">
+    <h2>7. Layout Components</h2>
+
+    <!-- 7.1 MainLayout -->
+    <h3 id="layout-main">7.1 MainLayout</h3>
+    <div class="file-ref">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      src/components/layout/MainLayout.jsx
+    </div>
+    <ul>
+      <li>Composes <code>Sidebar</code>, <code>Topbar</code>, and an <code>&lt;Outlet&gt;</code> for page content.</li>
+      <li>Fixed sidebar (w-64 / 256px) on the left, fixed topbar (h-16 / 64px) at the top.</li>
+      <li>Main content area has <code>pl-64 pt-16</code> to avoid overlap.</li>
+      <li>Content constrained to <code>max-w-7xl</code> centered.</li>
+    </ul>
+
+    <!-- 7.2 Sidebar -->
+    <h3 id="layout-sidebar">7.2 Sidebar</h3>
+    <div class="file-ref">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      src/components/layout/Sidebar.jsx
+    </div>
+    <ul>
+      <li>Fixed left sidebar (<code>w-64</code>, full height, <code>z-20</code>).</li>
+      <li>Logo section: blue icon with "NB Support" title.</li>
+      <li>Navigation items defined as a data array:</li>
+    </ul>
+
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Label</th><th>Path</th><th>Icon</th></tr></thead>
+        <tbody>
+          <tr><td>Cases</td><td><code>/dashboard/cases</code></td><td><code>Briefcase</code></td></tr>
+          <tr><td>Workflows</td><td><code>/dashboard/workflows</code></td><td><code>GitBranch</code></td></tr>
+          <tr><td>Groups</td><td><code>/dashboard/groups</code></td><td><code>UsersRound</code></td></tr>
+          <tr><td>Users</td><td><code>/dashboard/users</code></td><td><code>Users</code></td></tr>
+          <tr><td>Query</td><td><code>/dashboard/query</code></td><td><code>Database</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ul>
+      <li>Uses <code>NavLink</code> with <code>isActive</code> render prop for active state styling (blue-50 bg, blue text).</li>
+      <li>Footer: Settings button (non-functional placeholder).</li>
+    </ul>
+
+    <!-- 7.3 Topbar -->
+    <h3 id="layout-topbar">7.3 Topbar</h3>
+    <div class="file-ref">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      src/components/layout/Topbar.jsx
+    </div>
+    <ul>
+      <li>Fixed top header bar spanning <code>left-64</code> to right edge, <code>z-10</code>.</li>
+      <li><strong>Login Ticket Generator:</strong> Dropdown to select a user and generate a temporary authentication ticket via <code>GET /auth/login-ticket/{username}</code>. Copies to clipboard.</li>
+      <li><strong>Profile Section:</strong> Avatar initials, dropdown showing user name, email, privileges (Superuser/Standard), active status, and Sign Out button.</li>
+      <li>Reads user session from <code>localStorage</code> on mount.</li>
+      <li>Uses <code>useRef</code> + <code>mousedown</code> listener for outside-click dropdown dismissal.</li>
+    </ul>
+  </section>
+
+  <!-- ===== 8. COMPONENT INTERACTION ===== -->
+  <section id="interaction">
+    <h2>8. Component Interaction &mdash; CasesPage Workflow Modal</h2>
+
+    <div class="diagram-wrapper">
+      <div class="diagram-title">CasesPage Workflow Modal Interaction</div>
+      <pre class="mermaid">
+sequenceDiagram
+    actor User
+    participant CP as CasesPage
+    participant API as axios
+    participant WFModal as Workflow Modal
+    participant LogModal as Log Modal
+
+    User->>CP: Search case number
+    CP->>API: GET /cases/search?caseNumber=X&page=1&size=10
+    API-->>CP: {cases: [...], hasNext: bool}
+    CP->>CP: Render case table
+
+    User->>CP: Click "Eye" icon on a case row
+    CP->>CP: setSelectedCase(case), open modal
+    CP->>API: GET /workflows/case/{r_object_id}
+    API-->>CP: {workflows: [{process_name, workItems: [...]}]}
+    CP->>WFModal: Render workflow detail
+
+    Note over WFModal: If multiple workflows, show sidebar to switch
+
+    User->>WFModal: Click "Restart Workflow"
+    WFModal->>API: POST /workflows/{id}/restart
+    API-->>WFModal: Success
+    WFModal->>API: GET /workflows/case/{id} (refresh)
+
+    User->>WFModal: Click "View Logs" on activity row
+    WFModal->>LogModal: Open log sub-modal
+    LogModal->>LogModal: Display formatted mock log
+
+    User->>WFModal: Click "Retry Activity" on failed/halted row
+    WFModal->>API: POST /workflows/{wfId}/activity/{actId}/retry
+    API-->>WFModal: Success
+    WFModal->>API: GET /workflows/case/{id} (refresh)
+      </pre>
+    </div>
+  </section>
+
+  <!-- ===== 9. STATE MANAGEMENT ===== -->
+  <section id="state">
+    <h2>9. State Management</h2>
+
+    <p>The application uses <strong>React-local state only</strong> -- no external state management library (no Redux, Zustand, or Context API).</p>
+
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Pattern</th><th>Usage</th></tr></thead>
+        <tbody>
+          <tr><td><code>useState</code></td><td>All component-level state (form data, lists, loading flags, modals, pagination)</td></tr>
+          <tr><td><code>useEffect</code></td><td>Data fetching on mount, dependent fetches, click-outside listeners</td></tr>
+          <tr><td><code>useCallback</code></td><td>Memoized fetch functions (CasesPage, GroupsPage, QueryPage)</td></tr>
+          <tr><td><code>useMemo</code></td><td>Derived/filtered data (UsersPage sort/filter, QueryPage column filters &amp; pagination)</td></tr>
+          <tr><td><code>useRef</code></td><td>DOM refs for dropdowns (outside-click), textarea (selection tracking)</td></tr>
+          <tr><td><code>useNavigate</code></td><td>Programmatic navigation (login redirect, logout)</td></tr>
+          <tr><td><code>localStorage</code></td><td>User session (<code>"user"</code> key) and query history (<code>"queryHistory"</code> key)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Custom Hooks</h3>
+
+    <h4><code>useQueryHistory</code></h4>
+    <div class="file-ref">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      src/hooks/useQueryHistory.js
+    </div>
+    <ul>
+      <li>Persists up to 25 query entries in <code>localStorage</code> under key <code>"queryHistory"</code>.</li>
+      <li>Each entry: <code>{id: timestamp, query: string, executedAt: timestamp, limit: number}</code>.</li>
+      <li>Provides <code>addQuery(query, limit)</code> with deduplication (moves existing to top), <code>clearHistory()</code>, <code>removeQuery(id)</code>.</li>
+      <li>Loaded on mount via <code>useEffect</code>, saved on every mutation.</li>
+    </ul>
+  </section>
+
+  <!-- ===== 10. API INTEGRATION ===== -->
+  <section id="api">
+    <h2>10. API Integration</h2>
+
+    <h3>Axios Configuration</h3>
+    <div class="file-ref">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      src/api/axios.js
+    </div>
+
+    <pre class="code-block"><code><span class="kw">const</span> api <span class="op">=</span> axios.<span class="fn">create</span>({
+  <span class="str">baseURL</span>: <span class="str">"http://localhost:8080/api"</span>,
+  <span class="str">headers</span>: { <span class="str">"Content-Type"</span>: <span class="str">"application/json"</span> }
+});</code></pre>
+
+    <p>No request/response interceptors. No auth token injection. The backend manages session state.</p>
+
+    <h3>Complete API Call Table</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Page / Component</th><th>Method</th><th>Endpoint</th><th>Parameters</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>LoginPage</td><td><code>POST</code></td><td><code>/auth/login</code></td><td><code>{username, password, repository}</code></td><td>Authenticate user</td></tr>
+          <tr><td>Topbar</td><td><code>GET</code></td><td><code>/auth/current-user</code></td><td>--</td><td>Fetch current session user</td></tr>
+          <tr><td>Topbar</td><td><code>GET</code></td><td><code>/auth/users</code></td><td>--</td><td>List all users (for login ticket)</td></tr>
+          <tr><td>Topbar</td><td><code>GET</code></td><td><code>/auth/login-ticket/{username}</code></td><td>--</td><td>Generate login ticket for user</td></tr>
+          <tr><td>CasesPage</td><td><code>GET</code></td><td><code>/cases/search</code></td><td><code>?caseNumber=&amp;page=&amp;size=</code></td><td>Search/list cases</td></tr>
+          <tr><td>CasesPage</td><td><code>GET</code></td><td><code>/settings</code></td><td>--</td><td>Fetch app settings (default load months)</td></tr>
+          <tr><td>CasesPage</td><td><code>GET</code></td><td><code>/workflows/case/{objectId}</code></td><td>--</td><td>Get workflows for a case</td></tr>
+          <tr><td>CasesPage</td><td><code>POST</code></td><td><code>/workflows/{id}/restart</code></td><td>--</td><td>Restart a workflow</td></tr>
+          <tr><td>CasesPage</td><td><code>POST</code></td><td><code>/workflows/{id}/activity/{actId}/retry</code></td><td>--</td><td>Retry a failed activity</td></tr>
+          <tr><td>WorkflowsPage</td><td><code>GET</code></td><td><code>/workflows/processes</code></td><td>--</td><td>List process definitions</td></tr>
+          <tr><td>WorkflowsPage</td><td><code>GET</code></td><td><code>/workflows/instances</code></td><td><code>?processName=&amp;page=&amp;size=</code></td><td>List workflow instances</td></tr>
+          <tr><td>GroupsPage</td><td><code>GET</code></td><td><code>/groups/search</code></td><td><code>?groupName=&amp;page=&amp;size=</code></td><td>Search/list groups</td></tr>
+          <tr><td>ManageMembersModal</td><td><code>GET</code></td><td><code>/groups/{name}/members</code></td><td>--</td><td>Get group members (users + groups)</td></tr>
+          <tr><td>ManageMembersModal</td><td><code>GET</code></td><td><code>/groups/search-members</code></td><td><code>?query=&amp;type=</code></td><td>Search users/groups to add</td></tr>
+          <tr><td>ManageMembersModal</td><td><code>POST</code></td><td><code>/groups/{name}/members</code></td><td><code>{memberName, memberType, memberSrc}</code></td><td>Add member to group</td></tr>
+          <tr><td>ManageMembersModal</td><td><code>DELETE</code></td><td><code>/groups/{name}/members/{memberName}</code></td><td><code>?memberType=</code></td><td>Remove member from group</td></tr>
+          <tr><td>UsersPage</td><td><code>GET</code></td><td><code>/users/profiles</code></td><td><code>?page=1&amp;size=2000</code></td><td>Fetch all user profiles</td></tr>
+          <tr><td>EditUserProfileModal</td><td><code>PATCH</code></td><td><code>/users/profiles/{objectId}</code></td><td><code>{object_name, uin, ...}</code></td><td>Update user profile fields</td></tr>
+          <tr><td>QueryPage</td><td><code>POST</code></td><td><code>/query/execute</code></td><td><code>{dql, limit}</code></td><td>Execute DQL query</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== 11. STYLING & DESIGN SYSTEM ===== -->
+  <section id="styling">
+    <h2>11. Styling &amp; Design System</h2>
+
+    <h3>Color Palette</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Token</th><th>Hex</th><th>Usage</th></tr></thead>
+        <tbody>
+          <tr><td>Primary Blue</td><td><code style="background:#0A66C2;color:#fff;padding:2px 8px;border-radius:4px">#0A66C2</code></td><td>Buttons, active nav, logos, links, focus rings</td></tr>
+          <tr><td>Primary Blue (hover)</td><td><code style="background:#094d92;color:#fff;padding:2px 8px;border-radius:4px">#094d92</code></td><td>Button hover state</td></tr>
+          <tr><td>Facebook Blue</td><td><code style="background:#1877F2;color:#fff;padding:2px 8px;border-radius:4px">#1877F2</code></td><td>Login button specifically</td></tr>
+          <tr><td>Slate-50</td><td><code style="background:#f8fafc;color:#334155;padding:2px 8px;border-radius:4px">#f8fafc</code></td><td>Page background</td></tr>
+          <tr><td>Slate-900</td><td><code style="background:#0f172a;color:#fff;padding:2px 8px;border-radius:4px">#0f172a</code></td><td>Primary text</td></tr>
+          <tr><td>Brand scale</td><td><code>#eff6ff</code> to <code>#1e3a8a</code></td><td>Extended palette in <code>tailwind.config.js</code> (unused directly)</td></tr>
+          <tr><td>Green</td><td><code style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:4px">bg-green-100</code></td><td>Success states, running badges</td></tr>
+          <tr><td>Red</td><td><code style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px">bg-red-100</code></td><td>Error states, failed badges</td></tr>
+          <tr><td>Yellow</td><td><code style="background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:4px">bg-yellow-100</code></td><td>Warning states, halted badges</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Typography</h3>
+    <ul>
+      <li><strong>Primary Font:</strong> Inter (loaded via Google Fonts CDN, weights 300-700).</li>
+      <li><strong>Monospace:</strong> System default (<code>font-mono</code> Tailwind class) for IDs, code, DQL editor.</li>
+      <li>Base font set in <code>index.css</code> on <code>:root</code> and extended in <code>tailwind.config.js</code> as <code>fontFamily.sans</code>.</li>
+    </ul>
+
+    <h3>Component Patterns</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Pattern</th><th>Tailwind Classes</th></tr></thead>
+        <tbody>
+          <tr><td>Cards / Panels</td><td><code>bg-white border border-slate-200 rounded-xl shadow-sm</code></td></tr>
+          <tr><td>Buttons (primary)</td><td><code>bg-[#0A66C2] text-white rounded-lg text-sm font-medium hover:bg-[#094d92]</code></td></tr>
+          <tr><td>Inputs</td><td><code>border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2]</code></td></tr>
+          <tr><td>Tables</td><td>Slate-50 header, <code>divide-y divide-slate-100</code> body, <code>hover:bg-blue-50/30</code> rows</td></tr>
+          <tr><td>Badges</td><td><code>inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium</code></td></tr>
+          <tr><td>Skeleton Loading</td><td><code>animate-pulse</code> with <code>bg-slate-100 rounded</code> placeholder divs</td></tr>
+          <tr><td>Scrollbars</td><td>Custom thin scrollbar via <code>.scrollbar-thin</code> class in <code>index.css</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== 12. MODAL PATTERNS ===== -->
+  <section id="modals">
+    <h2>12. Modal Patterns</h2>
+
+    <h3>ManageMembersModal</h3>
+    <div class="file-ref">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      src/components/ManageMembersModal.jsx
+    </div>
+    <ul>
+      <li><strong>Trigger:</strong> "Manage" button on GroupsPage rows.</li>
+      <li><strong>Layout:</strong> Two-panel split (<code>grid-cols-2</code>): left panel shows current members (users + nested groups), right panel provides search to add new members.</li>
+      <li><strong>Props:</strong> <code>isOpen</code>, <code>onClose</code>, <code>groupName</code>, <code>onUpdate</code> callback.</li>
+      <li><strong>State:</strong> Members list, search query/type/results, processing flag, notification toast, confirm-remove dialog.</li>
+      <li><strong>Search:</strong> Debounced (500ms <code>setTimeout</code>) via <code>/groups/search-members?query=&amp;type=</code>. Toggle between user/group search.</li>
+      <li><strong>Add/Remove:</strong> Inline confirm on remove (two-button replace). "Already member" detection.</li>
+      <li><strong>Notifications:</strong> Temporary toast (3s auto-dismiss) for success/error feedback.</li>
+    </ul>
+
+    <h3>EditUserProfileModal</h3>
+    <div class="file-ref">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      src/components/EditUserProfileModal.jsx
+    </div>
+    <ul>
+      <li><strong>Trigger:</strong> Edit icon on UsersPage rows.</li>
+      <li><strong>Layout:</strong> Single-column scrollable form with 2-column grid for fields.</li>
+      <li><strong>Props:</strong> <code>user</code>, <code>isOpen</code>, <code>onClose</code>, <code>onUpdate</code> callback.</li>
+      <li><strong>Fields:</strong> Name, UIN, Department, Role, Designation, Grade, Email, Mobile, Location, Office Type, Hindi Name, Hindi Designation, Active toggle.</li>
+      <li><strong>Submit:</strong> <code>PATCH /users/profiles/{r_object_id}</code> with form data.</li>
+      <li><strong>UX:</strong> Form linked via <code>id="editUserForm"</code> to external submit button in the footer. Toggle switch for active status.</li>
+    </ul>
+
+    <h3>Workflow Detail Modal (inline in CasesPage)</h3>
+    <ul>
+      <li>Not a separate component -- built inline in CasesPage.</li>
+      <li><strong>Layout:</strong> Full-screen overlay (<code>max-w-6xl</code>), optional sidebar when multiple workflows exist, main detail area with activity table.</li>
+      <li><strong>Sub-modal:</strong> Log viewer (<code>z-[60]</code>) stacked above the workflow modal (<code>z-50</code>).</li>
+    </ul>
+
+    <h3>Shared Modal Conventions</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Pattern</th><th>Implementation</th></tr></thead>
+        <tbody>
+          <tr><td>Backdrop</td><td><code>fixed inset-0 bg-black/50 backdrop-blur-sm</code> (or <code>bg-black/60</code>)</td></tr>
+          <tr><td>Container</td><td><code>bg-white rounded-xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden</code></td></tr>
+          <tr><td>Header</td><td><code>px-6 py-4 border-b</code> with title + close button</td></tr>
+          <tr><td>Footer</td><td><code>px-6 py-4 border-t bg-slate-50</code> with action buttons</td></tr>
+          <tr><td>Close button</td><td><code>&lt;X&gt;</code> icon in top-right corner</td></tr>
+          <tr><td>Animation</td><td><code>animate-in fade-in zoom-in-95 duration-200</code> (CSS animation)</td></tr>
+          <tr><td>Z-index</td><td>Primary modals <code>z-50</code>, stacked sub-modals <code>z-[60]</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== 13. SEARCH & PAGINATION ===== -->
+  <section id="search-pagination">
+    <h2>13. Search &amp; Pagination</h2>
+
+    <h3>Server-Side (CasesPage, WorkflowsPage, GroupsPage)</h3>
+
+    <div class="diagram-wrapper">
+      <div class="diagram-title">Server-Side Pagination Flow</div>
+      <pre class="mermaid">
+flowchart LR
+    Input["Search Input"] --> API["GET /endpoint?param=X&page=N&size=S"]
+    API --> Response["{ items[], hasNext }"]
+    Response --> Table["Render Table"]
+    Response --> PaginationControls["First | Prev | Page N | Next"]
+      </pre>
+    </div>
+
+    <ul>
+      <li><strong>Pattern:</strong> The backend returns a page of results plus a <code>hasNext</code> boolean (or <code>links[]</code> array for WorkflowsPage).</li>
+      <li><strong>Total Count:</strong> Estimated as <code>(page-1)*size + currentCount</code> with <code>+</code> suffix if <code>hasNext</code> is true. No exact total from server.</li>
+      <li><strong>Page Size Options:</strong> 5, 10, 25, 50 (configurable per page).</li>
+      <li><strong>Controls:</strong> First page, Previous, Current page indicator, Next. No "last page" button (unknown total).</li>
+    </ul>
+
+    <h3>Client-Side (UsersPage, QueryPage)</h3>
+    <ul>
+      <li><strong>UsersPage:</strong> Fetches all 2000 users at once. Filters, sorts, and paginates entirely in-browser using <code>useMemo</code>. Fixed page size of 15.</li>
+      <li><strong>QueryPage:</strong> Fetches all rows up to <code>RETURN_TOP</code> limit (100-10000). Per-column filters and pagination in-browser. Page size options: 10, 25, 50, 100, 500.</li>
+    </ul>
+  </section>
+
+  <!-- ===== 14. CONVENTIONS ===== -->
+  <section id="conventions">
+    <h2>14. Conventions</h2>
+
+    <h3>Naming</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Item</th><th>Convention</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td>Page components</td><td>PascalCase + <code>Page</code> suffix</td><td><code>CasesPage</code>, <code>LoginPage</code></td></tr>
+          <tr><td>Modal components</td><td>PascalCase + <code>Modal</code> suffix</td><td><code>ManageMembersModal</code></td></tr>
+          <tr><td>Layout components</td><td>PascalCase</td><td><code>MainLayout</code>, <code>Sidebar</code>, <code>Topbar</code></td></tr>
+          <tr><td>Custom hooks</td><td>camelCase with <code>use</code> prefix</td><td><code>useQueryHistory</code></td></tr>
+          <tr><td>Files</td><td>PascalCase for components, camelCase for hooks/utils</td><td><code>CasesPage.jsx</code>, <code>useQueryHistory.js</code></td></tr>
+          <tr><td>API module</td><td>lowercase</td><td><code>axios.js</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Component Structure</h3>
+    <p>All components follow a consistent internal structure:</p>
+    <ol>
+      <li>Imports (React, API, icons)</li>
+      <li>Component function declaration</li>
+      <li>State declarations (<code>useState</code>)</li>
+      <li>Effects and fetch functions (<code>useEffect</code>, <code>useCallback</code>)</li>
+      <li>Event handlers</li>
+      <li>Helper functions / sub-components</li>
+      <li>JSX return</li>
+      <li>Default export</li>
+    </ol>
+
+    <h3>Icons</h3>
+    <p>All icons come from <code>lucide-react</code>. Common icons and their usage:</p>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Icon</th><th>Usage</th></tr></thead>
+        <tbody>
+          <tr><td><code>Briefcase</code></td><td>Cases</td></tr>
+          <tr><td><code>GitBranch</code></td><td>Workflows</td></tr>
+          <tr><td><code>UsersRound</code></td><td>Groups</td></tr>
+          <tr><td><code>Users</code></td><td>Users</td></tr>
+          <tr><td><code>Database</code></td><td>Query</td></tr>
+          <tr><td><code>Search</code></td><td>Search inputs</td></tr>
+          <tr><td><code>Loader2</code></td><td>Loading spinners (with <code>animate-spin</code>)</td></tr>
+          <tr><td><code>X</code></td><td>Close/clear buttons</td></tr>
+          <tr><td><code>ChevronLeft/Right</code></td><td>Pagination</td></tr>
+          <tr><td><code>ChevronsLeft</code></td><td>First-page button</td></tr>
+          <tr><td><code>Eye</code></td><td>View action</td></tr>
+          <tr><td><code>Edit2</code></td><td>Edit action</td></tr>
+          <tr><td><code>Settings</code></td><td>Manage action</td></tr>
+          <tr><td><code>RefreshCw</code></td><td>Restart/retry</td></tr>
+          <tr><td><code>Key</code></td><td>Login ticket</td></tr>
+          <tr><td><code>LogOut</code></td><td>Sign out</td></tr>
+          <tr><td><code>Check</code> / <code>Copy</code></td><td>Clipboard feedback</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Animations</h3>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Animation</th><th>Technology</th><th>Where</th></tr></thead>
+        <tbody>
+          <tr><td>Page entrance</td><td><code>framer-motion</code> (<code>initial</code>, <code>animate</code>, <code>transition</code>)</td><td>LoginPage form card only</td></tr>
+          <tr><td>Modal entrance</td><td>CSS <code>animate-in fade-in zoom-in-95 duration-200</code></td><td>All modals</td></tr>
+          <tr><td>Loading spinners</td><td>Tailwind <code>animate-spin</code></td><td>All <code>Loader2</code> icons</td></tr>
+          <tr><td>Skeleton loading</td><td>Tailwind <code>animate-pulse</code></td><td>Table placeholder rows</td></tr>
+          <tr><td>Dropdown chevron</td><td>Tailwind <code>transition-transform rotate-180</code></td><td>Topbar dropdowns</td></tr>
+          <tr><td>Hover transitions</td><td>Tailwind <code>transition-colors</code>, <code>transition-all</code></td><td>Buttons, rows, nav items</td></tr>
+          <tr><td>Page fade-in</td><td>CSS <code>animate-in fade-in duration-500</code></td><td>WorkflowsPage wrapper</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<!-- ========== JAVASCRIPT ========== -->
+<script>
+// Initialize Mermaid
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'default',
+  securityLevel: 'loose',
+  flowchart: {
+    useMaxWidth: true,
+    htmlLabels: true,
+    curve: 'basis'
+  }
+});
+
+// Hamburger toggle
+const hamburger = document.getElementById('hamburgerBtn');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebarOverlay');
+
+hamburger.addEventListener('click', () => {
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('open');
+});
+
+overlay.addEventListener('click', () => {
+  sidebar.classList.remove('open');
+  overlay.classList.remove('open');
+});
+
+// Close sidebar on link click (mobile)
+sidebar.querySelectorAll('a').forEach(link => {
+  link.addEventListener('click', () => {
+    if (window.innerWidth <= 900) {
+      sidebar.classList.remove('open');
+      overlay.classList.remove('open');
+    }
+  });
+});
+
+// Active section highlighting on scroll
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.sidebar a[href^="#"]');
+
+function highlightActiveSection() {
+  const scrollPos = window.scrollY + 100;
+
+  let currentSection = '';
+  sections.forEach(section => {
+    if (section.offsetTop <= scrollPos) {
+      currentSection = section.getAttribute('id');
+    }
+  });
+
+  navLinks.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') === '#' + currentSection) {
+      link.classList.add('active');
+    }
+  });
+}
+
+window.addEventListener('scroll', highlightActiveSection);
+window.addEventListener('load', highlightActiveSection);
+</script>
+
+</body>
+</html>
