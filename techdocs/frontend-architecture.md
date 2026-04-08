@@ -586,3 +586,66 @@ All icons come from `lucide-react`. Common icons and their usage:
 | Dropdown chevron | Tailwind `transition-transform rotate-180` | Topbar dropdowns |
 | Hover transitions | Tailwind `transition-colors`, `transition-all` | Buttons, rows, nav items |
 | Page fade-in | CSS `animate-in fade-in duration-500` | WorkflowsPage wrapper |
+
+---
+
+## 15. Dashboard Page — NSP-22
+
+**File:** `frontend/src/pages/DashboardPage.jsx`
+**Route:** `/dashboard/overview` (default landing page after login)
+
+### Features
+- **4 KPI cards** — Total Cases, Cases This Month, Active Workflows, Active Users
+- **6 KendoReact charts** — Cases by Department (bar), Cases by Status (donut), Case Trend (area), Cases by Office (donut), Workflow Health (donut), Users by Office (column)
+- Refresh button to reload all data
+- Skeleton loading states
+
+### API Calls
+| Endpoint | Chart |
+|----------|-------|
+| `GET /dashboard/summary` | KPI cards |
+| `GET /dashboard/cases-by-dept` | Horizontal bar chart |
+| `GET /dashboard/cases-by-status` | Donut chart |
+| `GET /dashboard/cases-by-office` | Donut chart |
+| `GET /dashboard/cases-trend` | Area chart |
+| `GET /dashboard/workflow-status` | Donut chart |
+| `GET /dashboard/users-by-office` | Column chart |
+
+### KendoReact Usage
+Charts only — `@progress/kendo-react-charts` with `hammerjs` for touch support. All chart containers styled with Tailwind (`bg-white rounded-2xl border shadow-sm p-6`).
+
+---
+
+## 16. Letter Reports Page — NSP-23
+
+**File:** `frontend/src/pages/LetterReportsPage.jsx`
+**Route:** `/dashboard/letter-reports`
+
+### Features
+- **Collapsible filter panel** with 14 controls:
+  - Dropdowns: Office Type, Direction, Entry Type, Task Category, Nature, Secrecy, Priority, Language
+  - Text inputs: Vertical/Dept, File Number, Region, Financial Year
+  - Date pickers: From Date, To Date
+  - Active filter count badge
+- **6 KPI cards** — Total, Unread, Opened, Assigned, In Process, Closed
+- **9 KendoReact charts** — Status (donut), Inward/Outward (donut), Trend (area), By Vertical (bar), By Nature (donut), By Category (column), By Priority (column), By Secrecy (donut), By Language (column)
+- "Generate Report" button triggers all API calls in parallel
+- "Clear Filters" resets all filter values
+
+### API Calls
+All under `/reports/digidak/` with filter query params:
+| Endpoint | Chart |
+|----------|-------|
+| `GET /reports/digidak/summary` | KPI cards |
+| `GET /reports/digidak/by-status` | Donut chart |
+| `GET /reports/digidak/by-decision` | Donut chart |
+| `GET /reports/digidak/trend` | Area chart |
+| `GET /reports/digidak/by-vertical` | Bar chart |
+| `GET /reports/digidak/by-nature` | Donut chart |
+| `GET /reports/digidak/by-type-category` | Column chart |
+| `GET /reports/digidak/by-priority` | Column chart |
+| `GET /reports/digidak/by-secrecy` | Donut chart |
+| `GET /reports/digidak/by-language` | Column chart |
+
+### Digidak Data Model
+Reports query `cms_digidak_folder` — the Documentum object for Digidak letters with 56+ attributes including status, decision (Inward/Outward), entry_type, type_category, nature_of_correspondence, secrecy, priority, languages, vertical, file_number, region, and date fields.

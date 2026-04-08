@@ -7,6 +7,7 @@ import WorkflowsPage from './pages/WorkflowsPage';
 import GroupsPage from './pages/GroupsPage';
 import UsersPage from './pages/UsersPage';
 import QueryPage from './pages/QueryPage';
+<<<<<<< HEAD
 import VerticalsPage from './pages/VerticalsPage';
 import DepartmentPage from './pages/DepartmentPage';
 import InboxPage from './pages/InboxPage';
@@ -14,6 +15,9 @@ import MetadataPage from './pages/MetadataPage';
 import DelegatePage from './pages/DelegatePage';
 import CaseInbox2Page from './pages/CaseInbox2Page';
 import DashboardPage from './pages/DashboardPage';
+=======
+import LetterReportsPage from './pages/LetterReportsPage';
+>>>>>>> 8cf741903867c6a2aab7ac8acf421ebe7c0df484
 
 function App() {
   return (
@@ -34,8 +38,12 @@ function App() {
             <Route path="departments" element={<DepartmentPage />} />
             <Route path="metadata" element={<MetadataPage />} />
             <Route path="query" element={<QueryPage />} />
+<<<<<<< HEAD
             <Route path="delegate" element={<Navigate to="/dashboard/cases" replace />} />
             <Route path="inbox2" element={<Navigate to="/dashboard/cases" replace />} />
+=======
+            <Route path="letter-reports" element={<LetterReportsPage />} />
+>>>>>>> 8cf741903867c6a2aab7ac8acf421ebe7c0df484
         </Route>
         
         <Route path="/" element={<Navigate to="/login" replace />} />

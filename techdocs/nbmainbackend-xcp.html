@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NBSupportApp — xCP Main Backend (Case Management System)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad: true, theme: 'default', securityLevel: 'loose'});</script>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #334155; line-height: 1.7; font-size: 15px; }
+
+        .header { position: fixed; top: 0; left: 0; right: 0; height: 64px; background: #0f172a; color: #fff; display: flex; align-items: center; padding: 0 24px; z-index: 1000; box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
+        .header-logo { display: flex; align-items: center; gap: 12px; }
+        .header-logo-icon { width: 36px; height: 36px; background: #0A66C2; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: #fff; }
+        .header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+        .header h1 span { color: #94a3b8; font-weight: 400; }
+        .hamburger { display: none; background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; margin-right: 16px; padding: 4px 8px; border-radius: 4px; }
+        .hamburger:hover { background: rgba(255,255,255,0.1); }
+
+        .sidebar { position: fixed; top: 64px; left: 0; bottom: 0; width: 280px; background: #1e293b; overflow-y: auto; z-index: 900; transition: transform 0.3s ease; scrollbar-width: thin; scrollbar-color: #475569 transparent; }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        .sidebar-nav { padding: 16px 0; }
+        .sidebar-section { margin-bottom: 4px; }
+        .sidebar-section-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; color: #94a3b8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; cursor: pointer; user-select: none; transition: color 0.2s; }
+        .sidebar-section-header:hover { color: #cbd5e1; }
+        .sidebar-section-header .chevron { font-size: 10px; transition: transform 0.2s; }
+        .sidebar-section-header.collapsed .chevron { transform: rotate(-90deg); }
+        .sidebar-section-items { overflow: hidden; transition: max-height 0.3s ease; }
+        .sidebar-section-items.collapsed { max-height: 0 !important; }
+        .sidebar-link { display: block; padding: 8px 20px 8px 28px; color: #cbd5e1; text-decoration: none; font-size: 13px; font-weight: 400; border-left: 3px solid transparent; transition: all 0.15s ease; }
+        .sidebar-link:hover { color: #fff; background: rgba(255,255,255,0.05); }
+        .sidebar-link.active { color: #fff; background: rgba(10,102,194,0.15); border-left-color: #0A66C2; font-weight: 500; }
+        .sidebar-divider { height: 1px; background: #334155; margin: 8px 20px; }
+
+        .content { margin-left: 280px; margin-top: 64px; padding: 40px 48px 80px; max-width: 1060px; }
+        .content section { margin-bottom: 56px; }
+        .content h2 { font-size: 28px; font-weight: 800; color: #0f172a; margin-bottom: 8px; letter-spacing: -0.5px; padding-bottom: 12px; border-bottom: 2px solid #e2e8f0; }
+        .content h2 .sn { color: #0A66C2; margin-right: 8px; }
+        .content h3 { font-size: 20px; font-weight: 700; color: #1e293b; margin-top: 32px; margin-bottom: 12px; }
+        .content h4 { font-size: 16px; font-weight: 600; color: #334155; margin-top: 24px; margin-bottom: 8px; }
+        .content p { margin-bottom: 16px; color: #475569; }
+        .content ul, .content ol { margin-bottom: 16px; padding-left: 24px; }
+        .content li { margin-bottom: 6px; color: #475569; }
+        .content strong { color: #1e293b; }
+
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.2px; }
+        .badge-blue { background: #dbeafe; color: #1e40af; }
+        .badge-green { background: #dcfce7; color: #166534; }
+        .badge-amber { background: #fef3c7; color: #92400e; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+        .badge-purple { background: #f3e8ff; color: #6b21a8; }
+        .badge-gray { background: #f1f5f9; color: #475569; }
+
+        .tech-stack { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+        .tech-tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-weight: 500; color: #334155; }
+        .tech-tag .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot-java { background: #b07219; } .dot-spring { background: #6db33f; } .dot-dctm { background: #0A66C2; } .dot-xcp { background: #7c3aed; } .dot-maven { background: #c71a36; } .dot-brava { background: #f59e0b; }
+
+        .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .card-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .card-icon-blue { background: #dbeafe; } .card-icon-green { background: #dcfce7; } .card-icon-amber { background: #fef3c7; } .card-icon-red { background: #fee2e2; } .card-icon-purple { background: #f3e8ff; }
+        .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin: 20px 0; }
+        .stat-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; text-align: center; }
+        .stat-card .sv { font-size: 28px; font-weight: 800; color: #0A66C2; line-height: 1; }
+        .stat-card .sl { font-size: 11px; color: #64748b; margin-top: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .code-block { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 20px 24px; font-family: 'JetBrains Mono','Fira Code','SF Mono',Consolas,monospace; font-size: 12.5px; line-height: 1.8; overflow-x: auto; margin-bottom: 20px; border: 1px solid #1e293b; }
+        .code-block .folder { color: #60a5fa; font-weight: 600; }
+        .code-block .file { color: #94a3b8; }
+        .code-block .comment { color: #64748b; font-style: italic; }
+        .code-block .highlight { color: #fbbf24; }
+        .code-block .keyword { color: #c084fc; }
+        .code-block .string { color: #4ade80; }
+        .code-block .type { color: #67e8f9; }
+        .ic { background: #f1f5f9; color: #0f172a; padding: 2px 8px; border-radius: 4px; font-family: 'JetBrains Mono','Fira Code',monospace; font-size: 13px; border: 1px solid #e2e8f0; }
+
+        .table-wrapper { overflow-x: auto; margin-bottom: 20px; border-radius: 10px; border: 1px solid #e2e8f0; }
+        table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+        thead { background: #f8fafc; }
+        th { text-align: left; padding: 12px 16px; font-weight: 600; color: #1e293b; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+        td { padding: 10px 16px; border-bottom: 1px solid #f1f5f9; color: #475569; vertical-align: top; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: #f8fafc; }
+
+        .diagram-wrapper { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px 24px; margin: 20px 0; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .diagram-wrapper .diagram-title { font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 16px; text-align: center; }
+        .mermaid { text-align: center; }
+
+        .callout { border-radius: 10px; padding: 16px 20px; margin: 16px 0; display: flex; gap: 12px; align-items: flex-start; }
+        .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+        .callout-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+        .callout-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+        .callout-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+        .callout p { margin: 0; font-size: 13.5px; color: inherit; }
+
+        @media (max-width: 900px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.3); }
+            .content { margin-left: 0; padding: 24px 20px 60px; }
+            .hamburger { display: block; }
+            .overlay { display: none; position: fixed; inset: 0; top: 64px; background: rgba(0,0,0,0.4); z-index: 850; }
+            .overlay.active { display: block; }
+            .card-grid { grid-template-columns: 1fr; }
+        }
+        @media print { .header, .sidebar, .hamburger, .overlay { display: none !important; } .content { margin: 0; padding: 20px; max-width: 100%; } .card { break-inside: avoid; } }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle navigation">&#9776;</button>
+    <div class="header-logo">
+        <div class="header-logo-icon">NB</div>
+        <h1>xCP Main Backend <span>&#8212; Case Management System</span></h1>
+    </div>
+</header>
+
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-nav">
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">Overview <span class="chevron">&#9660;</span></div>
+            <div class="sidebar-section-items">
+                <a href="#overview" class="sidebar-link">Project Overview</a>
+                <a href="#tech-stack" class="sidebar-link">Technology Stack</a>
+                <a href="#stats" class="sidebar-link">At a Glance</a>
+            </div>
+        </div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">Architecture <span class="chevron">&#9660;</span></div>
+            <div class="sidebar-section-items">
+                <a href="#architecture" class="sidebar-link">System Architecture</a>
+                <a href="#deployment" class="sidebar-link">Deployment Model</a>
+                <a href="#project-structure" class="sidebar-link">Project Structure</a>
+            </div>
+        </div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">Data Model <span class="chevron">&#9660;</span></div>
+            <div class="sidebar-section-items">
+                <a href="#data-model" class="sidebar-link">Object Types</a>
+                <a href="#case-folder" class="sidebar-link">cms_case_folder</a>
+                <a href="#digidak-folder" class="sidebar-link">cms_digidak_folder</a>
+                <a href="#business-objects" class="sidebar-link">Business Objects</a>
+                <a href="#content-types" class="sidebar-link">Content Types</a>
+                <a href="#permissions" class="sidebar-link">Permission Sets</a>
+            </div>
+        </div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">Workflows <span class="chevron">&#9660;</span></div>
+            <div class="sidebar-section-items">
+                <a href="#workflows" class="sidebar-link">All Processes (47)</a>
+                <a href="#wf-case-lifecycle" class="sidebar-link">Case Lifecycle</a>
+                <a href="#wf-linear" class="sidebar-link">Linear Process</a>
+                <a href="#wf-digidak" class="sidebar-link">Digidak Lifecycle</a>
+                <a href="#wf-notesheet" class="sidebar-link">Notesheet Mgmt</a>
+                <a href="#wf-permissions" class="sidebar-link">Permission Flows</a>
+                <a href="#wf-utilities" class="sidebar-link">Utility Processes</a>
+            </div>
+        </div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">Queries <span class="chevron">&#9660;</span></div>
+            <div class="sidebar-section-items">
+                <a href="#queries" class="sidebar-link">DQL Queries (13)</a>
+                <a href="#rt-queries" class="sidebar-link">Real-time Queries (14)</a>
+                <a href="#task-queries" class="sidebar-link">Task-list Queries (3)</a>
+            </div>
+        </div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">Java Modules <span class="chevron">&#9660;</span></div>
+            <div class="sidebar-section-items">
+                <a href="#java-modules" class="sidebar-link">Custom Modules (8)</a>
+                <a href="#ecm-functions" class="sidebar-link">ECM Functions</a>
+                <a href="#java-libs" class="sidebar-link">Java Libraries</a>
+            </div>
+        </div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">Integrations <span class="chevron">&#9660;</span></div>
+            <div class="sidebar-section-items">
+                <a href="#endpoints" class="sidebar-link">Endpoints (3)</a>
+                <a href="#email" class="sidebar-link">Email / SMTP</a>
+                <a href="#iv" class="sidebar-link">Intelligent Viewer</a>
+                <a href="#security" class="sidebar-link">Security Model</a>
+            </div>
+        </div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">Configuration <span class="chevron">&#9660;</span></div>
+            <div class="sidebar-section-items">
+                <a href="#config" class="sidebar-link">Runtime Parameters</a>
+                <a href="#web-config" class="sidebar-link">Web / Servlet Config</a>
+                <a href="#spring-config" class="sidebar-link">Spring Configuration</a>
+            </div>
+        </div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">NBSupportApp Link <span class="chevron">&#9660;</span></div>
+            <div class="sidebar-section-items">
+                <a href="#nbsupport-mapping" class="sidebar-link">Support Portal Mapping</a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="content">
+
+<!-- ====== 1. OVERVIEW ====== -->
+<section id="overview">
+    <h2><span class="sn">01</span> Project Overview</h2>
+    <p>The <strong>Case Management System</strong> (<span class="ic">cms</span>) is the core xCP enterprise application for NABARD. Built on <strong>Documentum xCelerated Composition Platform (xCP) 24.2</strong>, it manages the full lifecycle of cases, digital files (Digidak), workflows, notesheets, and permissions across the organization. The NBSupportApp support portal was built to administer this system.</p>
+
+    <div class="callout callout-info">
+        <span class="callout-icon">&#8505;</span>
+        <p><strong>Location:</strong> <span class="ic">nbmainbackend/Case_Management_System/</span> &mdash; Version 1.0.0 &mdash; Build: 2026-01-15 &mdash; Packaging: WAR + DAR</p>
+    </div>
+
+    <div id="tech-stack">
+        <h3>Technology Stack</h3>
+        <div class="tech-stack">
+            <span class="tech-tag"><span class="dot dot-xcp"></span> xCP 24.2.0</span>
+            <span class="tech-tag"><span class="dot dot-dctm"></span> Documentum ECM</span>
+            <span class="tech-tag"><span class="dot dot-java"></span> Java 1.8</span>
+            <span class="tech-tag"><span class="dot dot-spring"></span> Spring Framework</span>
+            <span class="tech-tag"><span class="dot dot-maven"></span> Maven 3.x</span>
+            <span class="tech-tag"><span class="dot dot-brava"></span> OpenText Brava</span>
+            <span class="tech-tag"><span class="dot dot-dctm"></span> BPMN 2.0</span>
+            <span class="tech-tag"><span class="dot dot-spring"></span> Spring Security</span>
+        </div>
+    </div>
+
+    <div id="stats">
+        <h3>At a Glance</h3>
+        <div class="stat-grid">
+            <div class="stat-card"><div class="sv">47</div><div class="sl">Processes</div></div>
+            <div class="stat-card"><div class="sv">8</div><div class="sl">Business Objects</div></div>
+            <div class="stat-card"><div class="sv">4</div><div class="sl">Content Types</div></div>
+            <div class="stat-card"><div class="sv">2</div><div class="sl">Folder Types</div></div>
+            <div class="stat-card"><div class="sv">30</div><div class="sl">Queries</div></div>
+            <div class="stat-card"><div class="sv">9</div><div class="sl">Action Flows</div></div>
+            <div class="stat-card"><div class="sv">11</div><div class="sl">UI Pages</div></div>
+            <div class="stat-card"><div class="sv">8</div><div class="sl">Java Modules</div></div>
+            <div class="stat-card"><div class="sv">3</div><div class="sl">Endpoints</div></div>
+            <div class="stat-card"><div class="sv">3</div><div class="sl">Permission Sets</div></div>
+        </div>
+    </div>
+</section>
+
+<!-- ====== 2. ARCHITECTURE ====== -->
+<section id="architecture">
+    <h2><span class="sn">02</span> System Architecture</h2>
+
+    <div class="diagram-wrapper">
+        <div class="diagram-title">End-to-end system architecture</div>
+        <div class="mermaid">
+graph TB
+    subgraph Users["Users"]
+        BROWSER["Browser"]
+    end
+
+    subgraph SupportPortal["NBSupportApp (Support Portal)"]
+        FE["React Frontend<br/>:5173"]
+        BE["Spring Boot Backend<br/>:8080"]
+    end
+
+    subgraph xCPApp["xCP Application (This Project)"]
+        WAR["cms-Case_Management_System.war"]
+        BPMN["47 BPMN Processes"]
+        JAVA["8 Java Modules"]
+        UI["11 xCP Pages + 9 Action Flows"]
+    end
+
+    subgraph DctmRest["Documentum REST"]
+        REST["dctm-rest.war<br/>/dctm-rest"]
+    end
+
+    subgraph ECM["ECM Infrastructure"]
+        CS["Content Server"]
+        REPO["Repository<br/>NABARDUAT"]
+        BROKER["DocBroker<br/>172.172.20.214:1489"]
+    end
+
+    subgraph External["External Services"]
+        SMTP["SMTP<br/>smtp.office365.com"]
+        IV["Intelligent Viewer<br/>OpenText Brava"]
+    end
+
+    BROWSER --> FE
+    BROWSER --> WAR
+    FE --> BE
+    BE --> REST
+    WAR --> CS
+    REST --> BROKER
+    BROKER --> CS
+    CS --> REPO
+    WAR --> SMTP
+    WAR --> IV
+
+    style Users fill:#f1f5f9,stroke:#94a3b8
+    style SupportPortal fill:#dcfce7,stroke:#22c55e,color:#166534
+    style xCPApp fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+    style DctmRest fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style ECM fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
+    style External fill:#fee2e2,stroke:#ef4444,color:#991b1b
+        </div>
+    </div>
+
+    <div id="deployment">
+        <h3>Deployment Model</h3>
+        <div class="diagram-wrapper">
+            <div class="diagram-title">Build &amp; deployment pipeline</div>
+            <div class="mermaid">
+flowchart LR
+    SRC["xCP Designer<br/>Artifacts/"] --> BUILD["Maven Build<br/>xcp-dar + war"]
+    BUILD --> DAR["DAR Package<br/>Documentum types,<br/>processes, queries"]
+    BUILD --> WAR2["WAR Package<br/>Spring context,<br/>Java modules, UI"]
+    DAR --> DCTM["Deploy to<br/>Content Server"]
+    WAR2 --> APP["Deploy to<br/>JBoss / Tomcat"]
+    DCTM --> LIVE["Live xCP<br/>Application"]
+    APP --> LIVE
+
+    style SRC fill:#ede9fe,stroke:#8b5cf6
+    style BUILD fill:#fef3c7,stroke:#f59e0b
+    style DAR fill:#dbeafe,stroke:#3b82f6
+    style WAR2 fill:#dcfce7,stroke:#22c55e
+    style LIVE fill:#dbeafe,stroke:#0A66C2
+            </div>
+        </div>
+    </div>
+
+    <div id="project-structure">
+        <h3>Project Structure</h3>
+        <div class="code-block"><span class="folder">Case_Management_System/</span>
+├── <span class="file">pom.xml</span>                          <span class="comment"># Maven build (xCP 24.2 plugins)</span>
+├── <span class="folder">Artifacts/</span>                       <span class="comment"># xCP design-time artifacts</span>
+│   ├── <span class="folder">Action Flows/</span> (9)            <span class="comment"># UI action flows for linear workflow</span>
+│   ├── <span class="folder">Business Objects/</span> (8)        <span class="comment"># TBO definitions</span>
+│   ├── <span class="folder">Content/</span> (4)                 <span class="comment"># Document types</span>
+│   ├── <span class="folder">Dql Queries/</span> (13)            <span class="comment"># DQL query definitions</span>
+│   ├── <span class="folder">Email Templates/</span> (1)         <span class="comment"># case_details template</span>
+│   ├── <span class="folder">Endpoints/</span> (3)               <span class="comment"># repo, smtp, iv</span>
+│   ├── <span class="folder">Folders/</span> (2)                 <span class="comment"># cms_case_folder, cms_digidak_folder</span>
+│   ├── <span class="folder">Java Modules/</span> (8)            <span class="comment"># Custom Java extensions</span>
+│   ├── <span class="folder">Pages/</span> (11)                  <span class="comment"># Application UI pages</span>
+│   ├── <span class="folder">Parameters/</span> (7)              <span class="comment"># Runtime config params</span>
+│   ├── <span class="folder">Permission Sets/</span> (3)         <span class="comment"># ACL definitions</span>
+│   ├── <span class="folder">Processes/</span> (47)              <span class="comment"># BPMN workflow definitions</span>
+│   ├── <span class="folder">Real-time Queries/</span> (14)      <span class="comment"># Search definitions</span>
+│   ├── <span class="folder">Relationships/</span> (1)           <span class="comment"># circulars &harr; user_profile</span>
+│   ├── <span class="folder">Task-list Queries/</span> (3)       <span class="comment"># inbox, allinbox, sent_cases</span>
+│   └── <span class="folder">Viewer Formats/</span> (1)          <span class="comment"># Brava format mapping</span>
+├── <span class="folder">content/</span>                         <span class="comment"># Pre-packaged JARs</span>
+│   ├── <span class="folder">Java Libraries/</span>              <span class="comment"># httpextensions, json, slf4j</span>
+│   └── <span class="folder">Java Modules/</span>                <span class="comment"># Compiled module JARs</span>
+├── <span class="folder">gen/</span>                             <span class="comment"># Generated sources &amp; types</span>
+│   └── <span class="folder">main/resources/types/</span>        <span class="comment"># JSON type definitions</span>
+├── <span class="folder">src/main/</span>
+│   ├── <span class="folder">resources/</span>                   <span class="comment"># Config, logging, JDBC</span>
+│   └── <span class="folder">webapp/</span>                      <span class="comment"># JSPs, web.xml, JS</span>
+└── <span class="folder">META-INF/</span>                        <span class="comment"># Bundle manifest</span></div>
+    </div>
+</section>
+
+<!-- ====== 3. DATA MODEL ====== -->
+<section id="data-model">
+    <h2><span class="sn">03</span> Data Model</h2>
+
+    <div class="diagram-wrapper">
+        <div class="diagram-title">Documentum object type hierarchy</div>
+        <div class="mermaid">
+graph TD
+    subgraph FolderTypes["Folder Types (Containers)"]
+        DMF["dm_folder"]
+        CCF["cms_case_folder<br/>27 attributes"]
+        CDF["cms_digidak_folder<br/>38+ attributes"]
+        DMF --> CCF
+        DMF --> CDF
+    end
+
+    subgraph ContentTypes["Content Types (Documents)"]
+        DMD["dm_document"]
+        CC["cms_circulars"]
+        CDD["cms_digidak_document"]
+        CND["cms_note_document"]
+        CSD["cms_supporting_document"]
+        DMD --> CC
+        DMD --> CDD
+        DMD --> CND
+        DMD --> CSD
+    end
+
+    subgraph BusinessObjects["Business Objects"]
+        ANC["auto_number_config"]
+        DM["digidak_metadata"]
+        FN["file_number"]
+        MR["movement_register"]
+        NT["notification"]
+        UP["user_profile"]
+        WP["workflow_param"]
+        DMR["digidak_movement_re"]
+    end
+
+    CCF -.->|"contains"| CND
+    CCF -.->|"contains"| CSD
+    CDF -.->|"contains"| CDD
+    CCF -.->|"tracks"| MR
+    CCF -.->|"uses"| WP
+    UP -.->|"circulars_user_prof"| CC
+
+    style FolderTypes fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+    style ContentTypes fill:#dcfce7,stroke:#22c55e,color:#166534
+    style BusinessObjects fill:#fef3c7,stroke:#f59e0b,color:#92400e
+        </div>
+    </div>
+
+    <div id="case-folder">
+        <h3>cms_case_folder (27 attributes)</h3>
+        <p>Primary case management container. Extends <span class="ic">dm_folder</span>. Default status: <span class="badge badge-blue">Draft</span></p>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Category</th><th>Attributes</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="badge badge-blue">Identity</span></td><td><span class="ic">file_number</span>, <span class="ic">types</span>, <span class="ic">status</span>, <span class="ic">years</span></td></tr>
+                    <tr><td><span class="badge badge-green">Organization</span></td><td><span class="ic">department_name</span>, <span class="ic">department_short_code</span>, <span class="ic">function_short_code</span>, <span class="ic">functions</span>, <span class="ic">ho_ro</span></td></tr>
+                    <tr><td><span class="badge badge-amber">Properties</span></td><td><span class="ic">case_nature</span>, <span class="ic">description</span>, <span class="ic">location</span>, <span class="ic">task_priority</span>, <span class="ic">language_type</span>, <span class="ic">disposal_level</span></td></tr>
+                    <tr><td><span class="badge badge-purple">Control</span></td><td><span class="ic">in_workflow</span> (bool), <span class="ic">is_resubmitted</span>, <span class="ic">is_migrated</span>, <span class="ic">resubmitted_sequence_number</span></td></tr>
+                    <tr><td><span class="badge badge-gray">Reference</span></td><td><span class="ic">reference_cases</span> (repeating &mdash; multiple linked cases)</td></tr>
+                    <tr><td><span class="badge badge-red">Legacy</span></td><td><span class="ic">fams_clmas_serial_number</span>, <span class="ic">fams_clmas_date</span>, <span class="ic">migrated_id</span></td></tr>
+                    <tr><td><span class="badge badge-gray">Audit</span></td><td><span class="ic">reason_for_cancellation</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="digidak-folder">
+        <h3>cms_digidak_folder (38+ attributes)</h3>
+        <p>Digital file / letter management container. Handles incoming and outgoing correspondence.</p>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Category</th><th>Attributes</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="badge badge-blue">Entry</span></td><td><span class="ic">entry_type</span>, <span class="ic">entry_date</span>, <span class="ic">received_from</span>, <span class="ic">state_of_sender</span>, <span class="ic">address_of_sender</span></td></tr>
+                    <tr><td><span class="badge badge-green">Document</span></td><td><span class="ic">letter_subject</span>, <span class="ic">letter_no</span>, <span class="ic">inward_ref_number</span>, <span class="ic">mode_of_receipt</span></td></tr>
+                    <tr><td><span class="badge badge-amber">Classification</span></td><td><span class="ic">type_category</span>, <span class="ic">priority</span>, <span class="ic">secrecy</span>, <span class="ic">languages</span>, <span class="ic">nature_of_correspondence</span></td></tr>
+                    <tr><td><span class="badge badge-purple">Workflow</span></td><td><span class="ic">decision</span>, <span class="ic">status</span>, <span class="ic">uid_number</span>, <span class="ic">due_date</span>, <span class="ic">financial_year</span></td></tr>
+                    <tr><td><span class="badge badge-gray">Groups</span></td><td><span class="ic">vertical</span>, <span class="ic">vertical_head</span>, <span class="ic">vertical_users</span> (repeating), <span class="ic">workflow_groups</span> (repeating)</td></tr>
+                    <tr><td><span class="badge badge-red">Flags</span></td><td><span class="ic">is_group</span>, <span class="ic">is_bulk_letter</span>, <span class="ic">login_office_type</span>, <span class="ic">login_region</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="business-objects">
+        <h3>Business Objects (8)</h3>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Object</th><th>Purpose</th><th>Key Attributes</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="ic">auto_number_config</span></td><td>Auto-numbering sequences</td><td>sequence_no (int)</td></tr>
+                    <tr><td><span class="ic">digidak_metadata</span></td><td>Digidak letter metadata</td><td>input, results, region, cgm_ps, short_codes</td></tr>
+                    <tr><td><span class="ic">digidak_movement_re</span></td><td>Digidak movement tracking</td><td>Document movement through workflow</td></tr>
+                    <tr><td><span class="ic">file_number</span></td><td>Sequential file numbering</td><td>File number generation and tracking</td></tr>
+                    <tr><td><span class="ic">movement_register</span></td><td>Case movement tracking</td><td>assigned_user, assigned_performer</td></tr>
+                    <tr><td><span class="ic">notification</span></td><td>System notifications</td><td>Task completions, workflow updates</td></tr>
+                    <tr><td><span class="ic">user_profile</span></td><td>User configuration</td><td>Departments, verticals, grades, favorites</td></tr>
+                    <tr><td><span class="ic">workflow_param</span></td><td>Workflow runtime state</td><td>action, case_status, department, performer, task_name</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="content-types">
+        <h3>Content Types (4 document types, extend dm_document)</h3>
+        <div class="card-grid">
+            <div class="card"><div class="card-header"><div class="card-icon card-icon-blue">&#128196;</div><div><h4 style="margin:0">cms_circulars</h4><p style="margin:0;font-size:13px;color:#64748b">Organizational circulars &amp; memos</p></div></div></div>
+            <div class="card"><div class="card-header"><div class="card-icon card-icon-green">&#128228;</div><div><h4 style="margin:0">cms_digidak_document</h4><p style="margin:0;font-size:13px;color:#64748b">Official correspondence (scanned/uploaded)</p></div></div></div>
+            <div class="card"><div class="card-header"><div class="card-icon card-icon-amber">&#128221;</div><div><h4 style="margin:0">cms_note_document</h4><p style="margin:0;font-size:13px;color:#64748b">Internal notesheets / comments</p></div></div></div>
+            <div class="card"><div class="card-header"><div class="card-icon card-icon-purple">&#128206;</div><div><h4 style="margin:0">cms_supporting_document</h4><p style="margin:0;font-size:13px;color:#64748b">Case attachments &amp; evidence</p></div></div></div>
+        </div>
+    </div>
+
+    <div id="permissions">
+        <h3>Permission Sets (ACLs)</h3>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Permission Set</th><th>dm_world</th><th>dm_owner</th><th>Purpose</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="ic">case_acl</span></td><td><span class="badge badge-red">None</span></td><td><span class="badge badge-green">Delete + Execute Proc + Change Permit/Owner/State</span></td><td>Case object access control</td></tr>
+                    <tr><td><span class="ic">digidak_acl</span></td><td><span class="badge badge-red">None</span></td><td><span class="badge badge-green">Full rights</span></td><td>Digidak object permissions</td></tr>
+                    <tr><td><span class="ic">notificationacl</span></td><td><span class="badge badge-amber">Read</span></td><td><span class="badge badge-green">Full rights</span></td><td>Notification visibility</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ====== 4. WORKFLOWS ====== -->
+<section id="workflows">
+    <h2><span class="sn">04</span> Workflows &amp; Processes (47)</h2>
+
+    <div id="wf-case-lifecycle">
+        <h3>Case Lifecycle</h3>
+        <div class="diagram-wrapper">
+            <div class="diagram-title">Case management &mdash; end-to-end lifecycle</div>
+            <div class="mermaid">
+sequenceDiagram
+    actor User
+    participant CMS as xCP Application
+    participant NUM as get_next_case_number
+    participant CF as cms_case_folder
+    participant LP as linear_process
+    participant MR as movement_register
+    participant NS as Notesheet
+    participant EMAIL as send_email
+
+    User->>CMS: Create new case
+    CMS->>NUM: Generate file number
+    NUM-->>CMS: File number assigned
+    CMS->>CF: Create cms_case_folder (status: Draft)
+    CMS->>LP: Initiate linear_process
+
+    Note over LP: Routing Stage
+    LP->>MR: Log movement (assigned_performer)
+    LP->>EMAIL: Notify assigned user
+    LP-->>User: Task appears in inbox
+
+    User->>LP: Review and add notesheet
+    LP->>NS: create_notesheet_from_inline_editor
+    NS-->>CF: Attach cms_note_document
+
+    alt Approved
+        LP->>CF: Update status (Completed)
+        LP->>MR: Log final movement
+    else Rejected
+        LP->>CF: Mark for resubmission
+        LP->>CMS: resubmit_case
+    else Push Back
+        LP->>CMS: push_back_pull_back
+        LP->>MR: Log reversal
+    end
+            </div>
+        </div>
+    </div>
+
+    <div id="wf-linear">
+        <h3>Linear Process (Primary Workflow)</h3>
+        <div class="diagram-wrapper">
+            <div class="diagram-title">Linear process stages with action flows</div>
+            <div class="mermaid">
+flowchart LR
+    INIT["Initiate<br/>Case Created"] --> ROUTE["Routing Stage<br/>linear_process_rout"]
+    ROUTE --> REVIEW["Review Stage<br/>linear_process_revi"]
+    REVIEW --> EA["EA Stage<br/>Executive Assistant"]
+    EA --> COMPLETE["Complete<br/>Case Resolved"]
+
+    REVIEW -->|"Push Back"| ROUTE
+    EA -->|"Push Back"| REVIEW
+    ROUTE -->|"Manual Override"| MANUAL["Manual Stage<br/>linear_process_manu"]
+    MANUAL --> REVIEW
+
+    subgraph ActionFlows["9 Action Flows"]
+        AF1["linear_process_rout"]
+        AF2["linear_process_revi"]
+        AF3["linear_process_manu"]
+        AF4["ro_1 / ro_2"]
+        AF5["re_1 / re_2"]
+        AF6["ma_1 / ma_2"]
+    end
+
+    style INIT fill:#dcfce7,stroke:#22c55e
+    style COMPLETE fill:#dcfce7,stroke:#22c55e
+    style ActionFlows fill:#f1f5f9,stroke:#94a3b8
+            </div>
+        </div>
+    </div>
+
+    <div id="wf-digidak">
+        <h3>Digidak Lifecycle (Incoming Letters)</h3>
+        <div class="diagram-wrapper">
+            <div class="diagram-title">Digidak (digital file) workflow</div>
+            <div class="mermaid">
+sequenceDiagram
+    actor Clerk as Diary Clerk
+    participant DIG as digidak_creation
+    participant DF as cms_digidak_folder
+    participant GRP as digidak_get_groups
+    participant PERM as digidak_provide_permission
+    participant MAIL as digidak_mail
+    participant SEC as digidak_secrecy
+    participant END as digidak_create_endorse_sequence
+
+    Clerk->>DIG: Register incoming letter
+    DIG->>DF: Create cms_digidak_folder
+    DIG->>GRP: Determine recipient groups
+
+    alt Confidential / Secret
+        DIG->>SEC: Apply secrecy controls
+    end
+
+    DIG->>PERM: Set permissions per group
+    DIG->>MAIL: Send notification to recipients
+
+    Note over DF: Letter in circulation
+
+    alt Needs endorsement
+        DF->>END: Create endorsement sequence
+        Note over END: Multiple signatories
+    end
+
+    Clerk->>DF: Copy documents from main letter
+    Note over DF: digidak_copy_documents_from_main_letter
+            </div>
+        </div>
+
+        <h4>All Digidak Processes</h4>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Process</th><th>Purpose</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="ic">digidak_creation</span></td><td>Create new Digidak folder/letter</td></tr>
+                    <tr><td><span class="ic">digidak_create_digidak_folder</span></td><td>Folder creation subprocess</td></tr>
+                    <tr><td><span class="ic">digidak_create_endorse_sequence</span></td><td>Multi-signatory endorsement chain</td></tr>
+                    <tr><td><span class="ic">digidak_create_offi</span></td><td>Create official document</td></tr>
+                    <tr><td><span class="ic">digidak_create_update_sequence_number</span></td><td>Sequential numbering</td></tr>
+                    <tr><td><span class="ic">digidak_dashboard</span></td><td>Dashboard data preparation</td></tr>
+                    <tr><td><span class="ic">digidak_copy_documents_from_main_letter</span></td><td>Copy docs from main letter</td></tr>
+                    <tr><td><span class="ic">digidak_create_and_move_document</span></td><td>Document creation and relocation</td></tr>
+                    <tr><td><span class="ic">digidak_get_groups</span></td><td>Fetch groups for assignment</td></tr>
+                    <tr><td><span class="ic">digidak_get_selected_recipients_combined</span></td><td>Consolidate recipient groups</td></tr>
+                    <tr><td><span class="ic">digidak_mail</span></td><td>Email notification</td></tr>
+                    <tr><td><span class="ic">digidak_provide_permission</span></td><td>Permission assignment</td></tr>
+                    <tr><td><span class="ic">digidak_secrecy</span></td><td>Confidential classification</td></tr>
+                    <tr><td><span class="ic">digidak_update_last_mail_sent_date</span></td><td>Track last notification</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="wf-notesheet">
+        <h3>Notesheet Management</h3>
+        <div class="diagram-wrapper">
+            <div class="diagram-title">Notesheet creation and merge workflow</div>
+            <div class="mermaid">
+flowchart LR
+    A["User opens<br/>case notesheet"] --> B{"Inline editor<br/>or template?"}
+    B -->|Inline| C["create_notesheet_from_inline_editor"]
+    B -->|Template| D["merge_notesheet_template"]
+    C --> E["cms_note_document<br/>created"]
+    D --> E
+    E --> F["refresh_notesheet"]
+    F --> G["Attached to<br/>cms_case_folder"]
+
+    style E fill:#dcfce7,stroke:#22c55e
+    style G fill:#dbeafe,stroke:#3b82f6
+            </div>
+        </div>
+    </div>
+
+    <div id="wf-permissions">
+        <h3>Permission &amp; Role Flows</h3>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Process</th><th>Purpose</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="ic">assign_workflow_level_permission</span></td><td>Dynamic permission assignment during workflow</td></tr>
+                    <tr><td><span class="ic">get_permission_info</span></td><td>Query current permission state</td></tr>
+                    <tr><td><span class="ic">provide_read_permission_to_vertical</span></td><td>Grant cross-vertical read access</td></tr>
+                    <tr><td><span class="ic">revoke_other_vertic</span></td><td>Revoke inter-vertical access</td></tr>
+                    <tr><td><span class="ic">revoke_other_dept_ro_permission</span></td><td>Revoke inter-department access</td></tr>
+                    <tr><td><span class="ic">check_input_user_part_of_input_vertical_or_department</span></td><td>User-group validation</td></tr>
+                    <tr><td><span class="ic">is_user_part_of_given_department_or_vertical</span></td><td>Department membership check</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="wf-utilities">
+        <h3>Utility Processes</h3>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Process</th><th>Purpose</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="ic">get_next_case_number</span></td><td>Generate sequential case number</td></tr>
+                    <tr><td><span class="ic">get_users</span></td><td>User query/listing</td></tr>
+                    <tr><td><span class="ic">get_grades</span></td><td>Grade/designation lookup</td></tr>
+                    <tr><td><span class="ic">get_groups_for_logged_in_user_by_designation</span></td><td>Group assignment by role</td></tr>
+                    <tr><td><span class="ic">get_verticals_based_on_users</span></td><td>Filter verticals by user</td></tr>
+                    <tr><td><span class="ic">send_email</span></td><td>Email notification</td></tr>
+                    <tr><td><span class="ic">send_notification</span></td><td>In-app notification</td></tr>
+                    <tr><td><span class="ic">update_isread_for_notification</span></td><td>Mark notification as read</td></tr>
+                    <tr><td><span class="ic">generate_case_movement_slip</span></td><td>Movement slip generation</td></tr>
+                    <tr><td><span class="ic">call_publish_iv_service</span></td><td>Publish to Intelligent Viewer</td></tr>
+                    <tr><td><span class="ic">update_user_profile</span></td><td>User configuration updates</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ====== 5. QUERIES ====== -->
+<section id="queries">
+    <h2><span class="sn">05</span> Queries &amp; Searches</h2>
+
+    <h3>DQL Queries (13)</h3>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Query</th><th>Purpose</th></tr></thead>
+            <tbody>
+                <tr><td><span class="ic">full_text_search</span></td><td>Full-text search across documents</td></tr>
+                <tr><td><span class="ic">digidak_inbox</span> / <span class="ic">digidak_outbox</span></td><td>Digidak letter inbox and sent folder</td></tr>
+                <tr><td><span class="ic">digidak_dashboard_i</span> / <span class="ic">digidak_dashboard_o</span></td><td>Digidak dashboard queries</td></tr>
+                <tr><td><span class="ic">get_groups</span></td><td>Group enumeration</td></tr>
+                <tr><td><span class="ic">get_users_from_allo</span></td><td>Users from allocation/assignment</td></tr>
+                <tr><td><span class="ic">get_case_note_docum</span></td><td>Find notesheet documents</td></tr>
+                <tr><td><span class="ic">get_case_supporting</span></td><td>Find supporting documents</td></tr>
+                <tr><td><span class="ic">get_department_name</span></td><td>Department lookup</td></tr>
+                <tr><td><span class="ic">get_folder_objects_</span></td><td>List folder contents</td></tr>
+                <tr><td><span class="ic">get_user_favourite_</span></td><td>User&rsquo;s favorite cases/circulars</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="rt-queries">
+        <h3>Real-time Queries (14)</h3>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Query</th><th>Purpose</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="ic">get_all_cases</span></td><td>All cases (paginated)</td></tr>
+                    <tr><td><span class="ic">get_notifications</span></td><td>User notifications</td></tr>
+                    <tr><td><span class="ic">get_file_number</span></td><td>File number lookup</td></tr>
+                    <tr><td><span class="ic">get_note_documents</span></td><td>Notesheet retrieval</td></tr>
+                    <tr><td><span class="ic">get_movement_regist</span></td><td>Movement register</td></tr>
+                    <tr><td><span class="ic">get_circular_docume</span></td><td>Circular documents</td></tr>
+                    <tr><td><span class="ic">get_userprofile</span></td><td>User profile data</td></tr>
+                    <tr><td><span class="ic">get_reference_cases</span> / <span class="ic">select_reference_ca</span></td><td>Reference case linking/selection</td></tr>
+                    <tr><td><span class="ic">case_movement_regis</span></td><td>Case movement tracking</td></tr>
+                    <tr><td><span class="ic">digidak_get_documen</span></td><td>Digidak documents</td></tr>
+                    <tr><td><span class="ic">digidak_get_folder</span></td><td>Digidak folders</td></tr>
+                    <tr><td><span class="ic">digidak_get_metadat</span></td><td>Digidak metadata</td></tr>
+                    <tr><td><span class="ic">digidak_get_movemen</span></td><td>Digidak movements</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="task-queries">
+        <h3>Task-list Queries (3)</h3>
+        <div class="card-grid">
+            <div class="card"><div class="card-header"><div class="card-icon card-icon-blue">&#128229;</div><div><h4 style="margin:0">inbox</h4><p style="margin:0;font-size:13px;color:#64748b">Current user&rsquo;s pending tasks</p></div></div></div>
+            <div class="card"><div class="card-header"><div class="card-icon card-icon-green">&#128203;</div><div><h4 style="margin:0">allinbox</h4><p style="margin:0;font-size:13px;color:#64748b">All available tasks across users</p></div></div></div>
+            <div class="card"><div class="card-header"><div class="card-icon card-icon-amber">&#128228;</div><div><h4 style="margin:0">sent_cases</h4><p style="margin:0;font-size:13px;color:#64748b">Cases sent/routed by the user</p></div></div></div>
+        </div>
+    </div>
+</section>
+
+<!-- ====== 6. JAVA MODULES ====== -->
+<section id="java-modules">
+    <h2><span class="sn">06</span> Java Modules &amp; Libraries</h2>
+
+    <h3>Custom Java Modules (8)</h3>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Module</th><th>Key Classes</th><th>Purpose</th></tr></thead>
+            <tbody>
+                <tr><td><span class="badge badge-blue">ecm_functions</span></td><td>ECMFunction, NoteSheet, GroupOperations, WorkflowUtilities, UpdateACL, IVService, CustomController</td><td>Core ECM business logic, REST controller, IV integration</td></tr>
+                <tr><td><span class="badge badge-green">digidak</span></td><td>DigidakFunction (+ Aspose.Cells, SedinECM)</td><td>Digidak letter management, document processing</td></tr>
+                <tr><td><span class="badge badge-amber">notesheet</span></td><td>Notesheet creation (+ Aspose.Words, SedinECM)</td><td>Notesheet/notation creation, Word document generation</td></tr>
+                <tr><td><span class="badge badge-purple">notesheet_inline_ed</span></td><td>Inline notesheet editor</td><td>Embedded notesheet editing in browser</td></tr>
+                <tr><td><span class="badge badge-gray">permission</span></td><td>ACL management</td><td>Dynamic ACL assignment, role enforcement</td></tr>
+                <tr><td><span class="badge badge-gray">groupoperation</span></td><td>Group hierarchy operations</td><td>Group membership, LDAP integration</td></tr>
+                <tr><td><span class="badge badge-gray">publish_iv</span></td><td>IV publishing service</td><td>Document rendering via OpenText Brava</td></tr>
+                <tr><td><span class="badge badge-gray">push_back</span></td><td>Case push-back logic</td><td>Case return/reversal in workflow</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="ecm-functions">
+        <h3>ECM Functions Module (Key Classes)</h3>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Package / Class</th><th>Purpose</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="ic">com.ecm.dfc.NoteSheet</span></td><td>Notesheet document creation and management</td></tr>
+                    <tr><td><span class="ic">com.ecm.dfc.GroupOperations</span></td><td>Group CRUD, member assignment, hierarchy queries</td></tr>
+                    <tr><td><span class="ic">com.ecm.dfc.WorkflowUtilities</span></td><td>Workflow execution helpers, task management</td></tr>
+                    <tr><td><span class="ic">com.ecm.dfc.UpdateACL</span></td><td>Dynamic ACL creation and update</td></tr>
+                    <tr><td><span class="ic">com.ecm.dfc.AddTableToNotesheet</span></td><td>Insert tabular data into notesheets</td></tr>
+                    <tr><td><span class="ic">com.ecm.iv.IVService</span></td><td>Intelligent Viewer communication</td></tr>
+                    <tr><td><span class="ic">com.ecm.iv.IVAuthService</span></td><td>IV authentication/token management</td></tr>
+                    <tr><td><span class="ic">com.ecm.iv.DCTMService</span></td><td>Documentum repository service for IV</td></tr>
+                    <tr><td><span class="ic">com.ecm.model.MovementRegister</span></td><td>Movement tracking data model</td></tr>
+                    <tr><td><span class="ic">com.ecm.model.CaseMovementSlip</span></td><td>Slip generation model</td></tr>
+                    <tr><td><span class="ic">com.ecm.model.PermissionInfo</span></td><td>Permission query model</td></tr>
+                    <tr><td><span class="ic">com.emc.xcp.rest.core.process.controller.CustomController</span></td><td>Custom REST endpoint controller</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="java-libs">
+        <h3>Java Libraries (External)</h3>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Library</th><th>JARs</th><th>Purpose</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="badge badge-blue">httpextensions</span></td><td>httpclient-4.5.14, httpclient5-5.3.1, httpcore-4.4.16, httpcore5-5.2.4</td><td>REST and external API integration (HTTP/2 support)</td></tr>
+                    <tr><td><span class="badge badge-green">json</span></td><td>json-20231013</td><td>JSON parsing and generation</td></tr>
+                    <tr><td><span class="badge badge-amber">sl4j</span></td><td>slf4j-api-1.7.36, slf4j-reload4j-2.0.7</td><td>Unified logging abstraction</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ====== 7. INTEGRATIONS ====== -->
+<section id="endpoints">
+    <h2><span class="sn">07</span> Integrations &amp; Endpoints</h2>
+
+    <h3>Configured Endpoints (3)</h3>
+    <div class="card-grid">
+        <div class="card">
+            <div class="card-header"><div class="card-icon card-icon-purple">&#128451;</div><div><h4 style="margin:0">repo (Repository)</h4></div></div>
+            <p>DocBroker: <span class="ic">172.172.20.214</span><br>Repository: <span class="ic">NABARDUAT</span><br>Auth: Encrypted (DM_ENCR_TEXT_V2)</p>
+        </div>
+        <div class="card" id="email">
+            <div class="card-header"><div class="card-icon card-icon-blue">&#9993;</div><div><h4 style="margin:0">smtp (Email)</h4></div></div>
+            <p>Server: <span class="ic">smtp.office365.com:587</span><br>From: <span class="ic">support.ecm@nabard.org</span><br>Encryption: TLS</p>
+        </div>
+    </div>
+    <div class="card" id="iv">
+        <div class="card-header"><div class="card-icon card-icon-amber">&#128065;</div><div><h4 style="margin:0">iv (Intelligent Viewer)</h4></div></div>
+        <p>OpenText Brava v24.2.0 integration for document rendering, annotation, and publishing.</p>
+        <p>Processes: <span class="ic">call_publish_iv_service</span>, <span class="ic">update_publishing_id_for_iv</span></p>
+        <p>Classes: <span class="ic">IVService</span>, <span class="ic">IVAuthService</span>, <span class="ic">DCTMService</span></p>
+    </div>
+
+    <div id="security">
+        <h3>Security Model</h3>
+        <div class="diagram-wrapper">
+            <div class="diagram-title">Authentication &amp; authorization layers</div>
+            <div class="mermaid">
+flowchart TB
+    subgraph Auth["Authentication"]
+        LOGIN["xCP Login / OTDS SSO"]
+        SPRING["Spring Security Filter Chain"]
+        DFC["DFC Session (Documentum)"]
+    end
+
+    subgraph Authz["Authorization"]
+        RBAC["Role-based Access<br/>(Super Admin, Local Admin)"]
+        ACL["ACL-based<br/>(case_acl, digidak_acl)"]
+        WF["Workflow-level<br/>(assign_workflow_level_permission)"]
+        VERT["Vertical-based Isolation"]
+        DEPT["Department-based Isolation"]
+    end
+
+    LOGIN --> SPRING --> DFC
+    DFC --> RBAC
+    RBAC --> ACL
+    ACL --> WF
+    WF --> VERT
+    WF --> DEPT
+
+    style Auth fill:#dbeafe,stroke:#3b82f6
+    style Authz fill:#fef3c7,stroke:#f59e0b
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ====== 8. CONFIGURATION ====== -->
+<section id="config">
+    <h2><span class="sn">08</span> Configuration</h2>
+
+    <h3>Runtime Parameters (7)</h3>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Parameter</th><th>Purpose</th></tr></thead>
+            <tbody>
+                <tr><td><span class="ic">casefolderpath</span></td><td>Root path for case folders in repository</td></tr>
+                <tr><td><span class="ic">configcabinetpath</span></td><td>Configuration cabinet location</td></tr>
+                <tr><td><span class="ic">ctfworkingdirectory</span></td><td>Crystal Transforms working directory</td></tr>
+                <tr><td><span class="ic">digidakfolderpath</span></td><td>Root path for Digidak folders</td></tr>
+                <tr><td><span class="ic">iv_download_url</span></td><td>Intelligent Viewer download endpoint</td></tr>
+                <tr><td><span class="ic">iv_publish_url</span></td><td>IV publishing service URL</td></tr>
+                <tr><td><span class="ic">support_mail</span></td><td>Support email contact address</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="web-config">
+        <h3>Web / Servlet Configuration</h3>
+        <p>Defined in <span class="ic">WEB-INF/web.xml</span></p>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Component</th><th>Detail</th></tr></thead>
+                <tbody>
+                    <tr><td><strong>Session Timeout</strong></td><td>480 minutes (8 hours)</td></tr>
+                    <tr><td><strong>Max Upload</strong></td><td>2 GB</td></tr>
+                    <tr><td><strong>Encoding</strong></td><td>UTF-8 (CharacterEncodingFilter)</td></tr>
+                    <tr><td><strong>Filters (9)</strong></td><td>Compressing, CORS, Encoding, Cache, Repository, Security, Spring Security, HTTP Method, Locale</td></tr>
+                    <tr><td><strong>Servlets</strong></td><td>DispatcherServlet (Spring MVC), ComponentServlet (xCP), InvalidateCache (BPM)</td></tr>
+                    <tr><td><strong>Context</strong></td><td>xcp-app-config.xml, xcp-rest-*.xml, WebAppContextInitializer</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="spring-config">
+        <h3>Spring Configuration</h3>
+        <div class="table-wrapper">
+            <table>
+                <thead><tr><th>Config File</th><th>Purpose</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="ic">applicationContext-ui-app.xml</span></td><td>UI application beans</td></tr>
+                    <tr><td><span class="ic">applicationContext-preferences.xml</span></td><td>User preference management</td></tr>
+                    <tr><td><span class="ic">xcp-app-security.xml</span></td><td>Spring Security + Documentum integration</td></tr>
+                    <tr><td><span class="ic">xcp-web-config.xml</span></td><td>Web layer / MVC configuration</td></tr>
+                    <tr><td><span class="ic">ehcache.xml</span></td><td>EHCache distributed caching</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ====== 9. NBSUPPORTAPP MAPPING ====== -->
+<section id="nbsupport-mapping">
+    <h2><span class="sn">09</span> NBSupportApp &harr; xCP Mapping</h2>
+    <p>The NBSupportApp support portal was built to administer the xCP Case Management System. Here is how the support portal maps to xCP artifacts:</p>
+
+    <div class="diagram-wrapper">
+        <div class="diagram-title">Support portal features &harr; xCP backend artifacts</div>
+        <div class="mermaid">
+graph LR
+    subgraph NBSupportApp["NBSupportApp (Support Portal)"]
+        CASES["Cases Page"]
+        USERS["Users Page"]
+        GROUPS["Groups Page"]
+        WF["Workflows Page"]
+        META["Metadata Page"]
+        QUERY["Query Page"]
+        INBOX["Inbox Page"]
+    end
+
+    subgraph xCP["xCP Case Management System"]
+        CCF2["cms_case_folder<br/>(27 attrs)"]
+        UP2["user_profile BO<br/>+ dm_user"]
+        GRP2["dm_group<br/>+ verticals"]
+        LP2["linear_process<br/>(47 processes)"]
+        FN2["file_number BO<br/>+ auto_number_config"]
+        DQL2["13 DQL Queries"]
+        TASK2["Task-list Queries<br/>(inbox, allinbox, sent)"]
+    end
+
+    CASES --> CCF2
+    USERS --> UP2
+    GROUPS --> GRP2
+    WF --> LP2
+    META --> FN2
+    QUERY --> DQL2
+    INBOX --> TASK2
+
+    style NBSupportApp fill:#dcfce7,stroke:#22c55e,color:#166534
+    style xCP fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>NBSupportApp Feature</th><th>xCP Object Type</th><th>xCP Processes Used</th></tr></thead>
+            <tbody>
+                <tr><td>Case Management</td><td><span class="ic">cms_case_folder</span></td><td>create_case, linear_process, resubmit_case, push_back_pull_back</td></tr>
+                <tr><td>User Management</td><td><span class="ic">cms_user_profile</span> + <span class="ic">dm_user</span></td><td>update_user_profile, get_users</td></tr>
+                <tr><td>Group Management</td><td><span class="ic">dm_group</span></td><td>get_groups, groupoperation module</td></tr>
+                <tr><td>Workflow Monitoring</td><td><span class="ic">cms_workflow_param</span></td><td>All 47 processes, get_wfid_and_queueitemid</td></tr>
+                <tr><td>Metadata Config</td><td><span class="ic">cms_file_number</span>, <span class="ic">cms_auto_number_config</span></td><td>get_next_case_number</td></tr>
+                <tr><td>DQL Query</td><td>Any Documentum type</td><td>Executes raw DQL via dctm-rest</td></tr>
+                <tr><td>Inbox / Tasks</td><td>Task list (dm_queue)</td><td>inbox, allinbox, sent_cases queries</td></tr>
+                <tr><td>Delegation</td><td><span class="ic">cms_movement_register</span></td><td>generate_case_movement_slip</td></tr>
+                <tr><td>Notifications</td><td><span class="ic">cms_notification</span></td><td>send_notification, update_isread_for_notification</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="callout callout-success">
+        <span class="callout-icon">&#10003;</span>
+        <p><strong>Key insight:</strong> The NBSupportApp <span class="ic">CaseService</span> queries <span class="ic">cms_case_folder</span> via DQL, the <span class="ic">WorkflowService</span> interacts with <span class="ic">dm_process</span> instances created by the 47 xCP processes, and the <span class="ic">MetadataService</span> manages config objects under <span class="ic">/ECM CONFIG/</span> that parallel the xCP <span class="ic">auto_number_config</span> and <span class="ic">file_number</span> business objects.</p>
+    </div>
+</section>
+
+</div>
+
+<script>
+(function() {
+    window.toggleSidebar = function() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('overlay').classList.toggle('active');
+    };
+    window.toggleSection = function(header) {
+        header.classList.toggle('collapsed');
+        header.nextElementSibling.classList.toggle('collapsed');
+    };
+    const sections = document.querySelectorAll('section[id], div[id]');
+    const sidebarLinks = document.querySelectorAll('.sidebar-link');
+    function setActiveLink() {
+        let currentId = '';
+        const scrollPos = window.scrollY + 120;
+        sections.forEach(function(s) { if (s.offsetTop <= scrollPos) currentId = s.getAttribute('id'); });
+        sidebarLinks.forEach(function(l) { l.classList.remove('active'); if (l.getAttribute('href') === '#' + currentId) l.classList.add('active'); });
+    }
+    window.addEventListener('scroll', setActiveLink);
+    window.addEventListener('load', setActiveLink);
+    sidebarLinks.forEach(function(l) { l.addEventListener('click', function() { if (window.innerWidth <= 900) { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('active'); } }); });
+    document.querySelectorAll('.sidebar-section-items').forEach(function(i) { i.style.maxHeight = i.scrollHeight + 200 + 'px'; });
+})();
+</script>
+</body>
+</html>

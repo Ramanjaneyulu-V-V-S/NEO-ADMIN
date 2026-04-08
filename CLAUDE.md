@@ -125,7 +125,10 @@ Detailed architecture docs are in `techdocs/`:
 - [`techdocs/case-type-metadata.md`](techdocs/case-type-metadata.md) — Case Type metadata: full-stack implementation, DQL queries, Documentum storage, API endpoints
 - [`techdocs/designpatterns.md`](techdocs/designpatterns.md) — Module separation (CMS vs Digidak), endpoint conventions, metadata implementation patterns
 
-HTML versions with interactive sidebar navigation: `techdocs/backend-architecture.html`, `techdocs/frontend-architecture.html`
+- [`techdocs/nbmainbackend-xcp.md`](techdocs/nbmainbackend-xcp.md) — xCP Main Backend: 47 processes, data model (cms_case_folder, cms_digidak_folder), 8 Java modules, integrations, NBSupportApp mapping
+- [`techdocs/nbmainfrontend-xcp.md`](techdocs/nbmainfrontend-xcp.md) — xCP Main Frontend: React 19 + Redux + Kendo UI, 32 routes, 40+ components, Brava viewer, 100+ API endpoints
+
+HTML versions with interactive sidebar navigation: `techdocs/backend-architecture.html`, `techdocs/frontend-architecture.html`, `techdocs/nbmainbackend-xcp.html`, `techdocs/nbmainfrontend-xcp.html`
 
 ## Critical Constraints
 

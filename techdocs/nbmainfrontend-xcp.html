@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NBSupportApp — xCP Main Frontend (NABARD Modern UI)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad: true, theme: 'default', securityLevel: 'loose'});</script>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #334155; line-height: 1.7; font-size: 15px; }
+        .header { position: fixed; top: 0; left: 0; right: 0; height: 64px; background: #0f172a; color: #fff; display: flex; align-items: center; padding: 0 24px; z-index: 1000; box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
+        .header-logo { display: flex; align-items: center; gap: 12px; }
+        .header-logo-icon { width: 36px; height: 36px; background: #0A66C2; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: #fff; }
+        .header h1 { font-size: 18px; font-weight: 700; } .header h1 span { color: #94a3b8; font-weight: 400; }
+        .hamburger { display: none; background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; margin-right: 16px; padding: 4px 8px; border-radius: 4px; }
+        .sidebar { position: fixed; top: 64px; left: 0; bottom: 0; width: 280px; background: #1e293b; overflow-y: auto; z-index: 900; transition: transform 0.3s ease; scrollbar-width: thin; scrollbar-color: #475569 transparent; }
+        .sidebar::-webkit-scrollbar { width: 4px; } .sidebar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        .sidebar-nav { padding: 16px 0; }
+        .sidebar-section { margin-bottom: 4px; }
+        .sidebar-section-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; color: #94a3b8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; cursor: pointer; user-select: none; }
+        .sidebar-section-header:hover { color: #cbd5e1; }
+        .sidebar-section-header .chevron { font-size: 10px; transition: transform 0.2s; }
+        .sidebar-section-header.collapsed .chevron { transform: rotate(-90deg); }
+        .sidebar-section-items { overflow: hidden; transition: max-height 0.3s ease; }
+        .sidebar-section-items.collapsed { max-height: 0 !important; }
+        .sidebar-link { display: block; padding: 8px 20px 8px 28px; color: #cbd5e1; text-decoration: none; font-size: 13px; border-left: 3px solid transparent; transition: all 0.15s ease; }
+        .sidebar-link:hover { color: #fff; background: rgba(255,255,255,0.05); }
+        .sidebar-link.active { color: #fff; background: rgba(10,102,194,0.15); border-left-color: #0A66C2; font-weight: 500; }
+        .sidebar-divider { height: 1px; background: #334155; margin: 8px 20px; }
+        .content { margin-left: 280px; margin-top: 64px; padding: 40px 48px 80px; max-width: 1060px; }
+        .content section { margin-bottom: 56px; }
+        .content h2 { font-size: 28px; font-weight: 800; color: #0f172a; margin-bottom: 8px; padding-bottom: 12px; border-bottom: 2px solid #e2e8f0; }
+        .content h2 .sn { color: #0A66C2; margin-right: 8px; }
+        .content h3 { font-size: 20px; font-weight: 700; color: #1e293b; margin-top: 32px; margin-bottom: 12px; }
+        .content h4 { font-size: 16px; font-weight: 600; color: #334155; margin-top: 24px; margin-bottom: 8px; }
+        .content p { margin-bottom: 16px; color: #475569; }
+        .content ul { margin-bottom: 16px; padding-left: 24px; } .content li { margin-bottom: 6px; color: #475569; }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .badge-blue { background: #dbeafe; color: #1e40af; } .badge-green { background: #dcfce7; color: #166534; } .badge-amber { background: #fef3c7; color: #92400e; } .badge-red { background: #fee2e2; color: #991b1b; } .badge-purple { background: #f3e8ff; color: #6b21a8; } .badge-gray { background: #f1f5f9; color: #475569; }
+        .tech-stack { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+        .tech-tag { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-weight: 500; color: #334155; }
+        .tech-tag .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot-react { background: #61dafb; } .dot-redux { background: #764abc; } .dot-vite { background: #646cff; } .dot-kendo { background: #ff6358; } .dot-boot { background: #7952b3; } .dot-brava { background: #f59e0b; } .dot-chart { background: #ff6384; } .dot-axios { background: #5a29e4; }
+        .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .card-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .card-icon-blue { background: #dbeafe; } .card-icon-green { background: #dcfce7; } .card-icon-amber { background: #fef3c7; } .card-icon-purple { background: #f3e8ff; }
+        .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin: 20px 0; }
+        .stat-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; text-align: center; }
+        .stat-card .sv { font-size: 28px; font-weight: 800; color: #0A66C2; line-height: 1; }
+        .stat-card .sl { font-size: 11px; color: #64748b; margin-top: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+        .code-block { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 20px 24px; font-family: 'JetBrains Mono','Fira Code','SF Mono',Consolas,monospace; font-size: 12.5px; line-height: 1.8; overflow-x: auto; margin-bottom: 20px; border: 1px solid #1e293b; }
+        .code-block .folder { color: #60a5fa; font-weight: 600; } .code-block .file { color: #94a3b8; } .code-block .comment { color: #64748b; font-style: italic; } .code-block .highlight { color: #fbbf24; }
+        .ic { background: #f1f5f9; color: #0f172a; padding: 2px 8px; border-radius: 4px; font-family: 'JetBrains Mono','Fira Code',monospace; font-size: 13px; border: 1px solid #e2e8f0; }
+        .table-wrapper { overflow-x: auto; margin-bottom: 20px; border-radius: 10px; border: 1px solid #e2e8f0; }
+        table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+        thead { background: #f8fafc; }
+        th { text-align: left; padding: 12px 16px; font-weight: 600; color: #1e293b; border-bottom: 2px solid #e2e8f0; }
+        td { padding: 10px 16px; border-bottom: 1px solid #f1f5f9; color: #475569; vertical-align: top; }
+        tbody tr:last-child td { border-bottom: none; } tbody tr:hover { background: #f8fafc; }
+        .diagram-wrapper { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px 24px; margin: 20px 0; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .diagram-wrapper .diagram-title { font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 16px; text-align: center; }
+        .mermaid { text-align: center; }
+        .callout { border-radius: 10px; padding: 16px 20px; margin: 16px 0; display: flex; gap: 12px; align-items: flex-start; }
+        .callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+        .callout-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+        .callout-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+        .callout-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+        .callout p { margin: 0; font-size: 13.5px; color: inherit; }
+        @media (max-width: 900px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.3); } .content { margin-left: 0; padding: 24px 20px 60px; } .hamburger { display: block; } .overlay { display: none; position: fixed; inset: 0; top: 64px; background: rgba(0,0,0,0.4); z-index: 850; } .overlay.active { display: block; } .card-grid { grid-template-columns: 1fr; } }
+        @media print { .header, .sidebar, .hamburger, .overlay { display: none !important; } .content { margin: 0; padding: 20px; max-width: 100%; } }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Toggle navigation">&#9776;</button>
+    <div class="header-logo">
+        <div class="header-logo-icon">NB</div>
+        <h1>xCP Main Frontend <span>&#8212; NABARD Modern UI</span></h1>
+    </div>
+</header>
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-nav">
+        <div class="sidebar-section"><div class="sidebar-section-header" onclick="toggleSection(this)">Overview <span class="chevron">&#9660;</span></div><div class="sidebar-section-items"><a href="#overview" class="sidebar-link">Project Overview</a><a href="#tech-stack" class="sidebar-link">Technology Stack</a><a href="#stats" class="sidebar-link">At a Glance</a></div></div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section"><div class="sidebar-section-header" onclick="toggleSection(this)">Architecture <span class="chevron">&#9660;</span></div><div class="sidebar-section-items"><a href="#architecture" class="sidebar-link">Application Architecture</a><a href="#project-structure" class="sidebar-link">Project Structure</a><a href="#routing" class="sidebar-link">Routing (32 routes)</a></div></div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section"><div class="sidebar-section-header" onclick="toggleSection(this)">Pages <span class="chevron">&#9660;</span></div><div class="sidebar-section-items"><a href="#pages" class="sidebar-link">All Pages</a><a href="#pg-dashboard" class="sidebar-link">Dashboard</a><a href="#pg-case" class="sidebar-link">Case Management</a><a href="#pg-digidak" class="sidebar-link">Digidak</a><a href="#pg-auth" class="sidebar-link">Login &amp; Auth</a></div></div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section"><div class="sidebar-section-header" onclick="toggleSection(this)">Components <span class="chevron">&#9660;</span></div><div class="sidebar-section-items"><a href="#components" class="sidebar-link">Component Library (40+)</a><a href="#comp-layout" class="sidebar-link">Layout &amp; Nav</a><a href="#comp-viewer" class="sidebar-link">Brava Viewer (IV)</a><a href="#comp-popups" class="sidebar-link">Popups &amp; Modals</a></div></div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section"><div class="sidebar-section-header" onclick="toggleSection(this)">State &amp; API <span class="chevron">&#9660;</span></div><div class="sidebar-section-items"><a href="#redux" class="sidebar-link">Redux Store</a><a href="#api" class="sidebar-link">API / Services</a><a href="#hooks" class="sidebar-link">Custom Hooks (13)</a></div></div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section"><div class="sidebar-section-header" onclick="toggleSection(this)">Flows <span class="chevron">&#9660;</span></div><div class="sidebar-section-items"><a href="#flow-login" class="sidebar-link">Login Flow</a><a href="#flow-case" class="sidebar-link">Case Lifecycle</a><a href="#flow-digidak" class="sidebar-link">Digidak Flow</a><a href="#flow-session" class="sidebar-link">Session Management</a></div></div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section"><div class="sidebar-section-header" onclick="toggleSection(this)">Config <span class="chevron">&#9660;</span></div><div class="sidebar-section-items"><a href="#config" class="sidebar-link">Environment Config</a><a href="#build" class="sidebar-link">Build &amp; Deploy</a></div></div>
+    </div>
+</nav>
+
+<div class="content">
+
+<!-- ====== 1. OVERVIEW ====== -->
+<section id="overview">
+    <h2><span class="sn">01</span> Project Overview</h2>
+    <p>The <strong>NABARD Modern UI</strong> is the end-user frontend for the xCP Case Management System. Built with <strong>React 19</strong>, <strong>Redux Toolkit</strong>, and <strong>Kendo React</strong>, it provides case management, Digidak correspondence, document viewing via OpenText Brava, and dashboard analytics &mdash; all connected to the xCP backend through REST APIs.</p>
+    <div class="callout callout-info"><span class="callout-icon">&#8505;</span><p><strong>Location:</strong> <span class="ic">nbmainfrontend/nabard-modern-ui/</span> &mdash; Version 0.4.0 &mdash; Build: Vite 6 &mdash; 204 source files</p></div>
+
+    <div id="tech-stack">
+        <h3>Technology Stack</h3>
+        <div class="tech-stack">
+            <span class="tech-tag"><span class="dot dot-react"></span> React 19.1</span>
+            <span class="tech-tag"><span class="dot dot-redux"></span> Redux Toolkit 2.8</span>
+            <span class="tech-tag"><span class="dot dot-vite"></span> Vite 6.3</span>
+            <span class="tech-tag"><span class="dot dot-kendo"></span> Kendo React 11</span>
+            <span class="tech-tag"><span class="dot dot-boot"></span> Bootstrap 5.3</span>
+            <span class="tech-tag"><span class="dot dot-brava"></span> OpenText Brava</span>
+            <span class="tech-tag"><span class="dot dot-chart"></span> Chart.js</span>
+            <span class="tech-tag"><span class="dot dot-axios"></span> Axios 1.9</span>
+        </div>
+    </div>
+
+    <div id="stats">
+        <h3>At a Glance</h3>
+        <div class="stat-grid">
+            <div class="stat-card"><div class="sv">204</div><div class="sl">Source Files</div></div>
+            <div class="stat-card"><div class="sv">32</div><div class="sl">Routes</div></div>
+            <div class="stat-card"><div class="sv">40+</div><div class="sl">Components</div></div>
+            <div class="stat-card"><div class="sv">20+</div><div class="sl">Redux Slices</div></div>
+            <div class="stat-card"><div class="sv">100+</div><div class="sl">API Endpoints</div></div>
+            <div class="stat-card"><div class="sv">13</div><div class="sl">Custom Hooks</div></div>
+        </div>
+    </div>
+</section>
+
+<!-- ====== 2. ARCHITECTURE ====== -->
+<section id="architecture">
+    <h2><span class="sn">02</span> Architecture</h2>
+    <div class="diagram-wrapper">
+        <div class="diagram-title">Frontend application architecture</div>
+        <div class="mermaid">
+graph TB
+    subgraph Browser["Browser"]
+        REACT["React 19 + Router v7"]
+        REDUX["Redux Toolkit<br/>+ Redux Persist"]
+        KENDO["Kendo React UI<br/>Grid, Editor, Charts"]
+        BRAVA["Brava Viewer<br/>(iframe)"]
+    end
+    subgraph Services["Service Layer"]
+        AXIOS["Axios<br/>(Basic Auth + CSRF)"]
+        SVC["Service Files<br/>(100+ endpoints)"]
+    end
+    subgraph xCPBackend["xCP Backend"]
+        PROC["/processes/*"]
+        RTQ["/realtime-queries/*"]
+        DQL["/dql-queries/*"]
+        TLQ["/tasklist-queries/*"]
+        FILES["/files, /folders, /contents"]
+    end
+    subgraph External["External"]
+        OTDS["OTDS<br/>(IV OAuth tokens)"]
+        IVSVR["Brava Server<br/>(Publications)"]
+    end
+    REACT --> REDUX
+    REDUX --> SVC
+    SVC --> AXIOS
+    AXIOS --> PROC & RTQ & DQL & TLQ & FILES
+    BRAVA --> OTDS
+    BRAVA --> IVSVR
+    style Browser fill:#dbeafe,stroke:#3b82f6,color:#1e40af
+    style Services fill:#dcfce7,stroke:#22c55e,color:#166534
+    style xCPBackend fill:#fef3c7,stroke:#f59e0b,color:#92400e
+    style External fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
+        </div>
+    </div>
+
+    <div id="project-structure">
+        <h3>Project Structure</h3>
+        <div class="code-block"><span class="folder">nabard-modern-ui/</span>
+├── <span class="file">package.json</span>             <span class="comment"># React 19, 1080+ deps</span>
+├── <span class="file">vite.config.js</span>           <span class="comment"># Main build (proxy to xCP)</span>
+├── <span class="file">vite.iframe.config.js</span>    <span class="comment"># Brava IV iframe build</span>
+├── <span class="file">.env.development</span>         <span class="comment"># Dev URLs (172.172.20.214)</span>
+├── <span class="file">.env.production</span>          <span class="comment"># Prod URLs (192.168.15.190)</span>
+├── <span class="folder">src/</span>
+│   ├── <span class="file">main.jsx</span>             <span class="comment"># Entry: Redux Provider + Router</span>
+│   ├── <span class="file">App.jsx</span>              <span class="comment"># 32 routes, session hooks</span>
+│   ├── <span class="folder">components/</span> (40+)   <span class="comment"># Layout, IV, Popups, Forms</span>
+│   ├── <span class="folder">pages/</span>             <span class="comment"># Dashboard, Case, Digidak, Login</span>
+│   ├── <span class="folder">redux/</span>             <span class="comment"># Store, 20+ slices, selectors</span>
+│   ├── <span class="folder">services/</span>          <span class="comment"># Axios config, service URLs, API calls</span>
+│   ├── <span class="folder">hooks/</span> (13)        <span class="comment"># Session, data fetching, business logic</span>
+│   ├── <span class="folder">utils/</span>             <span class="comment"># Formatters, helpers</span>
+│   ├── <span class="folder">iframe/</span>            <span class="comment"># IV Brava iframe entry</span>
+│   └── <span class="folder">assets/</span>            <span class="comment"># Images, logos</span>
+├── <span class="folder">public/templates/</span>       <span class="comment"># Excel templates</span>
+└── <span class="folder">dist/</span>                  <span class="comment"># Production build output</span></div>
+    </div>
+
+    <div id="routing">
+        <h3>Routing (32 routes)</h3>
+        <div class="table-wrapper"><table><thead><tr><th>Route</th><th>Page</th><th>Section</th></tr></thead><tbody>
+            <tr><td><span class="ic">/</span></td><td>Login</td><td><span class="badge badge-gray">Auth</span></td></tr>
+            <tr><td><span class="ic">/dashboard</span></td><td>Dashboard</td><td><span class="badge badge-blue">Dashboard</span></td></tr>
+            <tr><td><span class="ic">/inbox</span></td><td>Inbox (FYA, EA, Verify)</td><td><span class="badge badge-green">Case</span></td></tr>
+            <tr><td><span class="ic">/create-case</span></td><td>Create Case</td><td><span class="badge badge-green">Case</span></td></tr>
+            <tr><td><span class="ic">/cases</span></td><td>View All Cases</td><td><span class="badge badge-green">Case</span></td></tr>
+            <tr><td><span class="ic">/view-case/:id</span></td><td>Case Detail (tabs, viewer, workflow)</td><td><span class="badge badge-green">Case</span></td></tr>
+            <tr><td><span class="ic">/sent-case</span></td><td>Outbox</td><td><span class="badge badge-green">Case</span></td></tr>
+            <tr><td><span class="ic">/search-case</span></td><td>Case Search (DQL)</td><td><span class="badge badge-green">Case</span></td></tr>
+            <tr><td><span class="ic">/old-cases</span></td><td>Archive Cases</td><td><span class="badge badge-green">Case</span></td></tr>
+            <tr><td><span class="ic">/inward-entry</span></td><td>Inward Correspondence</td><td><span class="badge badge-amber">Digidak</span></td></tr>
+            <tr><td><span class="ic">/outward-entry</span></td><td>Outward Correspondence</td><td><span class="badge badge-amber">Digidak</span></td></tr>
+            <tr><td><span class="ic">/draft-entry</span></td><td>Draft Letters</td><td><span class="badge badge-amber">Digidak</span></td></tr>
+            <tr><td><span class="ic">/digidak-inbox</span></td><td>Digidak Inbox</td><td><span class="badge badge-amber">Digidak</span></td></tr>
+            <tr><td><span class="ic">/digidak-outbox</span></td><td>Digidak Outbox</td><td><span class="badge badge-amber">Digidak</span></td></tr>
+            <tr><td><span class="ic">/digidak-view/:id</span></td><td>Letter Detail</td><td><span class="badge badge-amber">Digidak</span></td></tr>
+            <tr><td><span class="ic">/view-letters</span></td><td>Personal Letterbox (DMD Chairman)</td><td><span class="badge badge-amber">Digidak</span></td></tr>
+            <tr><td><span class="ic">/ddm-inward</span> / <span class="ic">/ddm-outward</span></td><td>DDM Communications</td><td><span class="badge badge-purple">DDM</span></td></tr>
+            <tr><td><span class="ic">/circular</span></td><td>Circulars</td><td><span class="badge badge-gray">Misc</span></td></tr>
+            <tr><td><span class="ic">*</span></td><td>404 Not Found</td><td><span class="badge badge-gray">Misc</span></td></tr>
+        </tbody></table></div>
+    </div>
+</section>
+
+<!-- ====== 3. PAGES ====== -->
+<section id="pages">
+    <h2><span class="sn">03</span> Pages &amp; Views</h2>
+
+    <div id="pg-dashboard"><h3>Dashboard</h3><p>Main landing page after login. Displays case statistics (Chart.js), recent cases grid, Digidak metrics, and user greeting. Sub-components: <span class="ic">caseList/</span>, <span class="ic">ecmChart/</span>, <span class="ic">digidakChart/</span>, <span class="ic">digidakList/</span>, <span class="ic">userGreeting/</span>.</p></div>
+
+    <div id="pg-case">
+        <h3>Case Management</h3>
+        <div class="table-wrapper"><table><thead><tr><th>Page</th><th>Key Features</th></tr></thead><tbody>
+            <tr><td><strong>Inbox</strong></td><td>3 tabs (FYA, EA Tasks, To Be Verified); Kendo Grid with filters; Acquire, Push Back, Movement Register actions</td></tr>
+            <tr><td><strong>Create Case</strong></td><td>File number selection, notesheet via inline editor, document upload, vertical/department selection</td></tr>
+            <tr><td><strong>View Case</strong> (1473 lines)</td><td>6 tabs: Info, Documents, Notesheet, Workflow, Comments, Reference Cases. Split Brava Viewer. Approve/Reject/Send/Cancel/Close actions</td></tr>
+            <tr><td><strong>Outbox</strong></td><td>Sent cases grid with status tracking</td></tr>
+            <tr><td><strong>Search Case</strong></td><td>DQL-based search via <span class="ic">cms_full_text_search</span></td></tr>
+            <tr><td><strong>Old Cases</strong></td><td>Legacy case archive browser</td></tr>
+        </tbody></table></div>
+    </div>
+
+    <div id="pg-digidak">
+        <h3>Digidak (Correspondence)</h3>
+        <div class="table-wrapper"><table><thead><tr><th>Page</th><th>Key Features</th></tr></thead><tbody>
+            <tr><td><strong>Inward Entry</strong></td><td>Register incoming letter: sender, category, priority, secrecy, language, doc upload, permission assignment</td></tr>
+            <tr><td><strong>Outward Entry</strong></td><td>Nature selection (internal/external), multi-select recipients, endorsement sequence, doc management</td></tr>
+            <tr><td><strong>Draft Entry</strong></td><td>Save-as-draft, retrieve and resume editing</td></tr>
+            <tr><td><strong>Inbox / Outbox</strong></td><td>Filtered grids, action buttons, read/unread status</td></tr>
+            <tr><td><strong>View Entry</strong></td><td>Full letter detail with Brava Viewer integration</td></tr>
+            <tr><td><strong>Forward</strong></td><td>Forward correspondence to additional recipients</td></tr>
+        </tbody></table></div>
+    </div>
+
+    <div id="pg-auth">
+        <h3>Login &amp; Auth</h3>
+        <p>Login page with username/password + captcha validation. Caps Lock detection. Credentials base64-encoded as <span class="ic">Token</span> in localStorage. 30-minute session timeout with 1-minute warning modal.</p>
+    </div>
+</section>
+
+<!-- ====== 4. COMPONENTS ====== -->
+<section id="components">
+    <h2><span class="sn">04</span> Components (40+)</h2>
+
+    <div id="comp-layout">
+        <h3>Layout &amp; Navigation</h3>
+        <div class="table-wrapper"><table><thead><tr><th>Component</th><th>Purpose</th></tr></thead><tbody>
+            <tr><td><span class="ic">Layout.jsx</span></td><td>Master layout: header + sidebar + popups</td></tr>
+            <tr><td><span class="ic">Sidebar.jsx</span></td><td>5-section nav: Dashboard, Case Mgmt, Digidak, Personal Letterbox, Old Cases, DDM</td></tr>
+            <tr><td><span class="ic">header/</span></td><td>Top navigation bar with profile, notifications</td></tr>
+            <tr><td><span class="ic">ProtectedRoute.jsx</span></td><td>Auth guard wrapper for routes</td></tr>
+            <tr><td><span class="ic">SessionWarningModal.jsx</span></td><td>Session timeout warning (30 min / 1 min warning)</td></tr>
+        </tbody></table></div>
+    </div>
+
+    <div id="comp-viewer">
+        <h3>Brava Viewer (Integrated Viewer)</h3>
+        <p>Document viewing via OpenText Brava, rendered in iframe with PostMessage protocol. Separate Vite build (<span class="ic">vite.iframe.config.js</span>) produces <span class="ic">dist/iframe/iframeBundle.js</span>.</p>
+        <div class="table-wrapper"><table><thead><tr><th>Component</th><th>Purpose</th></tr></thead><tbody>
+            <tr><td><span class="ic">IntegratedBravaViewer.jsx</span></td><td>Main document viewer wrapper</td></tr>
+            <tr><td><span class="ic">ReadOnlyBravaViewer.jsx</span></td><td>Read-only mode</td></tr>
+            <tr><td><span class="ic">CircularViewer.jsx</span></td><td>Circular document viewer</td></tr>
+            <tr><td><span class="ic">DigidakViewer.jsx</span></td><td>Digidak letter viewer</td></tr>
+            <tr><td><span class="ic">AnnotationsLayout.jsx</span></td><td>Markup annotations overlay</td></tr>
+            <tr><td><span class="ic">bravaconfig.js</span></td><td>OAuth2 token URL, credentials, viewer timeout (30s, 3 retries)</td></tr>
+        </tbody></table></div>
+    </div>
+
+    <div id="comp-popups">
+        <h3>Popups &amp; Modals</h3>
+        <div class="card-grid">
+            <div class="card"><div class="card-header"><div class="card-icon card-icon-blue">&#128275;</div><div><h4 style="margin:0">AcquirePopup</h4><p style="margin:0;font-size:13px;color:#64748b">Case acquisition modal</p></div></div></div>
+            <div class="card"><div class="card-header"><div class="card-icon card-icon-amber">&#8592;</div><div><h4 style="margin:0">PushBackPopup / PullbackPopup</h4><p style="margin:0;font-size:13px;color:#64748b">Workflow reversal modals</p></div></div></div>
+            <div class="card"><div class="card-header"><div class="card-icon card-icon-green">&#128100;</div><div><h4 style="margin:0">ViewProfile / profilePopup</h4><p style="margin:0;font-size:13px;color:#64748b">User profile display</p></div></div></div>
+            <div class="card"><div class="card-header"><div class="card-icon card-icon-purple">&#128276;</div><div><h4 style="margin:0">NotificationPopup</h4><p style="margin:0;font-size:13px;color:#64748b">In-app notification display</p></div></div></div>
+        </div>
+    </div>
+</section>
+
+<!-- ====== 5. STATE & API ====== -->
+<section id="redux">
+    <h2><span class="sn">05</span> State Management &amp; API</h2>
+    <h3>Redux Store</h3>
+    <p>Redux Toolkit with Redux Persist (localStorage). <span class="ic">LOGOUT_ACTION</span> clears all state.</p>
+    <div class="diagram-wrapper">
+        <div class="diagram-title">Redux slice organization</div>
+        <div class="mermaid">
+graph TD
+    STORE["Redux Store<br/>(Redux Persist)"] --> LOGIN["login/<br/>loginSlice"]
+    STORE --> DASH["dashboard/<br/>dashboardSlice"]
+    STORE --> NOTIF["notification/<br/>notificationSlice"]
+    STORE --> CASE["caseManagement/"]
+    STORE --> DIG["digidak/"]
+    CASE --> CI["caseInboxSlice"]
+    CASE --> CC["createCaseSlice"]
+    CASE --> SC["searchCaseSlice"]
+    CASE --> VC["viewCaseSlice"]
+    CASE --> CD["caseDetailsSlice"]
+    CASE --> DOC["documentSlice"]
+    CASE --> CIR["circularsSlice"]
+    CASE --> PUB["publicationSlice"]
+    DIG --> DI["digidakInwardSlice"]
+    DIG --> DO["digidakOutwardSlice"]
+    DIG --> DIB["digidakInboxSlice"]
+    DIG --> DOB["digidakOutboxSlice"]
+    DIG --> DDR["digidakDraftSlice"]
+    DIG --> DC["digidakCorrespondenceSlice"]
+    DIG --> DDM["digidakDDMSlice"]
+    DIG --> DF["digidakFolderSlice"]
+    DIG --> DD["digidakDropdownSlice"]
+    style STORE fill:#dbeafe,stroke:#3b82f6
+    style CASE fill:#dcfce7,stroke:#22c55e
+    style DIG fill:#fef3c7,stroke:#f59e0b
+        </div>
+    </div>
+
+    <div id="api">
+        <h3>API / Service Layer</h3>
+        <p><span class="ic">axiosConfig.js</span>: Base URL from env, Basic Auth header (base64 Token), CSRF token from cookie, 401 interceptor triggers logout.</p>
+        <h4>Key API Endpoint Groups (100+)</h4>
+        <div class="table-wrapper"><table><thead><tr><th>Category</th><th>Example Endpoints</th></tr></thead><tbody>
+            <tr><td><span class="badge badge-gray">Auth</span></td><td><span class="ic">/realtime-queries/cms_get_userprofile</span>, <span class="ic">/processes/cms_get_grades</span></td></tr>
+            <tr><td><span class="badge badge-blue">Dashboard</span></td><td><span class="ic">/dql-queries/cms_get_folder_objects_</span>, <span class="ic">/processes/cms_digidak_dashboard</span></td></tr>
+            <tr><td><span class="badge badge-green">Case</span></td><td><span class="ic">/processes/cms_create_case</span>, <span class="ic">/tasklist-queries/cms_inbox</span>, <span class="ic">/processes/cms_linear_process</span></td></tr>
+            <tr><td><span class="badge badge-amber">Digidak</span></td><td><span class="ic">/processes/cms_digidak_creation</span>, <span class="ic">/dql-queries/cms_digidak_inbox</span></td></tr>
+            <tr><td><span class="badge badge-purple">Docs</span></td><td><span class="ic">/files</span>, <span class="ic">/folders/{id}/objects</span>, <span class="ic">/contents/cms_note_document/{id}/media</span></td></tr>
+            <tr><td><span class="badge badge-gray">IV</span></td><td><span class="ic">/processes/cms_call_publish_iv_service</span></td></tr>
+            <tr><td><span class="badge badge-gray">Workflow</span></td><td><span class="ic">/processes/cms_push_back_pull_back</span>, <span class="ic">/processes/cms_resubmit_case</span></td></tr>
+        </tbody></table></div>
+    </div>
+
+    <div id="hooks">
+        <h3>Custom Hooks (13)</h3>
+        <div class="table-wrapper"><table><thead><tr><th>Hook</th><th>Purpose</th></tr></thead><tbody>
+            <tr><td><span class="ic">useSessionTimeout</span></td><td>30-min timeout, 1-min warning, activity tracking, multi-tab broadcast</td></tr>
+            <tr><td><span class="ic">useSessionSync</span></td><td>Cross-tab session sync via BroadcastChannel</td></tr>
+            <tr><td><span class="ic">useCheckCGMUser</span></td><td>CGM user role detection</td></tr>
+            <tr><td><span class="ic">useDDMContext</span></td><td>DDM user context &amp; route filtering</td></tr>
+            <tr><td><span class="ic">usePublishIv</span></td><td>Publish document to Intelligent Viewer</td></tr>
+            <tr><td><span class="ic">useDigidakDashboardData</span></td><td>Dashboard statistics fetching</td></tr>
+            <tr><td><span class="ic">useDigidakGroups</span></td><td>User group fetching for Digidak</td></tr>
+            <tr><td><span class="ic">useFileNumbers</span></td><td>File number dropdown data</td></tr>
+            <tr><td><span class="ic">useInwardDropdownFields</span></td><td>Inward entry dropdown population</td></tr>
+            <tr><td><span class="ic">useRecipientSelector</span></td><td>Multi-select recipient picker</td></tr>
+            <tr><td><span class="ic">useDigidakDocumentActions</span></td><td>Document download/delete</td></tr>
+            <tr><td><span class="ic">usePdfExport</span></td><td>PDF export functionality</td></tr>
+            <tr><td><span class="ic">useResponseRecipientDisable</span></td><td>Conditional recipient disabling</td></tr>
+        </tbody></table></div>
+    </div>
+</section>
+
+<!-- ====== 6. FLOWS ====== -->
+<section id="flow-login">
+    <h2><span class="sn">06</span> Key Flows</h2>
+    <h3>Login Flow</h3>
+    <div class="diagram-wrapper">
+        <div class="diagram-title">Authentication sequence</div>
+        <div class="mermaid">
+sequenceDiagram
+    actor User
+    participant LOGIN as Login Page
+    participant CAPTCHA as Captcha Component
+    participant LS as loginService
+    participant AXIOS as axiosConfig
+    participant xCP as xCP Backend
+    participant REDUX as Redux Store
+
+    User->>LOGIN: Enter username, password
+    LOGIN->>CAPTCHA: Validate captcha
+    CAPTCHA-->>LOGIN: Valid
+    LOGIN->>LOGIN: Base64 encode credentials
+    LOGIN->>LS: loginAndGetProfile()
+    LS->>AXIOS: GET /realtime-queries/cms_get_userprofile
+    AXIOS->>AXIOS: Add Basic Auth header + CSRF token
+    AXIOS->>xCP: HTTP request
+    xCP-->>AXIOS: User profile JSON
+    AXIOS-->>LS: Response
+    LS-->>REDUX: Dispatch loginUser.fulfilled
+    REDUX->>REDUX: Store userProfile + persist to localStorage
+    LOGIN->>LOGIN: Navigate to /dashboard
+        </div>
+    </div>
+
+    <div id="flow-case">
+        <h3>Case Lifecycle (Frontend)</h3>
+        <div class="diagram-wrapper">
+            <div class="diagram-title">Case creation &rarr; inbox &rarr; view &rarr; action</div>
+            <div class="mermaid">
+sequenceDiagram
+    actor User
+    participant CREATE as Create Case
+    participant xCP2 as xCP Backend
+    participant INBOX as Inbox Page
+    participant VIEW as View Case
+    participant BRAVA as Brava Viewer
+    participant WF as Workflow Actions
+
+    User->>CREATE: Fill case form + notesheet
+    CREATE->>xCP2: POST /processes/cms_create_case
+    xCP2-->>CREATE: Case created (r_object_id)
+
+    Note over INBOX: Task appears in assignee's inbox
+    User->>INBOX: Open inbox
+    INBOX->>xCP2: GET /tasklist-queries/cms_inbox
+    xCP2-->>INBOX: Task list
+
+    User->>INBOX: Click case row
+    INBOX->>VIEW: Navigate to /view-case/:id
+    VIEW->>xCP2: Fetch case details, documents, notesheet
+    VIEW->>BRAVA: Load document in Brava Viewer
+
+    User->>WF: Click Approve / Reject / Send
+    WF->>xCP2: POST /processes/cms_linear_process
+    xCP2-->>WF: Workflow advanced
+
+    alt Push Back
+        User->>WF: Push Back
+        WF->>xCP2: POST /processes/cms_push_back_pull_back
+    end
+            </div>
+        </div>
+    </div>
+
+    <div id="flow-digidak">
+        <h3>Digidak Flow (Frontend)</h3>
+        <div class="diagram-wrapper">
+            <div class="diagram-title">Inward entry &rarr; circulation &rarr; inbox</div>
+            <div class="mermaid">
+sequenceDiagram
+    actor Clerk
+    participant INWARD as Inward Entry Page
+    participant DROP as Dropdown Hooks
+    participant xCP3 as xCP Backend
+    participant DIGINBOX as Digidak Inbox
+
+    Clerk->>INWARD: Open inward entry form
+    INWARD->>DROP: useInwardDropdownFields()
+    DROP->>xCP3: GET /realtime-queries/cms_digidak_get_metadata
+    xCP3-->>DROP: Dropdown values (category, priority, secrecy...)
+
+    Clerk->>INWARD: Fill form + upload document
+    INWARD->>xCP3: POST /processes/cms_digidak_creation
+    xCP3-->>INWARD: Letter created
+
+    Note over DIGINBOX: Letter appears in recipients' inboxes
+    Clerk->>DIGINBOX: Check digidak inbox
+    DIGINBOX->>xCP3: GET /dql-queries/cms_digidak_inbox
+    xCP3-->>DIGINBOX: Letter list
+            </div>
+        </div>
+    </div>
+
+    <div id="flow-session">
+        <h3>Session Management</h3>
+        <div class="diagram-wrapper">
+            <div class="diagram-title">30-minute session timeout with cross-tab sync</div>
+            <div class="mermaid">
+flowchart LR
+    A["User Activity<br/>(mouse, key, scroll)"] -->|"debounced 1s"| B["Reset Timer<br/>(30 min)"]
+    B --> C{"29 min<br/>elapsed?"}
+    C -->|Yes| D["Show Warning Modal<br/>(60s countdown)"]
+    D -->|"Extend"| B
+    D -->|"Timeout"| E["Logout + Clear State"]
+    E --> F["Redirect to /login"]
+    E -->|"BroadcastChannel"| G["Sync logout<br/>to all tabs"]
+    C -->|No| A
+    style D fill:#fef3c7,stroke:#f59e0b
+    style E fill:#fee2e2,stroke:#ef4444
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ====== 7. CONFIG ====== -->
+<section id="config">
+    <h2><span class="sn">07</span> Configuration &amp; Build</h2>
+    <h3>Environment Variables</h3>
+    <div class="card-grid">
+        <div class="card">
+            <h4 style="margin-top:0">.env.development</h4>
+            <div class="code-block"><span class="highlight">VITE_API_BASE_URL</span>=http://172.172.20.214:6060
+<span class="highlight">VITE_BASE_PATH</span>=/Case_Management_System
+<span class="highlight">VITE_BRAVA_TOKEN_URL</span>=http://4.188.241.109:7070/otdsws/oauth2/token
+<span class="highlight">VITE_BRAVA_VIEWER_URL</span>=http://4.188.241.109:3358
+<span class="highlight">VITE_FILE_SERVER_URL</span>=http://4.188.241.109:5001</div>
+        </div>
+        <div class="card">
+            <h4 style="margin-top:0">.env.production</h4>
+            <div class="code-block"><span class="highlight">VITE_API_BASE_URL</span>=http://192.168.15.190:6060
+<span class="highlight">VITE_BASE_PATH</span>=/Case_Management_System
+<span class="highlight">VITE_BRAVA_TOKEN_URL</span>=http://192.168.15.138:8080/otdsws/oauth2/token
+<span class="highlight">VITE_BRAVA_VIEWER_URL</span>=http://192.168.15.138:3358
+<span class="highlight">VITE_FILE_SERVER_URL</span>=http://192.168.15.138:5001</div>
+        </div>
+    </div>
+
+    <div id="build">
+        <h3>Build &amp; Deploy</h3>
+        <div class="table-wrapper"><table><thead><tr><th>Command</th><th>Description</th></tr></thead><tbody>
+            <tr><td><span class="ic">npm run dev</span></td><td>Vite dev server with proxy to xCP backend</td></tr>
+            <tr><td><span class="ic">npm run build</span></td><td>Production build (main + iframe bundle)</td></tr>
+            <tr><td><span class="ic">npm run build:main</span></td><td>Main app build only</td></tr>
+            <tr><td><span class="ic">npm run build:iframe</span></td><td>Brava IV iframe build only</td></tr>
+            <tr><td><span class="ic">npm run lint</span></td><td>ESLint check</td></tr>
+        </tbody></table></div>
+        <p><strong>Output:</strong> <span class="ic">dist/</span> (main app) + <span class="ic">dist/iframe/iframeBundle.js</span> (Brava viewer). Deployed into the xCP WAR at <span class="ic">/Case_Management_System</span>.</p>
+    </div>
+</section>
+
+</div>
+
+<script>
+(function() {
+    window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').classList.toggle('active'); };
+    window.toggleSection = function(h) { h.classList.toggle('collapsed'); h.nextElementSibling.classList.toggle('collapsed'); };
+    const sections = document.querySelectorAll('section[id], div[id]');
+    const links = document.querySelectorAll('.sidebar-link');
+    function setActive() { let c = ''; const s = window.scrollY + 120; sections.forEach(function(x) { if (x.offsetTop <= s) c = x.getAttribute('id'); }); links.forEach(function(l) { l.classList.remove('active'); if (l.getAttribute('href') === '#' + c) l.classList.add('active'); }); }
+    window.addEventListener('scroll', setActive); window.addEventListener('load', setActive);
+    links.forEach(function(l) { l.addEventListener('click', function() { if (window.innerWidth <= 900) { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('active'); } }); });
+    document.querySelectorAll('.sidebar-section-items').forEach(function(i) { i.style.maxHeight = i.scrollHeight + 200 + 'px'; });
+})();
+</script>
+</body>
+</html>

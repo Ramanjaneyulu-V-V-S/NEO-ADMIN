@@ -436,3 +436,79 @@ All services and controllers use **constructor injection** (either explicit cons
 - SQL injection protection: Single quotes are escaped (`replace("'", "''")`) in DQL string interpolation (CaseService, AuthController).
 - User profile updates use a whitelist of allowed property names to prevent arbitrary field modification.
 - `QueryController` allows execution of arbitrary DQL, which should be restricted to authorized support users in a production deployment.
+
+---
+
+## 13. Dashboard Analytics (NSP-22)
+
+### DashboardService
+
+Provides KPI summary and chart data via DQL aggregation queries:
+
+| Method | DQL Pattern | Returns |
+|--------|-------------|---------|
+| `getSummary()` | 4x `COUNT(*)` queries | totalCases, casesThisMonth, activeWorkflows, activeUsers |
+| `getCasesByDepartment()` | `GROUP BY department_name` (top 15) | `[{category, value}]` |
+| `getCasesByStatus()` | `GROUP BY status` | `[{category, value}]` |
+| `getCasesByOffice()` | `GROUP BY ho_ro` | `[{category, value}]` |
+| `getCasesTrend()` | `GROUP BY DATETOSTRING(r_creation_date,'yyyy-mm')` (12 months) | `[{category, value}]` |
+| `getWorkflowStatus()` | `GROUP BY r_runtime_state` (maps 0-5 to labels) | `[{category, value}]` |
+| `getCasesByPriority()` | `GROUP BY task_priority` | `[{category, value}]` |
+| `getUsersByOffice()` | `GROUP BY office_type` | `[{category, value}]` |
+
+### DashboardController
+
+Base path: `/api/dashboard`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/summary` | KPI counts |
+| GET | `/cases-by-dept` | Cases by department (top 15) |
+| GET | `/cases-by-status` | Cases by status |
+| GET | `/cases-by-office` | Cases by HO/RO |
+| GET | `/cases-trend` | Monthly case creation trend |
+| GET | `/workflow-status` | Workflow state distribution |
+| GET | `/cases-by-priority` | Cases by priority |
+| GET | `/users-by-office` | Users by office type |
+
+---
+
+## 14. Digidak Letter Reports (NSP-23)
+
+### DigidakReportService
+
+Provides letter analytics from `cms_digidak_folder` with dynamic filter support. All methods accept a `Map<String, String> filters` parameter that builds a WHERE clause from up to 15 filter fields.
+
+**Supported filters:** loginOfficeType, decision, entryType, status, typeCategory, nature, secrecy, priority, languages, vertical, fileNumber, region, financialYear, fromDate, toDate, isBulkLetter
+
+| Method | Aggregation | Returns |
+|--------|-------------|---------|
+| `getSummary(filters)` | 6x `COUNT(*)` with status filters | total, unread, opened, assigned, closed, inprocess |
+| `getByStatus(filters)` | `GROUP BY status` | `[{category, value}]` |
+| `getByTypeCategory(filters)` | `GROUP BY type_category` | `[{category, value}]` |
+| `getByNature(filters)` | `GROUP BY nature_of_correspondence` | `[{category, value}]` |
+| `getBySecrecy(filters)` | `GROUP BY secrecy` | `[{category, value}]` |
+| `getByPriority(filters)` | `GROUP BY priority` | `[{category, value}]` |
+| `getByVertical(filters)` | `GROUP BY vertical` (top 20) | `[{category, value}]` |
+| `getTrend(filters)` | `GROUP BY DATETOSTRING(entry_date,'yyyy-mm')` | `[{category, value}]` |
+| `getByDecision(filters)` | `GROUP BY decision` | `[{category, value}]` |
+| `getByLanguage(filters)` | `GROUP BY languages` | `[{category, value}]` |
+
+### DigidakReportController
+
+Base path: `/api/reports/digidak`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/summary` | KPI counts (total, unread, opened, assigned, closed, inprocess) |
+| GET | `/by-status` | Letters by status |
+| GET | `/by-type-category` | Letters by task category |
+| GET | `/by-nature` | Letters by nature of correspondence |
+| GET | `/by-secrecy` | Letters by secrecy classification |
+| GET | `/by-priority` | Letters by priority |
+| GET | `/by-vertical` | Letters by vertical/department (top 20) |
+| GET | `/trend` | Monthly letter volume trend |
+| GET | `/by-decision` | Inward vs outward distribution |
+| GET | `/by-language` | Letters by language |
+
+All endpoints accept optional query params for filtering (e.g., `?loginOfficeType=HO&decision=Inward&fromDate=2025-01-01`).

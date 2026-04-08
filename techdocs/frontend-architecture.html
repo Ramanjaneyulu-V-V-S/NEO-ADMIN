@@ -877,7 +877,7 @@ sequenceDiagram
     participant LogModal as Log Modal
 
     User->>CP: Search case number
-    CP->>API: GET /cases/search?caseNumber=X&page=1&size=10
+    CP->>API: GET /cases/search (caseNumber, page, size)
     API-->>CP: {cases: [...], hasNext: bool}
     CP->>CP: Render case table
 
@@ -1101,7 +1101,7 @@ sequenceDiagram
       <div class="diagram-title">Server-Side Pagination Flow</div>
       <pre class="mermaid">
 flowchart LR
-    Input["Search Input"] --> API["GET /endpoint?param=X&page=N&size=S"]
+    Input["Search Input"] --> API["GET /endpoint with params"]
     API --> Response["{ items[], hasNext }"]
     Response --> Table["Render Table"]
     Response --> PaginationControls["First | Prev | Page N | Next"]

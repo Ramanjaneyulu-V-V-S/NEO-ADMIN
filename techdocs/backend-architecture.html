@@ -815,8 +815,8 @@ sequenceDiagram
     alt Service account not configured
         DAS-->>SVC: Falls back to getUserAuthHeader() (Basic Auth)
     else Service account configured
-        DAS->>DAS: Check cached ticket &amp; expiry
-        alt Cached ticket valid (< 9 min old)
+        DAS->>DAS: Check cached ticket and expiry
+        alt Cached ticket valid (under 9 min old)
             DAS-->>SVC: "DmTicket {cached_ticket}"
         else Ticket expired or missing
             DAS->>DAS: Build Basic Auth for service account
@@ -854,16 +854,16 @@ sequenceDiagram
     participant RC as RestClient
     participant DCTM as Documentum REST
 
-    FE->>CC: GET /api/cases/search?caseNumber=...&page=1&size=10
+    FE->>CC: GET /api/cases/search (caseNumber, page, size)
     CC->>CS: searchCases(caseNumber, page, size)
 
     alt caseNumber is blank
-        CS->>CS: Build DQL: SELECT ... FROM cms_case_folder WHERE r_creation_date >= DATE(now - N months) ORDER BY r_creation_date DESC ENABLE(RETURN_TOP page*size)
+        CS->>CS: Build DQL: SELECT ... FROM cms_case_folder WHERE r_creation_date >= DATE(now - N months) ENABLE(RETURN_TOP)
     else caseNumber provided
-        CS->>CS: Build DQL: SELECT ... FROM cms_case_folder WHERE object_name LIKE '%{caseNumber}%' ORDER BY r_creation_date DESC ENABLE(RETURN_TOP page*size)
+        CS->>CS: Build DQL: SELECT ... FROM cms_case_folder WHERE object_name LIKE caseNumber ENABLE(RETURN_TOP)
     end
 
-    CS->>RC: GET /repositories/{repo}?dql=...&items-per-page=...&page=...&inline=true
+    CS->>RC: GET /repositories/repo (dql, items-per-page, page, inline)
     RC->>DCTM: DQL query execution
     DCTM-->>RC: {entries: [...], links: [...]}
     RC-->>CS: response Map
