@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+<<<<<<< HEAD
 import { GitBranch, Users, Compass, Briefcase, UsersRound, Database, Network, ClipboardList, FolderCog, Building2 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -14,6 +15,18 @@ const Sidebar = () => {
         { name: 'Workflows',    path: '/dashboard/workflows', icon: GitBranch,    roles: null },
         { name: 'Groups',       path: '/dashboard/groups',    icon: UsersRound,   roles: null },
         { name: 'Query',        path: '/dashboard/query',     icon: Database,     roles: null },
+=======
+import { GitBranch, Users, Compass, Settings, Briefcase, UsersRound, Database, LayoutDashboard } from 'lucide-react';
+
+const Sidebar = () => {
+    const navItems = [
+        { name: 'Overview', path: '/dashboard/overview', icon: LayoutDashboard },
+        { name: 'Cases', path: '/dashboard/cases', icon: Briefcase },
+        { name: 'Workflows', path: '/dashboard/workflows', icon: GitBranch },
+        { name: 'Groups', path: '/dashboard/groups', icon: UsersRound },
+        { name: 'Users', path: '/dashboard/users', icon: Users },
+        { name: 'Query', path: '/dashboard/query', icon: Database },
+>>>>>>> 1f00b260edcf3382c454a00028d329c01692b990
     ];
 
     const navItems = allNavItems.filter(item => !item.roles || item.roles.includes(adminRole));

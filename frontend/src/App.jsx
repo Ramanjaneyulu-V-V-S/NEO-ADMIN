@@ -7,22 +7,27 @@ import WorkflowsPage from './pages/WorkflowsPage';
 import GroupsPage from './pages/GroupsPage';
 import UsersPage from './pages/UsersPage';
 import QueryPage from './pages/QueryPage';
+<<<<<<< HEAD
 import VerticalsPage from './pages/VerticalsPage';
 import DepartmentPage from './pages/DepartmentPage';
 import InboxPage from './pages/InboxPage';
 import MetadataPage from './pages/MetadataPage';
 import DelegatePage from './pages/DelegatePage';
 import CaseInbox2Page from './pages/CaseInbox2Page';
+=======
+import DashboardPage from './pages/DashboardPage';
+>>>>>>> 1f00b260edcf3382c454a00028d329c01692b990
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        
+
         {/* Protected Dashboard Routes */}
         <Route path="/dashboard" element={<MainLayout />}>
-            <Route index element={<Navigate to="/dashboard/cases" replace />} />
+            <Route index element={<Navigate to="/dashboard/overview" replace />} />
+            <Route path="overview" element={<DashboardPage />} />
             <Route path="cases" element={<CasesPage />} />
             <Route path="workflows" element={<WorkflowsPage />} />
             <Route path="groups" element={<GroupsPage />} />
