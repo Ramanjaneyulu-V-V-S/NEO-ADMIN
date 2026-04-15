@@ -564,7 +564,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
 
             for (const g of oldGroups) {
                 if (!newGroups.includes(g))
-                    api.delete(`/groups/${g}/members/${encodeURIComponent(loginName)}`).catch(() => {});
+                    api.delete(`/groups/${g}/members`, { params: { memberName: loginName, memberType: 'user' } }).catch(() => {});
             }
             for (const g of newGroups) {
                 if (!oldGroups.includes(g))
@@ -597,7 +597,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                 // Designation changed FROM CGM — remove old CGM group
                 const cgmGroup = getCgmGroup(old.officeType, old.roShortCode, old.deptCodes);
                 if (cgmGroup) {
-                    api.delete(`/groups/${cgmGroup}/members/${encodeURIComponent(loginName)}`).catch(() => {});
+                    api.delete(`/groups/${cgmGroup}/members`, { params: { memberName: loginName, memberType: 'user' } }).catch(() => {});
                 }
             }
 

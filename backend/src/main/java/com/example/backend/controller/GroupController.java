@@ -70,11 +70,12 @@ public class GroupController {
 
     /**
      * Remove member from a group
+     * Uses query parameters to handle member names with special characters (e.g., dots)
      */
-    @DeleteMapping("/{groupName}/members/{memberName}")
+    @DeleteMapping("/{groupName}/members")
     public Map<String, Object> removeMember(
             @PathVariable String groupName,
-            @PathVariable String memberName,
+            @RequestParam String memberName,
             @RequestParam(defaultValue = "user") String memberType) {
         return groupService.removeMember(groupName, memberName, memberType);
     }

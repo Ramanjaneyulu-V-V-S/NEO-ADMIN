@@ -526,8 +526,8 @@ const AddMembersTab = ({ setToast }) => {
             });
             // 2. Remove all existing VH members (except the one just added)
             for (const m of vhMembers) {
-                await api.delete(`/groups/${vhGroupName}/members/${m.name}`, {
-                    params: { memberType: 'user' },
+                await api.delete(`/groups/${vhGroupName}/members`, {
+                    params: { memberName: m.name, memberType: 'user' },
                 });
             }
             // 3. Update display name: replace part after last ' -' with new user's name
@@ -1108,8 +1108,8 @@ const RemoveMembersTab = ({ setToast }) => {
         if (!pendingRemove) return;
         setRemoving(true);
         try {
-            await api.delete(`/groups/${selectedGroup}/members/${pendingRemove.name}`, {
-                params: { memberType: pendingRemove.type },
+            await api.delete(`/groups/${selectedGroup}/members`, {
+                params: { memberName: pendingRemove.name, memberType: pendingRemove.type },
             });
             setToast({ type: 'success', message: `'${pendingRemove.name}' removed from '${selectedGroup}'.` });
             setMembers(prev => ({
@@ -1206,8 +1206,8 @@ const RemoveMembersTab = ({ setToast }) => {
             const newHeadDisplayName = newHeadObj?.name || selectedNewHead;
 
             // 1. Remove old head from vertical head group
-            await api.delete(`/groups/${verticalHeadGroup}/members/${verticalHeadUser.name}`, {
-                params: { memberType: 'user' },
+            await api.delete(`/groups/${verticalHeadGroup}/members`, {
+                params: { memberName: verticalHeadUser.name, memberType: 'user' },
             });
 
             // 2. Add new head to vertical head group

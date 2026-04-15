@@ -277,22 +277,30 @@ public class GroupService {
     }
 
     /**
-     * Resolve dm_user.user_name from a user_login_name via DQL.
-     * DCTM REST /users/{name} and group membership require user_name, not user_login_name.
+     * Resolve dm_user.user_name from either user_login_name or user_name via DQL.
+     * Group members are stored as user_name, but search inputs might be user_login_name.
+     * DCTM REST /users/{name} and group membership require user_name.
+     * First tries user_login_name, then falls back to user_name (from group members).
      */
     @SuppressWarnings("unchecked")
-    private String resolveDmUserName(String userLoginName) {
-        String safe = userLoginName.replace("'", "''");
-        String dql  = "SELECT user_name, user_login_name FROM dm_user WHERE user_login_name = '" + safe + "'";
-        String url  = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository()
-                    + "?dql={dql}&items-per-page=1&page=1&inline=true";
+    private String resolveDmUserName(String input) {
+        if (input == null || input.isBlank()) return input;
+
+        String safe = input.replace("'", "''");
+
         try {
+            String url = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository()
+                       + "?dql={dql}&items-per-page=1&page=1&inline=true";
+
+            // Try 1: Look up by user_login_name (for search/add forms)
+            String dql1 = "SELECT user_name, user_login_name FROM dm_user WHERE user_login_name = '" + safe + "'";
             Map<String, Object> response = restClient.get()
-                    .uri(url, dql)
+                    .uri(url, dql1)
                     .header("Authorization", getAuthHeader())
                     .header("Accept", "application/vnd.emc.documentum+json")
                     .retrieve()
                     .body(Map.class);
+
             List<Map<String, Object>> entries = (List<Map<String, Object>>) response.get("entries");
             if (entries != null && !entries.isEmpty()) {
                 Map<String, Object> content = (Map<String, Object>) entries.get(0).get("content");
@@ -301,16 +309,44 @@ public class GroupService {
                     if (props != null) {
                         String userName = (String) props.get("user_name");
                         if (userName != null && !userName.isBlank()) {
-                            log.info("Resolved user_login_name '{}' → dm_user.user_name '{}'", userLoginName, userName);
+                            log.info("Resolved user_login_name '{}' → dm_user.user_name '{}'", input, userName);
                             return userName;
                         }
                     }
                 }
             }
+
+            // Try 2: Look up by user_name directly (for group members removal where name is already user_name)
+            String dql2 = "SELECT user_name FROM dm_user WHERE user_name = '" + safe + "'";
+            response = restClient.get()
+                    .uri(url, dql2)
+                    .header("Authorization", getAuthHeader())
+                    .header("Accept", "application/vnd.emc.documentum+json")
+                    .retrieve()
+                    .body(Map.class);
+
+            entries = (List<Map<String, Object>>) response.get("entries");
+            if (entries != null && !entries.isEmpty()) {
+                Map<String, Object> content = (Map<String, Object>) entries.get(0).get("content");
+                if (content != null) {
+                    Map<String, Object> props = (Map<String, Object>) content.get("properties");
+                    if (props != null) {
+                        String userName = (String) props.get("user_name");
+                        if (userName != null && !userName.isBlank()) {
+                            log.info("Resolved user_name '{}' → already valid dm_user.user_name", input);
+                            return userName;
+                        }
+                    }
+                }
+            }
+
         } catch (Exception e) {
-            log.warn("Could not resolve dm_user.user_name for login_name '{}': {}", userLoginName, e.getMessage());
+            log.warn("Could not resolve dm_user.user_name for input '{}': {}", input, e.getMessage());
         }
-        return userLoginName; // fallback
+
+        // Fallback: return input as-is (it might already be the correct user_name)
+        log.debug("Returning input as-is (assuming it's already user_name): '{}'", input);
+        return input;
     }
 
     /**
@@ -372,33 +408,56 @@ public class GroupService {
     /**
      * Remove a member from a group using DCTM REST API.
      * For users in RO/TE department groups, also cleans up department_short_code_multi from the user profile.
+     * Uses URI templates with variable substitution to properly handle special characters (dots, spaces) in names.
      */
     @SuppressWarnings("unchecked")
     public Map<String, Object> removeMember(String groupName, String memberName, String memberType) {
-        log.info("Removing {} '{}' from group '{}'", memberType, memberName, groupName);
+        log.warn("[REMOVE_MEMBER] Input - groupName='{}', memberName='{}' (length={}), memberType='{}'",
+                 groupName, memberName, (memberName != null ? memberName.length() : 0), memberType);
+        log.warn("[REMOVE_MEMBER] memberName contains dot? {}", (memberName != null && memberName.contains(".")));
 
         try {
-            // Build the correct endpoint URL based on member type
-            String url;
-            if ("user".equalsIgnoreCase(memberType)) {
-                // DELETE /repositories/{repo}/groups/{groupName}/users/{userName}
-                String dctmUserName = resolveDmUserName(memberName);
-                String encodedName = java.net.URLEncoder.encode(dctmUserName, StandardCharsets.UTF_8).replace("+", "%20");
-                url = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository()
-                        + "/groups/" + groupName + "/users/" + encodedName;
-            } else {
-                // DELETE /repositories/{repo}/groups/{groupName}/groups/{memberName}
-                url = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository()
-                        + "/groups/" + groupName + "/groups/" + memberName;
-            }
+            String baseUrl = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository();
 
-            // Remove the member using the dedicated REST endpoint
-            restClient.delete()
-                    .uri(url)
-                    .header("Authorization", getAuthHeader())
-                    .header("Accept", "application/vnd.emc.documentum+json")
-                    .retrieve()
-                    .toBodilessEntity();
+            if ("user".equalsIgnoreCase(memberType)) {
+                // Resolve user name
+                String dctmUserName = resolveDmUserName(memberName);
+                log.warn("[DEBUG-REMOVE] memberName input='{}' (len={}), dctmUserName resolved='{}' (len={})",
+                         memberName, memberName.length(), dctmUserName, dctmUserName.length());
+
+                // Pre-encode the user name to preserve special characters (dots, spaces, etc.)
+                // URLEncoder.encode() encodes spaces as '+' and handles dots properly
+                String encodedUserName = java.net.URLEncoder.encode(dctmUserName, StandardCharsets.UTF_8)
+                                         .replace("+", "%20")   // Convert + back to %20 for spaces
+                                         .replace("%2E", ".");  // Decode dots back (they should not be encoded)
+
+                log.warn("[DEBUG-REMOVE] Encoded userName: '{}' (from: '{}')", encodedUserName, dctmUserName);
+
+                // Build URL directly with encoded name to bypass RestClient's URI template encoding issues
+                String url = baseUrl + "/groups/" + groupName + "/users/" + encodedUserName;
+                log.warn("[DEBUG-REMOVE] Full URL: '{}'", url);
+
+                restClient.delete()
+                        .uri(url)
+                        .header("Authorization", getAuthHeader())
+                        .header("Accept", "application/vnd.emc.documentum+json")
+                        .retrieve()
+                        .toBodilessEntity();
+
+                log.warn("[DEBUG-REMOVE] User removed successfully from group via REST API");
+            } else {
+                // For group members, use direct endpoint
+                String urlTemplate = baseUrl + "/groups/{groupName}/groups/{memberName}";
+
+                restClient.delete()
+                        .uri(urlTemplate, groupName, memberName)
+                        .header("Authorization", getAuthHeader())
+                        .header("Accept", "application/vnd.emc.documentum+json")
+                        .retrieve()
+                        .toBodilessEntity();
+
+                log.info("[Remove] Group removed from group via REST API");
+            }
 
             // For user removals from RO/TE department groups, clean up department code
             if ("user".equalsIgnoreCase(memberType)) {

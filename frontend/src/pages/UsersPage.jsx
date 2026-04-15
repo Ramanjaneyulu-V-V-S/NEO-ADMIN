@@ -2399,8 +2399,8 @@ const UserAccessTab = ({ onToast }) => {
     const handleRemoveLocalAdmin = async (user) => {
         setActionInProgress({ user: user.object_name, action: 'removeAdmin' });
         try {
-            await api.delete(`/groups/ecm_local_admin/members/${encodeURIComponent(user.object_name)}`, {
-                params: { memberType: 'user' },
+            await api.delete(`/groups/ecm_local_admin/members`, {
+                params: { memberName: user.object_name, memberType: 'user' },
             });
             setLocalAdmins(prev => { const s = new Set(prev); s.delete(user.object_name); return s; });
             onToast({ type: 'success', message: `Local Admin removed from '${user.object_name}'.` });
@@ -2455,8 +2455,8 @@ const UserAccessTab = ({ onToast }) => {
         setActionInProgress({ user: user.object_name, action: 'removeCgm' });
         try {
             await Promise.all(groups.map(g =>
-                api.delete(`/groups/${g}/members/${encodeURIComponent(user.object_name)}`, {
-                    params: { memberType: 'user' },
+                api.delete(`/groups/${g}/members`, {
+                    params: { memberName: user.object_name, memberType: 'user' },
                 })
             ));
             setCgmSects(prev => { const s = new Set(prev); s.delete(user.object_name); return s; });

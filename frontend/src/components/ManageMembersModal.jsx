@@ -93,8 +93,8 @@ const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
         setProcessing(true);
         try {
             const response = await axios.delete(
-                `/groups/${groupName}/members/${memberName}`,
-                { params: { memberType } }
+                `/groups/${groupName}/members`,
+                { params: { memberName, memberType } }
             );
 
             if (response.data.success) {
