@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.example</groupId>
-	<artifactId>backend</artifactId>
+	<artifactId>neoadminBackend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>war</packaging>
-	<name>backend</name>
+	<name>neoadminBackend</name>
 	<description>Backend application</description>
 	<url/>
 	<licenses>
@@ -63,13 +63,6 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-
-		<!-- Exclude embedded Tomcat so the WAR runs in an external Tomcat -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-tomcat</artifactId>
-			<scope>provided</scope>
-		</dependency>
 	</dependencies>
 
 	<build>
@@ -91,6 +84,7 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
+					<skip>true</skip>
 					<excludes>
 						<exclude>
 							<groupId>org.projectlombok</groupId>

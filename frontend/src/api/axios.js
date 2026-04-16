@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "/backend/api",
+  baseURL: "/neoadminBackend/api",
   headers: {
     "Content-Type": "application/json",
   },
