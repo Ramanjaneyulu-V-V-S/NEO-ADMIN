@@ -370,7 +370,8 @@ public class GroupService {
     }
 
     /**
-     * Remove a member from a group using DCTM REST API.
+     * Remove a member from a group using ALTER GROUP ... DROP DML query.
+     * Executes via DCTM REST API batch operations endpoint with elevated service account permissions.
      * For users in RO/TE department groups, also cleans up department_short_code_multi from the user profile.
      */
     @SuppressWarnings("unchecked")
@@ -378,27 +379,43 @@ public class GroupService {
         log.info("Removing {} '{}' from group '{}'", memberType, memberName, groupName);
 
         try {
-            // Build the correct endpoint URL based on member type
-            String url;
+            // Build the ALTER GROUP ... DROP query
+            String dmlQuery;
             if ("user".equalsIgnoreCase(memberType)) {
-                // DELETE /repositories/{repo}/groups/{groupName}/users/{userName}
+                // Resolve the DCTM username
                 String dctmUserName = resolveDmUserName(memberName);
-                String encodedName = java.net.URLEncoder.encode(dctmUserName, StandardCharsets.UTF_8).replace("+", "%20");
-                url = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository()
-                        + "/groups/" + groupName + "/users/" + encodedName;
+                // Execute: ALTER GROUP groupName DROP memberName
+                dmlQuery = String.format("ALTER GROUP %s DROP %s", groupName, dctmUserName);
             } else {
-                // DELETE /repositories/{repo}/groups/{groupName}/groups/{memberName}
-                url = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository()
-                        + "/groups/" + groupName + "/groups/" + memberName;
+                // Execute: ALTER GROUP groupName DROP memberName
+                dmlQuery = String.format("ALTER GROUP %s DROP %s", groupName, memberName);
             }
 
-            // Remove the member using the dedicated REST endpoint
-            restClient.delete()
-                    .uri(url)
+            log.info("Executing ALTER GROUP query: {}", dmlQuery);
+
+            // Execute via DCTM REST API batch endpoint with service account permissions
+            String baseUrl = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository() + "/batch";
+
+            // Prepare batch request body
+            Map<String, Object> batchRequest = new HashMap<>();
+            List<Map<String, String>> commands = new ArrayList<>();
+            Map<String, String> command = new HashMap<>();
+            command.put("command", dmlQuery);
+            commands.add(command);
+            batchRequest.put("commands", commands);
+
+            log.debug("Sending batch request to: {}", baseUrl);
+
+            restClient.post()
+                    .uri(baseUrl)
                     .header("Authorization", getAuthHeader())
+                    .header("Content-Type", "application/json")
                     .header("Accept", "application/vnd.emc.documentum+json")
+                    .body(batchRequest)
                     .retrieve()
-                    .toBodilessEntity();
+                    .body(Map.class);
+
+            log.debug("Batch command executed successfully");
 
             // For user removals from RO/TE department groups, clean up department code
             if ("user".equalsIgnoreCase(memberType)) {
