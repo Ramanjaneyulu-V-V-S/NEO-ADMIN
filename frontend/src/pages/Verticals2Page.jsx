@@ -242,6 +242,19 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const containerRef = useRef(null);
+    const panelRef     = useRef(null);
+    const [panelStyle, setPanelStyle] = useState({});
+
+    const openPanel = () => {
+        if (containerRef.current) {
+            const r = containerRef.current.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - r.bottom - 8;
+            const panelH = Math.min(options.length * 36 + 8, 256);
+            const top = spaceBelow >= panelH ? r.bottom + 4 : Math.max(8, r.top - panelH - 4);
+            setPanelStyle({ top, left: r.left, width: r.width, maxHeight: Math.min(panelH, 256) });
+        }
+        setIsOpen(true);
+    };
 
     const filteredOptions = options.filter(o =>
         o.label.toLowerCase().includes(searchTerm.toLowerCase())
@@ -261,7 +274,8 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
 
     useEffect(() => {
         const handleClickOutside = (e) => {
-            if (containerRef.current && !containerRef.current.contains(e.target)) {
+            if (containerRef.current && !containerRef.current.contains(e.target) &&
+                panelRef.current && !panelRef.current.contains(e.target)) {
                 setIsOpen(false);
             }
         };
@@ -295,7 +309,7 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
                         placeholder={value.length === 0 ? placeholder : 'Search...'}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        onFocus={() => setIsOpen(true)}
+                        onFocus={openPanel}
                         disabled={disabled}
                         className="flex-1 outline-none text-sm py-1 px-1 min-w-32 bg-transparent"
                     />
@@ -303,7 +317,7 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
             </div>
 
             {isOpen && !disabled && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
+                <div ref={panelRef} style={panelStyle} className="fixed bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] overflow-y-auto overscroll-contain">
                     {filteredOptions.length > 0 ? (
                         filteredOptions.map(opt => (
                             <button
@@ -884,7 +898,7 @@ const AddMembersTab = ({ setToast }) => {
                                 ? <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-slate-400" /></div>
                                 : [...verticalMembers.users, ...verticalMembers.groups].length === 0
                                     ? <p className="text-xs text-slate-400 text-center py-3">No members</p>
-                                    : <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                    : <div className="space-y-1.5 max-h-48 overflow-y-auto overscroll-contain">
                                         {[...verticalMembers.users, ...verticalMembers.groups].map(m => (
                                             <div key={`${m.type}-${m.name}`} className="flex items-center gap-2 text-xs">
                                                 <MemberTag type={m.type} />
@@ -1748,7 +1762,7 @@ const RemoveMembersTab = ({ setToast }) => {
                                                                         <span className="text-xs font-semibold text-slate-600">Pending Cases</span>
                                                                         <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">{inboxTotal}</span>
                                                                     </div>
-                                                                    <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                                                                    <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto overscroll-contain">
                                                                         {inboxTasks.map((task, idx) => {
                                                                             const pf = (f) => task[`packagescase_folder${f}`] || task[f] || '';
                                                                             const caseName = pf('object_name') || task.caseName || '—';

@@ -29,7 +29,7 @@ const LoginPage = () => {
             const response = await api.post('/auth/login', formData);
             if (response.data.authenticated) {
                 localStorage.setItem('user', JSON.stringify(response.data.userDetails));
-                navigate('/dashboard');
+                navigate('/dashboard/users');
             } else {
                 setError(response.data.message || 'Authentication failed');
             }
@@ -66,7 +66,7 @@ const LoginPage = () => {
                         <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
                             <Compass size={28} className="text-white" />
                         </div>
-                        <span className="text-2xl font-bold tracking-tight">NB Admin</span>
+                        <span className="text-2xl font-bold tracking-tight">NEO Admin Portal</span>
                     </div>
                 </div>
 
@@ -99,7 +99,7 @@ const LoginPage = () => {
                                     name="username"
                                     value={formData.username}
                                     onChange={handleChange}
-                                    className="block w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg
+                                    className="block w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg
                                              text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2]
                                              transition-all text-sm"
                                     placeholder="Username"
@@ -119,7 +119,7 @@ const LoginPage = () => {
                                     name="password"
                                     value={formData.password}
                                     onChange={handleChange}
-                                    className="block w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-lg
+                                    className="block w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg
                                              text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2]
                                              transition-all text-sm"
                                     placeholder="Password"
@@ -159,7 +159,7 @@ const LoginPage = () => {
                             type="submit"
                             disabled={isLoading}
                             className="w-full flex items-center justify-center py-2.5 px-4 rounded-lg shadow-sm text-sm font-bold text-white 
-                                     bg-[#1877F2] hover:bg-[#166fe5] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1877F2] 
+                                     bg-[#0A66C2] hover:bg-[#094d92] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0A66C2] 
                                      disabled:opacity-70 disabled:cursor-not-allowed transition-all gap-2"
                         >
                             {isLoading ? (

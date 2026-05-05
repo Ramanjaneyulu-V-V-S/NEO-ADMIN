@@ -148,7 +148,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                     <Hash size={14} className="text-slate-400" />
                     <span className="text-sm font-semibold text-slate-700">Existing File Numbers</span>
                     {!loading && (
-                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full">
+                        <span className="px-2 py-0.5 bg-blue-100 text-[#0A66C2] text-xs font-semibold rounded-full">
                             {items.length}
                         </span>
                     )}
@@ -161,7 +161,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
 
             {loading ? (
                 <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                    <Loader2 size={18} className="animate-spin text-indigo-500" />
+                    <Loader2 size={18} className="animate-spin text-[#0A66C2]" />
                     <span className="text-sm">Loading…</span>
                 </div>
             ) : error ? (
@@ -191,7 +191,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                 const isConfirming = confirmId === item.r_object_id;
                                 const isDeleting   = deleting  === item.r_object_id;
                                 const isEditing    = editingId === item.r_object_id;
-                                const rowBg = isEditing ? 'bg-blue-50' : isConfirming ? 'bg-red-50' : 'hover:bg-indigo-50/30';
+                                const rowBg = isEditing ? 'bg-blue-50' : isConfirming ? 'bg-red-50' : 'hover:bg-blue-50/30';
                                 return (
                                     <tr key={item.r_object_id || idx}
                                         className={`transition-colors ${rowBg}`}>
@@ -357,8 +357,8 @@ const FileNumberTab = ({ onToast }) => {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
             {/* ── Left: creation form ── */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-slate-50 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm shrink-0">
+                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm shrink-0">
                         <FileText size={17} className="text-white" />
                     </div>
                     <div>
@@ -490,7 +490,7 @@ const FileNumberTab = ({ onToast }) => {
                             Reset
                         </button>
                         <button type="submit" disabled={submitting}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
+                            className="flex items-center gap-2 px-5 py-2.5 bg-[#0A66C2] hover:bg-[#094d92] disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
                             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                             {submitting ? 'Creating…' : 'Create File Number'}
                         </button>
@@ -559,8 +559,8 @@ const CaseTypeTab = ({ onToast }) => {
             {/* Create form */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                        <FolderOpen size={20} className="text-indigo-600" />
+                    <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                        <FolderOpen size={20} className="text-[#0A66C2]" />
                     </div>
                     <div>
                         <p className="text-sm font-semibold text-slate-900">Create Case Type</p>
@@ -586,7 +586,7 @@ const CaseTypeTab = ({ onToast }) => {
                     disabled={!caseType.trim() || submitting}
                     className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                         caseType.trim() && !submitting
-                            ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-500/20'
+                            ? 'bg-[#0A66C2] text-white hover:bg-[#094d92] shadow-md shadow-blue-600/20'
                             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                     }`}
                 >
@@ -609,11 +609,11 @@ const CaseTypeTab = ({ onToast }) => {
                 ) : items.length === 0 ? (
                     <div className="text-center py-10 text-slate-400 text-sm">No case types found</div>
                 ) : (
-                    <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+                    <div className="space-y-1.5 max-h-[400px] overflow-y-auto overscroll-contain">
                         {items.map((item, idx) => (
                             <div key={item.r_object_id || idx}
                                 className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-lg">
-                                <FolderOpen size={14} className="text-indigo-500 shrink-0" />
+                                <FolderOpen size={14} className="text-[#0A66C2] shrink-0" />
                                 <span className="text-sm text-slate-800 font-medium">{item.object_name}</span>
                             </div>
                         ))}
@@ -664,8 +664,8 @@ const HindiCommentsTab = ({ onToast }) => {
             {/* Create form */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                        <MessageSquareText size={20} className="text-indigo-600" />
+                    <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                        <MessageSquareText size={20} className="text-[#0A66C2]" />
                     </div>
                     <div>
                         <p className="text-sm font-semibold text-slate-900">Add Hindi Comment</p>
@@ -691,7 +691,7 @@ const HindiCommentsTab = ({ onToast }) => {
                     disabled={!comment.trim() || submitting}
                     className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                         comment.trim() && !submitting
-                            ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-500/20'
+                            ? 'bg-[#0A66C2] text-white hover:bg-[#094d92] shadow-md shadow-blue-600/20'
                             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                     }`}
                 >
@@ -705,7 +705,7 @@ const HindiCommentsTab = ({ onToast }) => {
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-slate-700">Existing Hindi Comments</span>
                         {items.length > 0 && (
-                            <span className="text-xs bg-indigo-50 text-indigo-600 font-semibold px-2 py-0.5 rounded-full">{items.length}</span>
+                            <span className="text-xs bg-blue-50 text-[#0A66C2] font-semibold px-2 py-0.5 rounded-full">{items.length}</span>
                         )}
                     </div>
                     <button onClick={() => setRefreshKey(k => k + 1)}
@@ -719,11 +719,11 @@ const HindiCommentsTab = ({ onToast }) => {
                 ) : items.length === 0 ? (
                     <div className="text-center py-10 text-slate-400 text-sm">No hindi comments found</div>
                 ) : (
-                    <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+                    <div className="space-y-1.5 max-h-[400px] overflow-y-auto overscroll-contain">
                         {items.map((item, idx) => (
                             <div key={item.r_object_id || idx}
                                 className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-lg">
-                                <MessageSquareText size={14} className="text-indigo-500 shrink-0" />
+                                <MessageSquareText size={14} className="text-[#0A66C2] shrink-0" />
                                 <span className="text-sm text-slate-800 font-medium">{item.object_name}</span>
                             </div>
                         ))}
@@ -754,7 +754,7 @@ const CaseSection = ({ onToast, isLocalAdmin }) => {
                     <button key={t.id} onClick={() => setActiveTab(t.id)}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                             activeTab === t.id
-                                ? 'bg-white text-indigo-700 shadow-sm'
+                                ? 'bg-white text-[#0A66C2] shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'
                         }`}>
                         <t.icon size={15} />
@@ -869,8 +869,8 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
             {/* Left: form (only shown if add allowed) */}
             {allowAdd && (
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-slate-50 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm shrink-0">
+                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm shrink-0">
                         <Tag size={17} className="text-white" />
                     </div>
                     <div>
@@ -889,7 +889,7 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                     </div>
                     <div className="flex items-center justify-end pt-2 border-t border-slate-100">
                         <button type="submit" disabled={submitting || !value.trim()}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
+                            className="flex items-center gap-2 px-5 py-2.5 bg-[#0A66C2] hover:bg-[#094d92] disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
                             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                             {submitting ? 'Adding…' : 'Add'}
                         </button>
@@ -905,7 +905,7 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                         <Hash size={14} className="text-slate-400" />
                         <span className="text-sm font-semibold text-slate-700">{listLabel}</span>
                         {!loading && (
-                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full">
+                            <span className="px-2 py-0.5 bg-blue-100 text-[#0A66C2] text-xs font-semibold rounded-full">
                                 {items.length}
                             </span>
                         )}
@@ -918,7 +918,7 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
 
                 {loading ? (
                     <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                        <Loader2 size={18} className="animate-spin text-indigo-500" />
+                        <Loader2 size={18} className="animate-spin text-[#0A66C2]" />
                         <span className="text-sm">Loading…</span>
                     </div>
                 ) : error ? (
@@ -942,7 +942,7 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                                     const isEditing    = editingId  === item.r_object_id;
                                     const isConfirming = confirmId  === item.r_object_id;
                                     const isDeleting   = deleting   === item.r_object_id;
-                                    const rowBg = isEditing ? 'bg-blue-50' : isConfirming ? 'bg-red-50' : 'hover:bg-indigo-50/30';
+                                    const rowBg = isEditing ? 'bg-blue-50' : isConfirming ? 'bg-red-50' : 'hover:bg-blue-50/30';
                                     return (
                                         <tr key={item.r_object_id || idx} className={`transition-colors ${rowBg}`}>
                                             <td className="px-4 py-2.5 text-slate-400 text-xs font-mono">{idx + 1}</td>
@@ -1021,7 +1021,7 @@ const NatureOfCorrespondenceSection = ({ onToast }) => {
                     <button key={t.id} onClick={() => setActiveTab(t.id)}
                         className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                             activeTab === t.id
-                                ? 'bg-white text-indigo-700 shadow-sm'
+                                ? 'bg-white text-[#0A66C2] shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'
                         }`}>
                         {t.label}
@@ -1071,7 +1071,7 @@ const DigidakSection = ({ onToast }) => {
                     <button key={t.id} onClick={() => setActiveTab(t.id)}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                             activeTab === t.id
-                                ? 'bg-white text-indigo-700 shadow-sm'
+                                ? 'bg-white text-[#0A66C2] shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'
                         }`}>
                         {t.label}
@@ -1146,7 +1146,7 @@ const MetadataPage = () => {
                         <button key={t.id} onClick={() => setActiveTab(t.id)}
                             className={`flex items-center gap-2 px-4 py-3.5 text-sm font-medium border-b-2 transition-all ${
                                 activeTab === t.id
-                                    ? 'border-indigo-600 text-indigo-700'
+                                    ? 'border-[#0A66C2] text-[#0A66C2]'
                                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                             }`}>
                             <t.icon size={15} />
@@ -1157,7 +1157,7 @@ const MetadataPage = () => {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-6">
                 {activeTab === 'case'    && <CaseSection onToast={setToast} isLocalAdmin={isLocalAdmin} />}
                 {activeTab === 'digidak' && <DigidakSection onToast={setToast} />}
             </div>

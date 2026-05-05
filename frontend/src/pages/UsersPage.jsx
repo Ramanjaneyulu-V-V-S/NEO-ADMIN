@@ -8,6 +8,9 @@ import {
     Briefcase, Building2, Hash, MapPin, ToggleLeft, GraduationCap, Layers, Save
 } from 'lucide-react';
 import EditUserProfileModal from '../components/EditUserProfileModal.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import SkeletonLoader from '../components/ui/SkeletonLoader.jsx';
+import CustomSelect from '../components/ui/CustomSelect.jsx';
 import { USER_GRADES, DESIGNATION_OPTIONS, fetchDepartments, getLocations } from '../data/nabardMetadata.js';
 
 // ─── Fetch all users across pages (Documentum REST caps at 2000/page) ────────
@@ -154,7 +157,7 @@ const EditDmUserModal = ({ user, isOpen, onClose, onSaved, onToast }) => {
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto overscroll-contain p-6">
                     {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>}
                     <form id="editDmUserForm" onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-1">
@@ -169,23 +172,15 @@ const EditDmUserModal = ({ user, isOpen, onClose, onSaved, onToast }) => {
                                 User State (OTDS)
                                 {loadingState && <Loader2 size={11} className="animate-spin text-slate-400 inline ml-1" />}
                             </Lbl>
-                            <div className="relative">
-                                <select value={form.user_state}
-                                    disabled={loadingState}
-                                    onChange={e => set('user_state', Number(e.target.value))}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2] bg-white appearance-none cursor-pointer disabled:bg-slate-50 disabled:cursor-wait">
-                                    <option value={0}>Active</option>
-                                    <option value={1}>Inactive</option>
-                                </select>
-                                <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                                    {loadingState
-                                        ? <Loader2 size={13} className="animate-spin text-slate-400" />
-                                        : <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                          </svg>
-                                    }
-                                </div>
-                            </div>
+                            <CustomSelect
+                                value={form.user_state}
+                                onChange={v => set('user_state', Number(v))}
+                                disabled={loadingState}
+                                options={[
+                                    { value: 0, label: 'Active' },
+                                    { value: 1, label: 'Inactive' },
+                                ]}
+                            />
                             {form.user_state === 1 && !loadingState && (
                                 <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
                                     <AlertCircle size={12} /> Saving will disable the OTDS account.
@@ -351,19 +346,12 @@ const DmUserTab = ({ onToast }) => {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
-                                <tr><td colSpan="5" className="px-4 py-20 text-center">
-                                    <div className="flex flex-col items-center justify-center text-slate-500">
-                                        <Loader2 size={32} className="animate-spin text-violet-600 mb-3" />
-                                        <p className="text-sm font-medium">Loading Documentum users...</p>
-                                    </div>
+                                <tr><td colSpan="5" className="p-0">
+                                    <SkeletonLoader columns={5} rows={5} />
                                 </td></tr>
                             ) : currentUsers.length === 0 ? (
-                                <tr><td colSpan="5" className="px-4 py-16 text-center text-slate-500">
-                                    <div className="flex flex-col items-center justify-center">
-                                        <Users className="h-12 w-12 text-slate-200 mb-3" />
-                                        <p className="text-base font-medium text-slate-600">No users found</p>
-                                        <p className="text-sm mt-1">Try adjusting your search terms</p>
-                                    </div>
+                                <tr><td colSpan="5" className="p-0">
+                                    <EmptyState title="No users found" description="Try adjusting your search terms" icon={Users} />
                                 </td></tr>
                             ) : currentUsers.map((user, idx) => (
                                 <tr key={user.user_name || idx} className="hover:bg-violet-50/30 transition-colors group">
@@ -433,7 +421,6 @@ const DmUserTab = ({ onToast }) => {
 
 // ─── User Directory Tab (wrapper with cms_user_profile + dm_user sub-tabs) ────
 const UserDirectoryTab = ({ onToast }) => {
-    const [subTab, setSubTab] = useState('profiles');
     return (
         <div className="flex-1 flex flex-col overflow-hidden">
             <CmsProfileTab onToast={onToast} />
@@ -447,7 +434,11 @@ const CmsProfileTab = ({ onToast }) => {
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize] = useState(15);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [filterName, setFilterName] = useState('');
+    const [filterUin, setFilterUin] = useState('');
+    const [filterGrade, setFilterGrade] = useState('');
+    const [filterDeptCode, setFilterDeptCode] = useState('');
+    const [filterRoCode, setFilterRoCode] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: 'object_name', direction: 'asc' });
     const [selectedUser, setSelectedUser] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -502,12 +493,20 @@ const CmsProfileTab = ({ onToast }) => {
         if (!isLocalAdmin || !profileCtx || !profileOfficeType) return;
         if (profileOfficeType === 'HO') {
             if (!localAdminDeptNames) return;
-            fetchUsers(profileOfficeType, '', localAdminDeptNames);
+            const selectedDept = allDepts.find(d => d.shortCode === filterDeptCode);
+            fetchUsers(profileOfficeType, '', selectedDept?.name || localAdminDeptNames);
         } else {
             if (!profileLocation) return;
             fetchUsers(profileOfficeType, profileLocation, '');
         }
-    }, [isLocalAdmin, profileCtx, profileOfficeType, profileLocation, localAdminDeptNames]);
+    }, [isLocalAdmin, profileCtx, profileOfficeType, profileLocation, localAdminDeptNames, filterDeptCode, allDepts]);
+
+    // For Super Admin: re-fetch when filter changes
+    useEffect(() => {
+        if (isLocalAdmin) return;
+        const selectedDept = allDepts.find(d => d.shortCode === filterDeptCode);
+        fetchUsers(null, '', selectedDept?.name || '');
+    }, [isLocalAdmin, filterDeptCode, allDepts]);
 
     const fetchUsers = async (officeTypeFilter, locationFilter, deptNames) => {
         setLoading(true);
@@ -522,18 +521,33 @@ const CmsProfileTab = ({ onToast }) => {
         }
     };
 
+    const gradeOptions = useMemo(() => {
+        const seen = new Set();
+        return allUsers.map(u => u.user_grade).filter(g => g && !seen.has(g) && seen.add(g)).sort()
+            .map(g => ({ value: g, label: g }));
+    }, [allUsers]);
+
+    const roCodeOptions = useMemo(() => {
+        const seen = new Set();
+        return allUsers.map(u => u.ro_short_code).filter(r => r && !seen.has(r) && seen.add(r)).sort()
+            .map(r => ({ value: r, label: r }));
+    }, [allUsers]);
+
     const processedUsers = useMemo(() => {
         let result = [...allUsers];
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase().trim();
+        if (filterName.trim()) {
+            const q = filterName.toLowerCase().trim();
             result = result.filter(u =>
-                (u.object_name?.toLowerCase() || '').includes(query) ||
-                (u.user_login_name?.toLowerCase() || '').includes(query) ||
-                (u.uin?.toLowerCase() || '').includes(query) ||
-                (u.department_name?.toLowerCase() || '').includes(query) ||
-                (u.designation?.toLowerCase() || '').includes(query)
+                (u.object_name?.toLowerCase() || '').includes(q) ||
+                (u.user_login_name?.toLowerCase() || '').includes(q)
             );
         }
+        if (filterUin.trim()) {
+            const q = filterUin.toLowerCase().trim();
+            result = result.filter(u => (u.uin?.toLowerCase() || '').includes(q));
+        }
+        if (filterGrade)  result = result.filter(u => u.user_grade === filterGrade);
+        if (filterRoCode) result = result.filter(u => u.ro_short_code === filterRoCode);
         if (sortConfig.key) {
             result.sort((a, b) => {
                 const av = a[sortConfig.key] || '';
@@ -544,7 +558,7 @@ const CmsProfileTab = ({ onToast }) => {
             });
         }
         return result;
-    }, [allUsers, searchQuery, sortConfig]);
+    }, [allUsers, filterName, filterUin, filterGrade, filterRoCode, sortConfig]);
 
     const totalItems  = processedUsers.length;
     const totalPages  = Math.ceil(totalItems / pageSize);
@@ -575,28 +589,88 @@ const CmsProfileTab = ({ onToast }) => {
         </th>
     );
 
+    const hasActiveFilters = filterName || filterUin || filterGrade || filterDeptCode || filterRoCode;
+    const clearAllFilters = () => {
+        setFilterName(''); setFilterUin(''); setFilterGrade('');
+        setFilterDeptCode(''); setFilterRoCode('');
+        setCurrentPage(1);
+    };
+
     return (
         <div className="flex flex-col flex-1 overflow-hidden">
-            {/* Search bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                <div className="text-sm text-slate-500 font-medium">
-                    {!loading && <span><span className="text-slate-900 font-semibold">{totalItems}</span> users found</span>}
-                </div>
-                <div className="relative">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                        placeholder="Search by Name, UIN, Dept..."
-                        className="w-full sm:w-72 pl-9 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] shadow-sm"
-                    />
-                    {searchQuery && (
-                        <button onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded-full">
-                            <X size={14} />
-                        </button>
+            {/* Per-column filters */}
+            <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm mb-4">
+                <div className="flex flex-wrap items-end gap-3">
+                    {/* Name */}
+                    <div className="flex flex-col gap-1 min-w-[160px]">
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</label>
+                        <div className="relative">
+                            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input type="text" value={filterName}
+                                onChange={e => { setFilterName(e.target.value); setCurrentPage(1); }}
+                                placeholder="Search name…"
+                                className="w-full pl-7 pr-7 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2]" />
+                            {filterName && <button onClick={() => { setFilterName(''); setCurrentPage(1); }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X size={12} /></button>}
+                        </div>
+                    </div>
+
+                    {/* UIN */}
+                    <div className="flex flex-col gap-1 min-w-[120px]">
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">UIN</label>
+                        <div className="relative">
+                            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input type="text" value={filterUin}
+                                onChange={e => { setFilterUin(e.target.value); setCurrentPage(1); }}
+                                placeholder="Search UIN…"
+                                className="w-full pl-7 pr-7 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2]" />
+                            {filterUin && <button onClick={() => { setFilterUin(''); setCurrentPage(1); }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X size={12} /></button>}
+                        </div>
+                    </div>
+
+                    {/* Grade */}
+                    <div className="flex flex-col gap-1 min-w-[150px]">
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Grade</label>
+                        <CustomSelect value={filterGrade} onChange={v => { setFilterGrade(v); setCurrentPage(1); }}
+                            placeholder="All grades" options={gradeOptions} />
+                    </div>
+
+                    {/* Department */}
+                    {(isLocalAdmin ? filteredDepts.length > 1 : allDepts.length > 0) && (
+                        <div className="flex flex-col gap-1 min-w-[200px]">
+                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Department</label>
+                            <CustomSelect value={filterDeptCode}
+                                onChange={v => { setFilterDeptCode(v); setCurrentPage(1); }}
+                                placeholder={isLocalAdmin ? "All my depts" : "All departments"}
+                                options={(isLocalAdmin ? filteredDepts : allDepts).map(d => ({ value: d.shortCode, label: `${d.name} (${d.shortCode})` }))} />
+                        </div>
                     )}
+
+                    {/* RO Code */}
+                    {roCodeOptions.length > 0 && (
+                        <div className="flex flex-col gap-1 min-w-[120px]">
+                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">RO Code</label>
+                            <CustomSelect value={filterRoCode} onChange={v => { setFilterRoCode(v); setCurrentPage(1); }}
+                                placeholder="All RO codes" options={roCodeOptions} />
+                        </div>
+                    )}
+
+                    {/* Count + Clear */}
+                    <div className="flex flex-col gap-1 ml-auto items-end">
+                        <span className="text-xs text-slate-400 invisible">x</span>
+                        <div className="flex items-center gap-2">
+                            {!loading && <span className="text-sm text-slate-500 whitespace-nowrap">
+                                <span className="text-slate-900 font-semibold">{totalItems}</span> users
+                            </span>}
+                            {hasActiveFilters && (
+                                <button onClick={clearAllFilters}
+                                    className="flex items-center gap-1 px-2.5 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap">
+                                    <X size={11} /> Clear all
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -611,24 +685,19 @@ const CmsProfileTab = ({ onToast }) => {
                                 <SortableHeader label="UIN"         columnKey="uin" />
                                 <SortableHeader label="Grade"       columnKey="user_grade" />
                                 <SortableHeader label="Designation" columnKey="designation" />
+                                <SortableHeader label="Department"  columnKey="department_short_code" />
+                                <SortableHeader label="RO Code"     columnKey="ro_short_code" />
                                 <th className="px-4 py-3 font-semibold text-slate-700 w-16 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
-                                <tr><td colSpan="5" className="px-4 py-20 text-center">
-                                    <div className="flex flex-col items-center justify-center text-slate-500">
-                                        <Loader2 size={32} className="animate-spin text-[#0A66C2] mb-3" />
-                                        <p className="text-sm font-medium">Loading user profiles...</p>
-                                    </div>
+                                <tr><td colSpan="8" className="p-0">
+                                    <SkeletonLoader columns={8} rows={10} />
                                 </td></tr>
                             ) : currentUsers.length === 0 ? (
-                                <tr><td colSpan="5" className="px-4 py-16 text-center text-slate-500">
-                                    <div className="flex flex-col items-center justify-center">
-                                        <Users className="h-12 w-12 text-slate-200 mb-3" />
-                                        <p className="text-base font-medium text-slate-600">No users found</p>
-                                        <p className="text-sm mt-1">Try adjusting your search terms</p>
-                                    </div>
+                                <tr><td colSpan="8" className="p-0">
+                                    <EmptyState title="No users found" description="Try adjusting your search terms" icon={Users} />
                                 </td></tr>
                             ) : currentUsers.map((user, idx) => (
                                 <tr key={user.r_object_id || idx} className="hover:bg-blue-50/30 transition-colors group">
@@ -648,6 +717,8 @@ const CmsProfileTab = ({ onToast }) => {
                                         ) : '-'}
                                     </td>
                                     <td className="px-4 py-3 text-slate-600">{user.designation || '-'}</td>
+                                    <td className="px-4 py-3 text-slate-600 font-mono text-xs">{user.department_short_code || '-'}</td>
+                                    <td className="px-4 py-3 text-slate-600 font-mono text-xs">{user.ro_short_code || '-'}</td>
                                     <td className="px-4 py-3 text-center">
                                         <button onClick={() => { setSelectedUser(user); setIsEditModalOpen(true); }}
                                             className="p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-400 hover:text-[#0A66C2] hover:shadow-sm rounded-lg transition-all"
@@ -1160,7 +1231,7 @@ const UserCreateTab = ({ onToast }) => {
     };
 
     return (
-        <div className="overflow-y-auto flex-1 min-h-0 pr-1">
+        <div className="overflow-y-auto overscroll-contain flex-1 min-h-0 pr-1">
             <div className="flex justify-center pb-6">
                 <div className="w-full max-w-2xl">
 
@@ -1335,8 +1406,8 @@ const UserCreateTab = ({ onToast }) => {
                                         </FormField>
                                     </div>
 
-                                    {/* ── Office & Department (hidden for now, may enable later) ── */}
-                                    {false && <div className="border border-slate-200 rounded-xl overflow-hidden">
+                                    {/* ── Office & Department ── */}
+                                    <div className="border border-slate-200 rounded-xl overflow-hidden">
                                         <button type="button"
                                             onClick={() => setProfileOpen(o => !o)}
                                             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left">
@@ -1396,7 +1467,7 @@ const UserCreateTab = ({ onToast }) => {
                                                 </div>
                                             </div>
                                         )}
-                                    </div>}
+                                    </div>
                                     {/* Active user — always true, hidden */}
                                 </div>
                             </>
@@ -1552,7 +1623,7 @@ const UpdatePasswordTab = ({ onToast }) => {
     const strength = pwStrength(newPassword);
 
     return (
-        <div className="overflow-y-auto flex-1 min-h-0 pr-1">
+        <div className="overflow-y-auto overscroll-contain flex-1 min-h-0 pr-1">
             <div className="flex justify-center pb-6">
                 <div className="w-full max-w-lg">
                     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
@@ -1883,7 +1954,7 @@ const BulkPasswordTab = ({ onToast }) => {
     const successCount = results.filter(r => r.status === 'success').length;
 
     return (
-        <div className="overflow-y-auto flex-1 min-h-0 pr-1">
+        <div className="overflow-y-auto overscroll-contain flex-1 min-h-0 pr-1">
             <div className="flex justify-center pb-6">
                 <div className="w-full max-w-2xl space-y-4">
 
@@ -1954,7 +2025,7 @@ const BulkPasswordTab = ({ onToast }) => {
                                         </label>
 
                                         {/* User list */}
-                                        <div className="overflow-y-auto flex-1">
+                                        <div className="overflow-y-auto overscroll-contain flex-1">
                                             {filtered.length === 0 ? (
                                                 <div className="px-4 py-3 text-sm text-slate-400 text-center">
                                                     {allChecked ? 'All matching users added' : searchQuery ? 'No matching users' : 'All users already added'}
@@ -2495,20 +2566,17 @@ const UserAccessTab = ({ onToast }) => {
                     <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
                         Office Type
                     </label>
-                    <div className="relative">
-                        <select
-                            value={officeType}
-                            onChange={e => handleOfficeTypeChange(e.target.value)}
-                            disabled={isLocalAdmin}
-                            className={`w-full px-3 py-2 border border-slate-200 rounded-lg text-sm appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2] ${isLocalAdmin ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
-                        >
-                            <option value="">— Select office type —</option>
-                            <option value="HO">HO — Head Office</option>
-                            <option value="RO">RO — Regional Office</option>
-                            <option value="TE">TE — Training Establishment</option>
-                        </select>
-                        <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    </div>
+                    <CustomSelect
+                        value={officeType}
+                        onChange={handleOfficeTypeChange}
+                        disabled={isLocalAdmin}
+                        placeholder="— Select office type —"
+                        options={[
+                            { value: 'HO', label: 'HO — Head Office' },
+                            { value: 'RO', label: 'RO — Regional Office' },
+                            { value: 'TE', label: 'TE — Training Establishment' },
+                        ]}
+                    />
                 </div>
 
                 {/* Location filter — visible for RO/TE (Super Admin only) */}
@@ -2518,19 +2586,12 @@ const UserAccessTab = ({ onToast }) => {
                             <MapPin size={11} className="inline -mt-0.5 mr-0.5" />
                             Location
                         </label>
-                        <div className="relative">
-                            <select
-                                value={filterLocation}
-                                onChange={e => handleLocationChange(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm appearance-none pr-8 bg-white focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2]"
-                            >
-                                <option value="">— All locations —</option>
-                                {filterLocations.map(l => (
-                                    <option key={l.shortCode} value={l.location}>{l.location}</option>
-                                ))}
-                            </select>
-                            <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        </div>
+                        <CustomSelect
+                            value={filterLocation}
+                            onChange={handleLocationChange}
+                            placeholder="— All locations —"
+                            options={filterLocations.map(l => ({ value: l.location, label: l.location }))}
+                        />
                     </div>
                 )}
 
@@ -2541,19 +2602,12 @@ const UserAccessTab = ({ onToast }) => {
                             <Building2 size={11} className="inline -mt-0.5 mr-0.5" />
                             Department
                         </label>
-                        <div className="relative">
-                            <select
-                                value={filterDeptName}
-                                onChange={e => handleDeptChange(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm appearance-none pr-8 bg-white focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2]"
-                            >
-                                <option value="">— All departments —</option>
-                                {filterDepartments.map(d => (
-                                    <option key={d.shortCode} value={d.name}>{d.name}</option>
-                                ))}
-                            </select>
-                            <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        </div>
+                        <CustomSelect
+                            value={filterDeptName}
+                            onChange={handleDeptChange}
+                            placeholder="— All departments —"
+                            options={filterDepartments.map(d => ({ value: d.name, label: d.name }))}
+                        />
                     </div>
                 )}
 
@@ -2563,18 +2617,15 @@ const UserAccessTab = ({ onToast }) => {
                             <Shield size={11} className="inline -mt-0.5 mr-0.5" />
                             Role
                         </label>
-                        <div className="relative">
-                            <select
-                                value={roleFilter}
-                                onChange={e => { setRoleFilter(e.target.value); setCurrentPage(1); }}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm appearance-none pr-8 bg-white focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2]"
-                            >
-                                <option value="">— All users —</option>
-                                <option value="localAdmin">Local Admin</option>
-                                <option value="cgmSect">CGM Sect.</option>
-                            </select>
-                            <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        </div>
+                        <CustomSelect
+                            value={roleFilter}
+                            onChange={v => { setRoleFilter(v); setCurrentPage(1); }}
+                            placeholder="— All users —"
+                            options={[
+                                { value: 'localAdmin', label: 'Local Admin' },
+                                { value: 'cgmSect', label: 'CGM Sect.' },
+                            ]}
+                        />
                     </div>
                 )}
 
@@ -2612,23 +2663,17 @@ const UserAccessTab = ({ onToast }) => {
             {/* Table */}
             <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
                 {!officeType && (
-                    <div className="flex flex-col items-center justify-center flex-1 gap-2 text-slate-400 py-16">
-                        <Shield size={36} strokeWidth={1.5} />
-                        <p className="text-sm">Select an office type to view users</p>
-                    </div>
+                    <EmptyState icon={Shield} title="Select Office Type" description="Select an office type to view users" />
                 )}
 
                 {officeType && loading && (
-                    <div className="flex items-center justify-center flex-1 py-16">
-                        <Loader2 size={24} className="animate-spin text-[#0A66C2]" />
+                    <div className="p-0 border-t border-slate-100">
+                        <SkeletonLoader columns={7} rows={5} />
                     </div>
                 )}
 
                 {officeType && !loading && users.length === 0 && (
-                    <div className="flex flex-col items-center justify-center flex-1 gap-2 text-slate-400 py-16">
-                        <Users size={36} strokeWidth={1.5} />
-                        <p className="text-sm">No users found for {officeType}</p>
-                    </div>
+                    <EmptyState icon={Users} title={`No users found for ${officeType}`} description="Try adjusting your search filters" />
                 )}
 
                 {officeType && !loading && users.length > 0 && (
@@ -2676,7 +2721,7 @@ const UserAccessTab = ({ onToast }) => {
                                             </td>
                                             <td className="px-4 py-3 text-slate-500 font-mono text-xs">{u.user_login_name || '—'}</td>
                                             <td className="px-4 py-3 text-slate-600">{u.designation || '—'}</td>
-                                            {!isRoTe && <td className="px-4 py-3 text-slate-600">{u.department_name || '—'}</td>}
+                                            {!isRoTe && <td className="px-4 py-3 text-slate-600 font-mono text-xs">{u.department_short_code || '—'}</td>}
                                             {isRoTe && <td className="px-4 py-3 text-slate-600">{u.location || '—'}</td>}
                                             <td className="px-4 py-3 text-center">
                                                 {isAdmin ? (
@@ -2776,6 +2821,325 @@ const UserAccessTab = ({ onToast }) => {
     );
 };
 
+// ─── Alternate CGM Tab ───────────────────────────────────────────────────────
+const AlternateCgmTab = ({ onToast }) => {
+    const [users,            setUsers]            = useState([]);
+    const [loading,          setLoading]          = useState(false);
+    // Map<object_name, string[]> — dept codes each user is already Alt CGM for
+    const [alternateCgmMap,  setAlternateCgmMap]  = useState(new Map());
+    const [loadingAltCgm,    setLoadingAltCgm]    = useState(false);
+    const [departments,      setDepartments]      = useState([]);
+    const [searchQuery,      setSearchQuery]      = useState('');
+    const [currentPage,      setCurrentPage]      = useState(1);
+    // user being managed in the modal (null = closed)
+    const [managingUser,     setManagingUser]     = useState(null);
+    const [modalDeptSelect,  setModalDeptSelect]  = useState('');
+    const [actionInProgress, setActionInProgress] = useState(null); // { user, action, deptCode }
+
+    const PAGE_SIZE = 15;
+
+    useEffect(() => {
+        setLoading(true);
+        fetchAllUsers('HO', '', '')
+            .then(all => setUsers(all.filter(u => u.user_grade === 'grade_f')))
+            .catch(() => onToast({ type: 'error', message: 'Failed to load users.' }))
+            .finally(() => setLoading(false));
+    }, []);
+
+    useEffect(() => {
+        fetchDepartments('HO').then(setDepartments).catch(() => {});
+    }, []);
+
+    // Once departments are loaded, fetch ALL alternate CGM groups to build the membership map
+    useEffect(() => {
+        if (!departments.length) return;
+        setLoadingAltCgm(true);
+        const groupEntries = departments
+            .map(d => ({ deptCode: d.shortCode.toLowerCase(), groupName: `ecm_${d.shortCode.toLowerCase()}_alternate_cgm` }));
+        Promise.allSettled(groupEntries.map(e => api.get(`/groups/${e.groupName}/members`)))
+            .then(results => {
+                const map = new Map();
+                results.forEach((r, i) => {
+                    if (r.status === 'fulfilled') {
+                        const deptCode = groupEntries[i].deptCode;
+                        (r.value.data?.users || []).forEach(m => {
+                            if (!map.has(m.name)) map.set(m.name, []);
+                            map.get(m.name).push(deptCode);
+                        });
+                    }
+                });
+                setAlternateCgmMap(map);
+            })
+            .finally(() => setLoadingAltCgm(false));
+    }, [departments]);
+
+    const handleAddAltCgm = async (user) => {
+        const deptCode = modalDeptSelect.toLowerCase();
+        if (!deptCode) { onToast({ type: 'error', message: 'Select a department first.' }); return; }
+        const groupName = `ecm_${deptCode}_alternate_cgm`;
+        setActionInProgress({ user: user.object_name, action: 'add', deptCode });
+        try {
+            await api.post(`/groups/${groupName}/members`, { memberName: user.object_name, memberType: 'user' });
+            setAlternateCgmMap(prev => {
+                const next = new Map(prev);
+                const codes = next.get(user.object_name) ? [...next.get(user.object_name)] : [];
+                if (!codes.includes(deptCode)) codes.push(deptCode);
+                next.set(user.object_name, codes);
+                return next;
+            });
+            setModalDeptSelect('');
+            onToast({ type: 'success', message: `'${user.object_name}' added as Alternate CGM for ${deptCode.toUpperCase()}.` });
+        } catch (err) {
+            onToast({ type: 'error', message: err.response?.data?.message || 'Failed to add to Alternate CGM.' });
+        } finally { setActionInProgress(null); }
+    };
+
+    const handleRemoveAltCgm = async (user, deptCode) => {
+        const groupName = `ecm_${deptCode}_alternate_cgm`;
+        setActionInProgress({ user: user.object_name, action: 'remove', deptCode });
+        try {
+            await api.delete(`/groups/${groupName}/members/${encodeURIComponent(user.object_name)}`, { params: { memberType: 'user' } });
+            setAlternateCgmMap(prev => {
+                const next = new Map(prev);
+                const codes = (next.get(user.object_name) || []).filter(c => c !== deptCode);
+                if (codes.length > 0) next.set(user.object_name, codes);
+                else next.delete(user.object_name);
+                return next;
+            });
+            onToast({ type: 'success', message: `'${user.object_name}' removed from Alternate CGM for ${deptCode.toUpperCase()}.` });
+        } catch (err) {
+            onToast({ type: 'error', message: err.response?.data?.message || 'Failed to remove from Alternate CGM.' });
+        } finally { setActionInProgress(null); }
+    };
+
+    const filtered = useMemo(() => {
+        const q = searchQuery.toLowerCase();
+        return users.filter(u =>
+            !q || [u.object_name, u.user_login_name, u.designation, u.department_name]
+                .some(f => (f || '').toLowerCase().includes(q))
+        );
+    }, [users, searchQuery]);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paged      = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    const rangeStart = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+    const rangeEnd   = Math.min(currentPage * PAGE_SIZE, filtered.length);
+
+    return (
+        <div className="flex-1 flex flex-col overflow-hidden gap-4">
+            {/* Filters bar */}
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-end gap-4 flex-wrap">
+                <div className="flex-1 min-w-[220px]">
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Search</label>
+                    <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                            placeholder="Search by name, login, designation…"
+                            className="w-full pl-8 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2]"
+                        />
+                        {searchQuery && (
+                            <button onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded">
+                                <X size={13} />
+                            </button>
+                        )}
+                    </div>
+                </div>
+                {!loading && users.length > 0 && (
+                    <span className="text-xs text-slate-500 pb-2">
+                        <span className="font-semibold text-slate-800">{filtered.length}</span> user{filtered.length !== 1 ? 's' : ''}
+                    </span>
+                )}
+            </div>
+
+            {/* Manage Alt CGM Modal */}
+            {managingUser && (() => {
+                const u            = managingUser;
+                const assignedCodes = alternateCgmMap.get(u.object_name) || [];
+                const availableDepts = departments.filter(d => !assignedCodes.includes(d.shortCode.toLowerCase()));
+                const inProgress   = actionInProgress?.user === u.object_name;
+                const addInProg    = inProgress && actionInProgress.action === 'add';
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
+                            {/* Modal header */}
+                            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm">
+                                        <Shield size={17} className="text-white" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-900">Alternate CGM Departments</p>
+                                        <p className="text-xs text-slate-500">{u.object_name}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => { setManagingUser(null); setModalDeptSelect(''); }}
+                                    className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            {/* Existing assignments */}
+                            <div className="px-6 pt-5 pb-2">
+                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Current Assignments</p>
+                                {assignedCodes.length === 0 ? (
+                                    <p className="text-sm text-slate-400 italic py-2">No alternate CGM departments assigned.</p>
+                                ) : (
+                                    <div className="space-y-2 max-h-52 overflow-y-auto overscroll-contain pr-1 scrollbar-thin">
+                                        {assignedCodes.map(code => {
+                                            const deptObj = departments.find(d => d.shortCode.toLowerCase() === code);
+                                            const isRemovingThis = inProgress && actionInProgress.action === 'remove' && actionInProgress.deptCode === code;
+                                            return (
+                                                <div key={code} className="flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                                                    <div>
+                                                        <span className="text-sm font-semibold text-amber-800">{code.toUpperCase()}</span>
+                                                        {deptObj && <span className="ml-2 text-xs text-amber-600">{deptObj.name}</span>}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleRemoveAltCgm(u, code)}
+                                                        disabled={inProgress}
+                                                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {isRemovingThis ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
+                                                        {isRemovingThis ? 'Removing…' : 'Remove'}
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Add new department */}
+                            {availableDepts.length > 0 && (
+                                <div className="px-6 py-4 border-t border-slate-100 mt-2">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Add Department</p>
+                                    <div className="flex gap-2">
+                                        <div className="flex-1">
+                                            <CustomSelect
+                                                value={modalDeptSelect}
+                                                onChange={setModalDeptSelect}
+                                                disabled={inProgress}
+                                                placeholder="— Select department —"
+                                                options={availableDepts.map(d => ({ value: d.shortCode.toLowerCase(), label: d.name }))}
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={() => handleAddAltCgm(u)}
+                                            disabled={!modalDeptSelect || inProgress}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-[#0A66C2] hover:bg-[#094d92] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                                        >
+                                            {addInProg ? <><Loader2 size={13} className="animate-spin" /> Adding…</> : <><Shield size={13} /> Add</>}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
+                                <button onClick={() => { setManagingUser(null); setModalDeptSelect(''); }}
+                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition-colors">
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* Table */}
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
+                {loading ? (
+                    <div className="p-0"><SkeletonLoader columns={6} rows={8} /></div>
+                ) : users.length === 0 ? (
+                    <EmptyState icon={Users} title="No Grade-F users found" description="No CGM-grade HO users exist in the system." />
+                ) : (
+                    <>
+                        <div className="overflow-x-auto flex-1">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+                                    <tr>
+                                        <th className="px-4 py-3 font-semibold text-slate-700 w-10 text-center">#</th>
+                                        <th className="px-4 py-3 font-semibold text-slate-700">Name</th>
+                                        <th className="px-4 py-3 font-semibold text-slate-700">Designation</th>
+                                        <th className="px-4 py-3 font-semibold text-slate-700">Department</th>
+                                        <th className="px-4 py-3 font-semibold text-slate-700">Alternate CGM Depts.</th>
+                                        <th className="px-4 py-3 font-semibold text-slate-700 w-20 text-center">Manage</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {paged.map((u, idx) => {
+                                        const assignedCodes = alternateCgmMap.get(u.object_name) || [];
+                                        return (
+                                            <tr key={u.user_login_name || idx} className="hover:bg-blue-50/30 transition-colors group">
+                                                <td className="px-4 py-3 text-slate-400 font-mono text-xs text-center">
+                                                    {(currentPage - 1) * PAGE_SIZE + idx + 1}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="font-medium text-slate-900">{u.object_name || '—'}</div>
+                                                    <div className="text-xs text-slate-500 group-hover:text-[#0A66C2] transition-colors">{u.user_login_name}</div>
+                                                </td>
+                                                <td className="px-4 py-3 text-slate-600">{u.designation || '—'}</td>
+                                                <td className="px-4 py-3 text-slate-600 font-mono text-xs">{u.department_short_code || <span className="text-slate-400">—</span>}</td>
+                                                <td className="px-4 py-3">
+                                                    {loadingAltCgm ? (
+                                                        <Loader2 size={13} className="animate-spin text-slate-300" />
+                                                    ) : assignedCodes.length === 0 ? (
+                                                        <span className="text-xs text-slate-400">—</span>
+                                                    ) : (
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {assignedCodes.map(code => (
+                                                                <span key={code} className="px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-full text-xs font-medium">
+                                                                    {code.toUpperCase()}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <button
+                                                        onClick={() => { setManagingUser(u); setModalDeptSelect(''); }}
+                                                        className="p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-400 hover:text-[#0A66C2] hover:shadow-sm rounded-lg transition-all"
+                                                        title="Manage Alternate CGM departments"
+                                                    >
+                                                        <Edit2 size={15} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50/50 text-sm text-slate-500">
+                                <span>Showing <span className="font-medium text-slate-900">{rangeStart}</span> to <span className="font-medium text-slate-900">{rangeEnd}</span> of <span className="font-medium text-slate-900">{filtered.length}</span> results</span>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                                        className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-[#0A66C2] disabled:opacity-40 text-slate-500 transition-colors">
+                                        <ChevronLeft size={16} />
+                                    </button>
+                                    <div className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 min-w-[3rem] text-center shadow-sm">
+                                        {currentPage}
+                                    </div>
+                                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                                        className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-[#0A66C2] disabled:opacity-40 text-slate-500 transition-colors">
+                                        <ChevronRight size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+        </div>
+    );
+};
+
 // ─── Main UsersPage ───────────────────────────────────────────────────────────
 const UsersPage = () => {
     const [toast, setToast] = useState(null);
@@ -2786,8 +3150,9 @@ const UsersPage = () => {
     const allTabs = [
         { id: 'creation',  label: 'User Creation',        icon: UserPlus, roles: ['Super Admin'] },
         { id: 'directory', label: 'User Directory',       icon: Users,    roles: ['Super Admin', 'Local Admin'] },
-        { id: 'access',    label: 'User Access',          icon: Shield,   roles: ['Super Admin'] },
-        { id: 'password',  label: 'User Password Update', icon: KeyRound, roles: ['Super Admin'] },
+        { id: 'access',       label: 'User Access',          icon: Shield,   roles: ['Super Admin'] },
+        { id: 'alternateCgm', label: 'Alternate CGM',        icon: Layers,   roles: ['Super Admin'] },
+        { id: 'password',     label: 'User Password Update', icon: KeyRound, roles: ['Super Admin'] },
     ];
 
     const tabs = allTabs.filter(tab => tab.roles.includes(adminRole));
@@ -2831,7 +3196,8 @@ const UsersPage = () => {
                 {activeTab === 'creation'  && <UserCreateTab    onToast={setToast} />}
                 {activeTab === 'password'  && <PasswordTab      onToast={setToast} />}
                 {activeTab === 'directory' && <UserDirectoryTab  onToast={setToast} />}
-                {activeTab === 'access'    && <UserAccessTab     onToast={setToast} />}
+                {activeTab === 'access'       && <UserAccessTab     onToast={setToast} />}
+                {activeTab === 'alternateCgm' && <AlternateCgmTab  onToast={setToast} />}
             </div>
         </div>
     );

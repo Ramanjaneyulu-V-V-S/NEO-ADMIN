@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Help Manual — User Creation | NB Support App</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #1e293b;
+      background: #f8fafc;
+    }
+
+    /* ── Layout ── */
+    .page-wrapper {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: #0f172a;
+      color: #cbd5e1;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 28px 0;
+    }
+
+    .sidebar-brand {
+      padding: 0 20px 20px;
+      border-bottom: 1px solid #1e293b;
+      margin-bottom: 16px;
+    }
+
+    .sidebar-brand .app-name {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+
+    .sidebar-brand .doc-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    .sidebar nav a {
+      display: block;
+      padding: 6px 20px;
+      font-size: 13px;
+      color: #94a3b8;
+      text-decoration: none;
+      border-left: 3px solid transparent;
+      transition: all 0.15s;
+    }
+
+    .sidebar nav a:hover {
+      color: #f1f5f9;
+      background: #1e293b;
+      border-left-color: #0A66C2;
+    }
+
+    .sidebar nav .section-heading {
+      padding: 14px 20px 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #475569;
+    }
+
+    /* ── Main Content ── */
+    .main {
+      flex: 1;
+      min-width: 0;
+      padding: 48px 56px;
+      max-width: 960px;
+    }
+
+    /* ── Page Header ── */
+    .page-header {
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 24px;
+      margin-bottom: 40px;
+    }
+
+    .page-header .badge {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+
+    .page-header h1 {
+      font-size: 32px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+    }
+
+    .page-header .meta {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #64748b;
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .page-header .meta span::before {
+      content: '•';
+      margin-right: 6px;
+      color: #94a3b8;
+    }
+
+    /* ── Sections ── */
+    .section {
+      margin-bottom: 52px;
+    }
+
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h2 .section-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: #0A66C2;
+      color: white;
+      border-radius: 50%;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 24px 0 10px;
+    }
+
+    h4 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+      margin: 16px 0 8px;
+    }
+
+    p {
+      margin-bottom: 12px;
+      color: #334155;
+    }
+
+    /* ── Tables ── */
+    .table-wrap {
+      overflow-x: auto;
+      margin: 16px 0;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead tr {
+      background: #f1f5f9;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 10px 14px;
+      font-weight: 700;
+      font-size: 12px;
+      color: #475569;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-bottom: 1px solid #e2e8f0;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: #f8fafc;
+    }
+
+    tbody td {
+      padding: 9px 14px;
+      color: #334155;
+      vertical-align: top;
+    }
+
+    tbody td:first-child {
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 12px;
+      color: #0A66C2;
+      white-space: nowrap;
+    }
+
+    .req-yes {
+      display: inline-block;
+      background: #fef9c3;
+      color: #854d0e;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 4px;
+    }
+
+    .req-no {
+      color: #94a3b8;
+      font-size: 12px;
+    }
+
+    .req-cond {
+      display: inline-block;
+      background: #fce7f3;
+      color: #9d174d;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 4px;
+    }
+
+    /* ── Code / Monospace ── */
+    code {
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 12px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      padding: 1px 5px;
+      color: #0A66C2;
+    }
+
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 10px;
+      padding: 18px 20px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.8;
+      margin: 14px 0;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+
+    pre .comment { color: #64748b; }
+    pre .key     { color: #7dd3fc; }
+    pre .val     { color: #86efac; }
+    pre .method  { color: #f9a8d4; }
+    pre .url     { color: #fde68a; }
+
+    /* ── Callouts ── */
+    .callout {
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin: 16px 0;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .callout-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .callout-body { flex: 1; }
+
+    .callout-body p:last-child { margin-bottom: 0; }
+
+    .callout.info    { background: #eff6ff; border: 1px solid #bfdbfe; }
+    .callout.warning { background: #fffbeb; border: 1px solid #fde68a; }
+    .callout.danger  { background: #fef2f2; border: 1px solid #fecaca; }
+    .callout.success { background: #f0fdf4; border: 1px solid #bbf7d0; }
+
+    .callout.info    .callout-icon { color: #2563eb; }
+    .callout.warning .callout-icon { color: #d97706; }
+    .callout.danger  .callout-icon { color: #dc2626; }
+    .callout.success .callout-icon { color: #16a34a; }
+
+    /* ── Steps / Workflow ── */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .step-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
+    }
+
+    .step-card .step-num {
+      width: 32px;
+      height: 32px;
+      background: #0A66C2;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .step-card h4 {
+      margin: 0 0 4px;
+      font-size: 14px;
+      color: #0f172a;
+    }
+
+    .step-card p {
+      margin: 0;
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .step-card .step-badge {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 20px;
+    }
+
+    .step-badge.otds-only { background: #dbeafe; color: #1d4ed8; }
+
+    /* ── Cascading Dropdown Diagram ── */
+    .cascade-diagram {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin: 20px 0;
+      flex-wrap: wrap;
+      row-gap: 10px;
+    }
+
+    .cascade-node {
+      background: white;
+      border: 2px solid #0A66C2;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #0A66C2;
+    }
+
+    .cascade-arrow {
+      font-size: 18px;
+      color: #94a3b8;
+      padding: 0 6px;
+    }
+
+    .cascade-readonly {
+      background: #f8fafc;
+      border: 2px dashed #cbd5e1;
+      color: #64748b;
+    }
+
+    /* ── Error Cards ── */
+    .error-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .error-card .error-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #dc2626;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .error-card .error-cause {
+      font-size: 13px;
+      color: #334155;
+      margin-bottom: 10px;
+    }
+
+    .error-card .error-fix {
+      font-size: 13px;
+      color: #334155;
+    }
+
+    .error-card ol {
+      margin: 8px 0 0 18px;
+    }
+
+    .error-card ol li {
+      margin-bottom: 4px;
+    }
+
+    /* ── TOC ── */
+    .toc {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 40px;
+    }
+
+    .toc h3 {
+      margin: 0 0 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .toc ol {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .toc ol li {
+      margin-bottom: 4px;
+    }
+
+    .toc a {
+      color: #0A66C2;
+      text-decoration: none;
+      font-size: 13px;
+    }
+
+    .toc a:hover {
+      text-decoration: underline;
+    }
+
+    /* ── Step Wizard Visual ── */
+    .wizard-steps {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      margin: 20px 0;
+      padding: 20px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      justify-content: center;
+    }
+
+    .wz-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .wz-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+      border: 2px solid #0A66C2;
+      color: #0A66C2;
+      background: white;
+    }
+
+    .wz-circle.active {
+      background: #0A66C2;
+      color: white;
+    }
+
+    .wz-label { font-size: 12px; font-weight: 700; color: #334155; text-align: center; }
+    .wz-sub   { font-size: 11px; color: #94a3b8; text-align: center; }
+
+    .wz-connector {
+      height: 2px;
+      width: 80px;
+      background: #0A66C2;
+      margin-top: 17px;
+    }
+
+    /* ── Tag badges ── */
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 1px 8px;
+      border-radius: 20px;
+    }
+
+    .tag.otds   { background: #dbeafe; color: #1d4ed8; }
+    .tag.inline { background: #f1f5f9; color: #475569; }
+    .tag.ldap   { background: #f0fdf4; color: #15803d; }
+    .tag.auto   { background: #fef3c7; color: #92400e; }
+
+    /* ── Footer ── */
+    .page-footer {
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 12px;
+      color: #94a3b8;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrapper">
+
+  <!-- ══════════════ SIDEBAR ══════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="app-name">NB Support App</div>
+      <div class="doc-title">Help Manual<br>User Creation</div>
+    </div>
+    <nav>
+      <div class="section-heading">Contents</div>
+      <a href="#overview">1. Overview</a>
+      <a href="#prerequisites">2. Prerequisites</a>
+      <a href="#opening">3. Opening the Wizard</a>
+      <a href="#step1">4. Step 1 — Identity</a>
+      <a href="#step2">5. Step 2 — Authentication</a>
+      <a href="#step3">6. Step 3 — Profile</a>
+      <a href="#submission">7. Submission &amp; Backend Ops</a>
+      <a href="#ref-dmuser">8. Field Ref: dm_user</a>
+      <a href="#ref-profile">9. Field Ref: cms_user_profile</a>
+      <a href="#cascading">10. Cascading Dropdowns</a>
+      <a href="#validation">11. Validation Rules</a>
+      <a href="#errors">12. Common Errors &amp; Fixes</a>
+    </nav>
+  </aside>
+
+  <!-- ══════════════ MAIN ══════════════ -->
+  <main class="main">
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="badge">User Management</div>
+      <h1>Help Manual — User Creation</h1>
+      <div class="meta">
+        <span>Application: NB Support App</span>
+        <span>Module: Users &rarr; Create User</span>
+        <span>Audience: Support Team / System Administrators</span>
+        <span>Last Updated: March 2026</span>
+      </div>
+    </div>
+
+    <!-- TOC -->
+    <div class="toc">
+      <h3>Table of Contents</h3>
+      <ol>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#opening">Opening the Create User Wizard</a></li>
+        <li><a href="#step1">Step 1 — Identity</a></li>
+        <li><a href="#step2">Step 2 — Authentication</a></li>
+        <li><a href="#step3">Step 3 — Profile</a></li>
+        <li><a href="#submission">Submission and Backend Operations</a></li>
+        <li><a href="#ref-dmuser">Field Reference: dm_user</a></li>
+        <li><a href="#ref-profile">Field Reference: cms_user_profile</a></li>
+        <li><a href="#cascading">Cascading Dropdown Behaviour</a></li>
+        <li><a href="#validation">Validation Rules Summary</a></li>
+        <li><a href="#errors">Common Errors and Fixes</a></li>
+      </ol>
+    </div>
+
+    <!-- ── 1. Overview ── -->
+    <div class="section" id="overview">
+      <h2><span class="section-num">1</span> Overview</h2>
+      <p>
+        The <strong>Create User</strong> wizard provisions a complete user account in the NABARD Documentum system.
+        A single form submission triggers up to four backend operations in sequence:
+      </p>
+
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-num">1</div>
+          <h4>Create dm_user</h4>
+          <p>Documentum Content Server<br>Object: <code>dm_user</code></p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">2</div>
+          <h4>Provision OTDS Account</h4>
+          <p>OpenText Directory Services<br>OTDS user + partition membership</p>
+          <span class="step-badge otds-only">OTDS source only</span>
+        </div>
+        <div class="step-card">
+          <div class="step-num">3</div>
+          <h4>Create User Profile</h4>
+          <p>Content Server<br>Object: <code>cms_user_profile</code></p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">4</div>
+          <h4>Add to Superusers Group</h4>
+          <p>Content Server<br>Group: <code>dm_superusers_dynamic</code></p>
+        </div>
+      </div>
+
+      <div class="callout warning">
+        <div class="callout-icon">&#9888;</div>
+        <div class="callout-body">
+          <p>If Step 1 fails, all subsequent steps are skipped. If Steps 2–4 fail, the <code>dm_user</code> object is <strong>not</strong> rolled back — a warning is displayed instead.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 2. Prerequisites ── -->
+    <div class="section" id="prerequisites">
+      <h2><span class="section-num">2</span> Prerequisites</h2>
+      <ul style="padding-left:20px; color:#334155;">
+        <li style="margin-bottom:8px;">You must be logged in to the NB Support App with a support-team account.</li>
+        <li style="margin-bottom:8px;">The Documentum Content Server and OTDS server must be reachable from the backend.</li>
+        <li style="margin-bottom:8px;">For OTDS-sourced users, the target OTDS partition (default: <code>DCTMPartitions</code>) must already exist in OTDS Admin.</li>
+      </ul>
+    </div>
+
+    <!-- ── 3. Opening ── -->
+    <div class="section" id="opening">
+      <h2><span class="section-num">3</span> Opening the Create User Wizard</h2>
+      <ol style="padding-left:20px; color:#334155; line-height:2;">
+        <li>Click <strong>Users</strong> in the left navigation bar.</li>
+        <li>Select the <strong>Create User</strong> tab (second tab in the Users page).</li>
+        <li>The 3-step wizard opens, starting at <strong>Step 1 — Identity</strong>.</li>
+      </ol>
+
+      <p style="margin-top:16px;">The step indicator at the top shows your progress:</p>
+
+      <div class="wizard-steps">
+        <div class="wz-step">
+          <div class="wz-circle active">1</div>
+          <div class="wz-label">Identity</div>
+          <div class="wz-sub">Name &amp; login</div>
+        </div>
+        <div class="wz-connector"></div>
+        <div class="wz-step">
+          <div class="wz-circle">2</div>
+          <div class="wz-label">Authentication</div>
+          <div class="wz-sub">Credentials</div>
+        </div>
+        <div class="wz-connector"></div>
+        <div class="wz-step">
+          <div class="wz-circle">3</div>
+          <div class="wz-label">Profile</div>
+          <div class="wz-sub">Role &amp; dept</div>
+        </div>
+      </div>
+
+      <p>Completed steps are highlighted in blue with a checkmark. Click <strong>Next</strong> to advance; click <strong>Back</strong> to return.</p>
+    </div>
+
+    <!-- ── 4. Step 1 ── -->
+    <div class="section" id="step1">
+      <h2><span class="section-num">4</span> Step 1 — Identity</h2>
+      <p>Captures the user's display name, login credentials, and contact information.</p>
+
+      <h3>Fields</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Field (Attribute)</th>
+              <th>Required</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>user_name</td>
+              <td><span class="req-yes">Required</span></td>
+              <td><strong>Display Name.</strong> Full name as it will appear in Documentum. This is the object identifier used in Documentum REST API paths (e.g. <code>/users/{user_name}</code>). Case-sensitive.</td>
+            </tr>
+            <tr>
+              <td>user_login_name</td>
+              <td><span class="req-yes">Required</span></td>
+              <td><strong>Login Name.</strong> The login ID the user types at the Documentum login prompt. Must be unique across the repository.</td>
+            </tr>
+            <tr>
+              <td>user_address</td>
+              <td><span class="req-no">Optional</span></td>
+              <td><strong>Email Address.</strong> Used during OTDS account creation and for notifications.</td>
+            </tr>
+            <tr>
+              <td>description</td>
+              <td><span class="req-no">Optional</span></td>
+              <td><strong>Description.</strong> Free-text note about the user stored on the <code>dm_user</code> object.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Hindi Auto-fill</h3>
+      <p>When you type in <strong>Display Name</strong>, the <strong>Hindi Name</strong> field in Step 3 is pre-filled automatically. You can override it by typing directly in that field — auto-fill stops once you have manually edited it.</p>
+
+      <h3>Validation</h3>
+      <p>Display Name and Login Name are both required before you can proceed to Step 2. Whitespace-only values are rejected.</p>
+    </div>
+
+    <!-- ── 5. Step 2 ── -->
+    <div class="section" id="step2">
+      <h2><span class="section-num">5</span> Step 2 — Authentication</h2>
+      <p>Captures the user's authentication source and, depending on the source, the initial password.</p>
+
+      <h3>User Source</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>OTDS</td>
+              <td><span class="tag otds">Default</span> User is authenticated via OpenText Directory Services. An OTDS account is created and added to the <code>DCTMPartitions</code> partition during provisioning.</td>
+            </tr>
+            <tr>
+              <td>inline password</td>
+              <td><span class="tag inline">Local</span> Password is stored directly in Documentum (no OTDS). Suitable for service or system accounts.</td>
+            </tr>
+            <tr>
+              <td>LDAP</td>
+              <td><span class="tag ldap">LDAP</span> User is sourced from an external LDAP directory. No password is set here — LDAP handles authentication.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>OTDS Source — Additional Fields</h3>
+      <p>When <strong>OTDS</strong> is selected, an expanded panel appears with the following fields:</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Required</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>otds_password</td>
+              <td><span class="req-yes">Required</span></td>
+              <td><strong>Initial OTDS Password.</strong> Minimum 8 characters. Set in OTDS, not in Documentum.</td>
+            </tr>
+            <tr>
+              <td>otds_confirm_pw</td>
+              <td><span class="req-yes">Required</span></td>
+              <td><strong>Confirm Password.</strong> Must exactly match the Initial OTDS Password.</td>
+            </tr>
+            <tr>
+              <td>otds_partition</td>
+              <td><span class="req-yes">Required</span></td>
+              <td><strong>OTDS Partition.</strong> Name of the OTDS partition to add the user to. Default: <code>DCTMPartitions</code>. Change only if the target partition differs.</td>
+            </tr>
+            <tr>
+              <td>otds_no_reset</td>
+              <td><span class="req-no">—</span></td>
+              <td><strong>Do not require password change on reset.</strong> Checkbox, checked by default. When checked, the user is <em>not</em> forced to change the password at first login. Uncheck to force a password change on first login.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Inline Password Source — Additional Field</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Required</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>user_password</td>
+              <td><span class="req-no">Optional</span></td>
+              <td>Direct password stored in Documentum. If left blank, the account is created without a password (not recommended).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Advanced Settings</h3>
+      <p>Click <strong>Advanced</strong> (collapsed by default) to reveal optional Documentum technical fields:</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Field (Attribute)</th>
+              <th>Default</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>user_os_name</td><td>—</td><td>OS-level username (for OS-authenticated repositories).</td></tr>
+            <tr><td>user_db_name</td><td>—</td><td>Database-level username.</td></tr>
+            <tr><td>user_global_unique_id</td><td>—</td><td>Globally unique identifier used in federated environments.</td></tr>
+            <tr><td>default_folder</td><td>—</td><td>Path to the user's home cabinet (e.g. <code>/NABARD/Users/john</code>).</td></tr>
+            <tr><td>home_docbase</td><td>—</td><td>Name of the user's home repository (for multi-repository environments).</td></tr>
+            <tr><td>acl_name</td><td>—</td><td>Default ACL applied to documents created by this user.</td></tr>
+            <tr><td>user_privileges</td><td>0 (None)</td><td>Numeric privilege level. 0 = None, 1 = Create Type, 2 = Create Cabinet, 4 = Create Group, 8 = Sysadmin, 16 = Superuser.</td></tr>
+            <tr><td>user_state</td><td>Active (0)</td><td><code>0</code> = Active, <code>1</code> = Inactive. Inactive users cannot log in.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── 6. Step 3 ── -->
+    <div class="section" id="step3">
+      <h2><span class="section-num">6</span> Step 3 — Profile</h2>
+      <p>Captures the user's NABARD organisational profile, stored as a <code>cms_user_profile</code> object in Documentum.</p>
+
+      <h3>Fields</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Field (Attribute)</th>
+              <th>Required</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>profile_designation</td>
+              <td><span class="req-yes">Required</span></td>
+              <td>Job title in English (e.g. "Deputy General Manager").</td>
+            </tr>
+            <tr>
+              <td>profile_hindi_designation</td>
+              <td><span class="req-no">Optional</span></td>
+              <td>Job title in Hindi script. Auto-filled from English designation if not manually edited.</td>
+            </tr>
+            <tr>
+              <td>profile_hindi_user_name</td>
+              <td><span class="req-no">Optional</span></td>
+              <td>User's name in Hindi script. Auto-filled from Display Name (Step 1) if not manually edited.</td>
+            </tr>
+            <tr>
+              <td>profile_uin</td>
+              <td><span class="req-no">Optional</span></td>
+              <td>Unique Identification Number assigned by NABARD.</td>
+            </tr>
+            <tr>
+              <td>profile_office_type</td>
+              <td><span class="req-yes">Required</span></td>
+              <td><strong>Office Type.</strong> <code>HO</code> (Head Office), <code>RO</code> (Regional Office), or <code>TE</code> (Training Establishment). Drives the Location and Department dropdowns.</td>
+            </tr>
+            <tr>
+              <td>profile_location</td>
+              <td><span class="req-yes">Required</span></td>
+              <td><strong>Location.</strong> Constrained by Office Type. HO is fixed to Mumbai (disabled). RO shows 31 locations; TE shows 4 locations.</td>
+            </tr>
+            <tr>
+              <td>profile_ro_short_code</td>
+              <td><span class="tag auto">Auto</span></td>
+              <td><strong>RO/TE Short Code.</strong> Read-only. Auto-filled when Location is selected.</td>
+            </tr>
+            <tr>
+              <td>profile_department_name</td>
+              <td><span class="req-yes">Required</span></td>
+              <td><strong>Department Name.</strong> Constrained by Office Type and Location.</td>
+            </tr>
+            <tr>
+              <td>profile_department_short_code</td>
+              <td><span class="tag auto">Auto</span></td>
+              <td><strong>Department Short Code.</strong> Read-only. Auto-filled when Department is selected.</td>
+            </tr>
+            <tr>
+              <td>profile_user_grade</td>
+              <td><span class="req-yes">Required</span></td>
+              <td>Grade classification value (e.g. <code>grade_a</code>). See grade table below.</td>
+            </tr>
+            <tr>
+              <td>profile_grade_level</td>
+              <td><span class="req-yes">Required</span></td>
+              <td>Numeric grade level 0–6. <strong>0 is a valid value</strong> (Group B).</td>
+            </tr>
+            <tr>
+              <td>profile_is_active</td>
+              <td><span class="req-no">—</span></td>
+              <td>Toggle. Default: Active (<code>true</code>). Set to Inactive if the profile should be disabled.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>User Grade Reference</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Label</th><th>Value</th><th>Grade Level</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>group_b</td><td>Group B</td><td>0</td></tr>
+            <tr><td>grade_a</td><td>Grade A</td><td>1</td></tr>
+            <tr><td>grade_b</td><td>Grade B</td><td>2</td></tr>
+            <tr><td>grade_c</td><td>Grade C</td><td>3</td></tr>
+            <tr><td>grade_d</td><td>Grade D</td><td>4</td></tr>
+            <tr><td>grade_e</td><td>Grade E</td><td>5</td></tr>
+            <tr><td>grade_f</td><td>Grade F</td><td>6</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-icon">&#8505;</div>
+        <div class="callout-body">
+          <p>Once all required fields across all 3 steps are filled, the <strong>Create User</strong> button becomes active. A spinner is shown while the request is in progress; the button is disabled to prevent double-submission.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 7. Submission ── -->
+    <div class="section" id="submission">
+      <h2><span class="section-num">7</span> Submission and Backend Operations</h2>
+
+      <h3>Operation 1 — Create dm_user</h3>
+      <p><strong>Endpoint:</strong> <code>POST /api/users</code></p>
+      <p>The backend creates a <code>dm_user</code> object in the Documentum repository:</p>
+      <pre><span class="method">POST</span>  <span class="url">{dctm.rest.url}/repositories/{repository}/objects</span>
+<span class="key">Content-Type:</span> <span class="val">application/vnd.emc.documentum+json</span>
+<span class="comment">
+Body — key attributes:
+  user_name           → Step 1 Display Name
+  user_login_name     → Step 1 Login Name
+  user_address        → Step 1 Email
+  user_source         → Step 2 User Source
+  user_password       → Step 2 (Inline Password only)
+  user_privileges     → Step 2 Advanced
+  user_state          → Step 2 Advanced
+  description         → Step 1 Description</span></pre>
+
+      <div class="callout success">
+        <div class="callout-icon">&#10003;</div>
+        <div class="callout-body">
+          <p><strong>On success:</strong> the <code>r_object_id</code> of the new <code>dm_user</code> is returned and used in subsequent steps.</p>
+        </div>
+      </div>
+      <div class="callout danger">
+        <div class="callout-icon">&#10007;</div>
+        <div class="callout-body">
+          <p><strong>On failure:</strong> an error toast is displayed. Provisioning stops — no further operations are attempted.</p>
+        </div>
+      </div>
+
+      <h3>Operation 2 — OTDS Provisioning <span class="tag otds" style="vertical-align:middle;">OTDS source only</span></h3>
+      <p><strong>Endpoint:</strong> <code>POST /api/users/otds/setup</code></p>
+      <p>Three OTDS REST API calls are made in sequence:</p>
+
+      <h4>2a. Create OTDS User</h4>
+      <pre><span class="method">POST</span>  <span class="url">{otds.url}/users</span>
+<span class="key">Body:</span> <span class="val">{
+  "userIdentifier": "&lt;loginName&gt;",
+  "displayName":    "&lt;displayName&gt;",
+  "email":          "&lt;email&gt;"
+}</span></pre>
+
+      <h4>2b. Add User to OTDS Partition</h4>
+      <pre><span class="method">POST</span>  <span class="url">{otds.url}/partitions/{partitionName}/members</span>
+<span class="key">Body:</span> <span class="val">{ "userIdentifier": "&lt;loginName&gt;" }</span>
+<span class="comment">Default partition: DCTMPartitions
+This grants access to Documentum via OTDS single sign-on.</span></pre>
+
+      <h4>2c. Set Initial Password</h4>
+      <pre><span class="method">PUT</span>   <span class="url">{otds.url}/users/{loginName}/password</span>
+<span class="key">Body:</span> <span class="val">{
+  "newPassword":            "&lt;password&gt;",
+  "requiresPasswordChange": false   <span class="comment">// true when "Do not require" is unchecked</span>
+}</span></pre>
+
+      <div class="callout warning">
+        <div class="callout-icon">&#9888;</div>
+        <div class="callout-body">
+          <p><strong>On failure:</strong> a warning toast is shown: <em>"User created in Documentum but OTDS setup failed."</em> The <code>dm_user</code> is <strong>not</strong> deleted. OTDS setup must be retried manually via the OTDS Admin console or the <code>/api/users/otds/setup</code> endpoint.</p>
+        </div>
+      </div>
+
+      <h3>Operation 3 — Create cms_user_profile</h3>
+      <p><strong>Endpoint:</strong> <code>POST /api/users/profile</code></p>
+      <p>Creates a <code>cms_user_profile</code> object in the Documentum folder <code>/UserProfile/UsersProfileBO</code> with all Step 3 attributes (designation, office type, location, department, grade, etc.).</p>
+
+      <h3>Operation 4 — Add to dm_superusers_dynamic Group</h3>
+      <p>Immediately after <code>dm_user</code> creation succeeds, the backend automatically adds the new user to the <code>dm_superusers_dynamic</code> Documentum group:</p>
+      <pre><span class="method">POST</span>  <span class="url">{dctm.rest.url}/repositories/{repository}/groups/dm_superusers_dynamic/users</span>
+<span class="key">Body:</span> <span class="val">{
+  "href": "{dctm.rest.url}/repositories/{repository}/users/{user_name}"
+}</span>
+<span class="comment">NOTE: {user_name} = Display Name from Step 1 (the dm_user object identifier).
+Documentum REST paths are case-sensitive and resolve by user_name, NOT user_login_name.</span></pre>
+
+      <div class="callout info">
+        <div class="callout-icon">&#8505;</div>
+        <div class="callout-body">
+          <p>If the group membership call fails, a warning is logged server-side but provisioning continues. The <code>dm_user</code> and <code>cms_user_profile</code> are still created successfully.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 8. Field Ref dm_user ── -->
+    <div class="section" id="ref-dmuser">
+      <h2><span class="section-num">8</span> Field Reference: dm_user</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Attribute</th><th>UI Label</th><th>Step</th><th>Required</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>user_name</td><td>Display Name</td><td>1</td><td><span class="req-yes">Yes</span></td><td>Object identifier; used in REST URL paths; case-sensitive</td></tr>
+            <tr><td>user_login_name</td><td>Login Name</td><td>1</td><td><span class="req-yes">Yes</span></td><td>Credential typed at login prompt</td></tr>
+            <tr><td>user_address</td><td>Email Address</td><td>1</td><td><span class="req-no">No</span></td><td>Used in OTDS provisioning</td></tr>
+            <tr><td>description</td><td>Description</td><td>1</td><td><span class="req-no">No</span></td><td>Free-text note</td></tr>
+            <tr><td>user_source</td><td>User Source</td><td>2</td><td><span class="req-yes">Yes</span></td><td><code>OTDS</code>, <code>inline password</code>, or <code>LDAP</code></td></tr>
+            <tr><td>user_password</td><td>Password</td><td>2</td><td><span class="req-cond">Conditional</span></td><td>Inline password source only</td></tr>
+            <tr><td>user_os_name</td><td>OS Name</td><td>2 (adv.)</td><td><span class="req-no">No</span></td><td>OS-level username</td></tr>
+            <tr><td>user_db_name</td><td>DB Name</td><td>2 (adv.)</td><td><span class="req-no">No</span></td><td>Database-level username</td></tr>
+            <tr><td>user_global_unique_id</td><td>Global Unique ID</td><td>2 (adv.)</td><td><span class="req-no">No</span></td><td>Federation identifier</td></tr>
+            <tr><td>default_folder</td><td>Default Folder</td><td>2 (adv.)</td><td><span class="req-no">No</span></td><td>Home cabinet path</td></tr>
+            <tr><td>home_docbase</td><td>Home Docbase</td><td>2 (adv.)</td><td><span class="req-no">No</span></td><td>Home repository name</td></tr>
+            <tr><td>acl_name</td><td>ACL Name</td><td>2 (adv.)</td><td><span class="req-no">No</span></td><td>Default ACL for new documents</td></tr>
+            <tr><td>user_privileges</td><td>User Privileges</td><td>2 (adv.)</td><td><span class="req-no">No</span></td><td>Numeric flags 0–16; default 0 (None)</td></tr>
+            <tr><td>user_state</td><td>User State</td><td>2 (adv.)</td><td><span class="req-no">No</span></td><td><code>0</code> = Active, <code>1</code> = Inactive</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── 9. Field Ref cms_user_profile ── -->
+    <div class="section" id="ref-profile">
+      <h2><span class="section-num">9</span> Field Reference: cms_user_profile</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Attribute</th><th>UI Label</th><th>Required</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>designation</td><td>Designation</td><td><span class="req-yes">Yes</span></td><td>English job title</td></tr>
+            <tr><td>hindi_designation</td><td>Designation (Hindi)</td><td><span class="req-no">No</span></td><td>Hindi script; auto-filled from English</td></tr>
+            <tr><td>hindi_user_name</td><td>Hindi Name</td><td><span class="req-no">No</span></td><td>Hindi script; auto-filled from Display Name</td></tr>
+            <tr><td>uin</td><td>UIN</td><td><span class="req-no">No</span></td><td>NABARD Unique Identification Number</td></tr>
+            <tr><td>office_type</td><td>Office Type</td><td><span class="req-yes">Yes</span></td><td><code>HO</code>, <code>RO</code>, or <code>TE</code></td></tr>
+            <tr><td>location</td><td>Location</td><td><span class="req-yes">Yes</span></td><td>Constrained by office_type</td></tr>
+            <tr><td>ro_short_code</td><td>RO/TE Short Code</td><td><span class="tag auto">Auto</span></td><td>Read-only; auto-filled on location select</td></tr>
+            <tr><td>department_name</td><td>Department Name</td><td><span class="req-yes">Yes</span></td><td>Constrained by office_type + location</td></tr>
+            <tr><td>department_short_code</td><td>Department Short Code</td><td><span class="tag auto">Auto</span></td><td>Read-only; auto-filled on department select</td></tr>
+            <tr><td>user_grade</td><td>User Grade</td><td><span class="req-yes">Yes</span></td><td>Grade value string (e.g. <code>grade_a</code>)</td></tr>
+            <tr><td>grade_level</td><td>Grade Level</td><td><span class="req-yes">Yes</span></td><td>Numeric 0–6; 0 = Group B (valid value)</td></tr>
+            <tr><td>is_active</td><td>Is Active</td><td><span class="req-no">—</span></td><td>Boolean; default <code>true</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── 10. Cascading Dropdowns ── -->
+    <div class="section" id="cascading">
+      <h2><span class="section-num">10</span> Cascading Dropdown Behaviour</h2>
+      <p>The Office Type, Location, and Department fields are linked. Changing a parent clears all child selections.</p>
+
+      <div class="cascade-diagram">
+        <div class="cascade-node">Office Type</div>
+        <div class="cascade-arrow">&#8594;</div>
+        <div class="cascade-node">Location</div>
+        <div class="cascade-arrow">&#8594;</div>
+        <div class="cascade-node cascade-readonly">RO/TE Short Code <small>(auto)</small></div>
+        <div class="cascade-arrow">&#8594;</div>
+        <div class="cascade-node">Department</div>
+        <div class="cascade-arrow">&#8594;</div>
+        <div class="cascade-node cascade-readonly">Dept. Short Code <small>(auto)</small></div>
+      </div>
+
+      <h3>HO (Head Office)</h3>
+      <ul style="padding-left:20px; color:#334155; line-height:2;">
+        <li><strong>Location</strong> is <strong>disabled</strong> and fixed to <strong>Mumbai</strong> — cannot be changed.</li>
+        <li><strong>RO/TE Short Code</strong> is hidden/disabled for HO.</li>
+        <li><strong>Department</strong> shows all 41 Head Office departments.</li>
+      </ul>
+
+      <h3>RO (Regional Office)</h3>
+      <ul style="padding-left:20px; color:#334155; line-height:2;">
+        <li><strong>Location</strong> dropdown lists all <strong>31</strong> Regional Office locations.</li>
+        <li>On selecting a location, <strong>RO/TE Short Code</strong> is auto-filled.</li>
+        <li><strong>Department</strong> shows only departments for the selected RO location.</li>
+        <li>If location is not yet selected, Department shows <em>"Select location first"</em>.</li>
+      </ul>
+
+      <h3>TE (Training Establishment)</h3>
+      <ul style="padding-left:20px; color:#334155; line-height:2;">
+        <li><strong>Location</strong> dropdown lists <strong>4</strong> Training Establishment locations.</li>
+        <li>On selecting a location, <strong>RO/TE Short Code</strong> is auto-filled.</li>
+        <li><strong>Department</strong> shows departments for the selected TE location.</li>
+      </ul>
+
+      <h3>Auto-fill Summary</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Event</th><th>Fields Cleared / Auto-filled</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Office Type changed</td>
+              <td>Location cleared (HO → auto-sets Mumbai); RO/TE Short Code cleared; Department cleared; Dept. Short Code cleared</td>
+            </tr>
+            <tr>
+              <td>Location selected</td>
+              <td>RO/TE Short Code <strong>auto-filled</strong> from metadata; Department cleared; Dept. Short Code cleared</td>
+            </tr>
+            <tr>
+              <td>Department selected</td>
+              <td>Department Short Code <strong>auto-filled</strong> from metadata</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── 11. Validation ── -->
+    <div class="section" id="validation">
+      <h2><span class="section-num">11</span> Validation Rules Summary</h2>
+
+      <h3>Step 1</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Field</th><th>Rule</th></tr></thead>
+          <tbody>
+            <tr><td>user_name</td><td>Required, non-empty (whitespace-only rejected)</td></tr>
+            <tr><td>user_login_name</td><td>Required, non-empty</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Step 2</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Field</th><th>Rule</th></tr></thead>
+          <tbody>
+            <tr><td>user_source</td><td>Required (always has a default: OTDS)</td></tr>
+            <tr><td>otds_password</td><td>Required when source = OTDS; minimum 8 characters</td></tr>
+            <tr><td>otds_confirm_pw</td><td>Required when source = OTDS; must exactly equal <code>otds_password</code></td></tr>
+            <tr><td>otds_partition</td><td>Required when source = OTDS; non-empty</td></tr>
+            <tr><td>user_password</td><td>Optional when source = Inline Password</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Step 3</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Field</th><th>Rule</th></tr></thead>
+          <tbody>
+            <tr><td>profile_designation</td><td>Required, non-empty</td></tr>
+            <tr><td>profile_office_type</td><td>Required</td></tr>
+            <tr><td>profile_location</td><td>Required</td></tr>
+            <tr><td>profile_department_name</td><td>Required</td></tr>
+            <tr><td>profile_user_grade</td><td>Required</td></tr>
+            <tr><td>profile_grade_level</td><td>Required; must be a number; <strong>0 is a valid value</strong> (Group B)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── 12. Errors ── -->
+    <div class="section" id="errors">
+      <h2><span class="section-num">12</span> Common Errors and Fixes</h2>
+
+      <div class="error-card">
+        <div class="error-title">&#9888; User created in Documentum but OTDS setup failed</div>
+        <div class="error-cause">
+          <strong>Cause:</strong> OTDS server unreachable; the OTDS partition does not exist; or the login name is already taken in OTDS.
+        </div>
+        <div class="error-fix">
+          <strong>Fix:</strong>
+          <ol>
+            <li>Verify the OTDS server is running at <code>{otds.url}/users</code>.</li>
+            <li>Confirm the partition name is correct in OTDS Admin.</li>
+            <li>Retry OTDS setup via <code>POST /api/users/otds/setup</code> or use the OTDS Admin console to create and configure the user manually.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="error-card">
+        <div class="error-title">&#9888; Failed to add user to dm_superusers_dynamic</div>
+        <div class="error-cause">
+          <strong>Cause:</strong> The <code>user_name</code> could not be resolved in the Documentum REST API (case-sensitivity issue), or the group does not exist.
+        </div>
+        <div class="error-fix">
+          <strong>Fix:</strong>
+          <ol>
+            <li>Verify the <code>dm_superusers_dynamic</code> group exists in the repository.</li>
+            <li>Check backend logs for the exact error (<code>[Group] Failed to add user...</code>).</li>
+            <li>Add the user manually via DQL:<br>
+              <code>EXECUTE ADD_USER_TO_GROUP WITH user_name = '&lt;user_name&gt;', group_name = 'dm_superusers_dynamic'</code>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="error-card">
+        <div class="error-title">&#9888; Grade Level "0" appears invalid / Create button stays disabled</div>
+        <div class="error-cause">
+          <strong>Cause:</strong> Older versions of the application treated grade level <code>0</code> as an empty value due to a JavaScript falsy check.
+        </div>
+        <div class="error-fix">
+          <strong>Fix:</strong> Ensure you are on the latest version of the application, which correctly treats <code>0</code> as a valid grade level for Group B.
+        </div>
+      </div>
+
+      <div class="error-card">
+        <div class="error-title">&#9888; Location dropdown shows no options</div>
+        <div class="error-cause">
+          <strong>Cause:</strong> Office Type has not been selected yet, or HO was selected (HO has no location dropdown — Mumbai is fixed).
+        </div>
+        <div class="error-fix">
+          <strong>Fix:</strong> Select <strong>RO</strong> or <strong>TE</strong> as the Office Type first. The Location dropdown will populate with the appropriate locations.
+        </div>
+      </div>
+
+      <div class="error-card">
+        <div class="error-title">&#9888; Department dropdown shows "Select location first"</div>
+        <div class="error-cause">
+          <strong>Cause:</strong> Office Type is RO or TE but no Location has been chosen yet.
+        </div>
+        <div class="error-fix">
+          <strong>Fix:</strong> Select a location from the Location dropdown. The department list will populate automatically based on the selected location.
+        </div>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      NB Support App &mdash; Help Manual: User Creation &mdash; March 2026<br>
+      For technical issues or to report a bug, contact the NB Support App development team.
+    </div>
+
+  </main>
+</div>
+
+</body>
+</html>

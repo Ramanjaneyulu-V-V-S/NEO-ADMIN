@@ -144,7 +144,7 @@ const InboxPage = () => {
                         <Loader2 size={15} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />
                     )}
                     {showDropdown && filteredUsers.length > 0 && (
-                        <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                        <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-56 overflow-y-auto overscroll-contain">
                             {filteredUsers.slice(0, 100).map(u => (
                                 <button
                                     key={u.r_object_id || u.user_login_name}

@@ -521,7 +521,7 @@ const CasesPage = () => {
                                 <>
                                     {/* Sidebar for multiple workflows */}
                                     {workflowData.workflows.length > 1 && (
-                                        <div className="w-full md:w-64 border-r border-slate-200 bg-slate-50 overflow-y-auto">
+                                        <div className="w-full md:w-64 border-r border-slate-200 bg-slate-50 overflow-y-auto overscroll-contain">
                                             <div className="p-4 border-b border-slate-200">
                                                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Workflows ({workflowData.workflows.length})</h3>
                                             </div>
@@ -548,7 +548,7 @@ const CasesPage = () => {
                                     )}
 
                                     {/* Main Detail Area */}
-                                    <div className="flex-1 overflow-y-auto bg-white p-6 md:p-8">
+                                    <div className="flex-1 overflow-y-auto overscroll-contain bg-white p-6 md:p-8">
                                         {/* Active Workflow Header */}
                                         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-8 border-b border-slate-100 pb-8">
                                             <div>
@@ -680,7 +680,7 @@ const CasesPage = () => {
                                 <X size={20} />
                             </button>
                         </div>
-                        <div className="bg-slate-900 rounded-lg p-4 font-mono text-xs text-slate-300 overflow-x-auto max-h-[60vh] overflow-y-auto">
+                        <div className="bg-slate-900 rounded-lg p-4 font-mono text-xs text-slate-300 overflow-x-auto max-h-[60vh] overflow-y-auto overscroll-contain">
                             <p className="mb-2 text-slate-500"># System Log for WorkItem: {selectedLogItem.r_object_id}</p>
                             <p className="mb-2 text-slate-500"># Activity: {selectedLogItem.r_act_name}</p>
                             <div className="space-y-1">

@@ -14,10 +14,12 @@ import InboxPage from './pages/InboxPage';
 import MetadataPage from './pages/MetadataPage';
 import DelegatePage from './pages/DelegatePage';
 import CaseInbox2Page from './pages/CaseInbox2Page';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   return (
     <Router basename="/neoadmin/">
+      <Toaster position="top-center" toastOptions={{ duration: 3000, style: { fontSize: '14px' } }} />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         

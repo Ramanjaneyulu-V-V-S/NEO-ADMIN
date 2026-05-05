@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import api from '../api/axios';
-import { X, Save, Loader2, User, Building2, MapPin, Tag, Layers, AlertCircle, ArrowRightLeft, Users, ChevronDown } from 'lucide-react';
+import { X, Save, Loader2, User, Building2, MapPin, Tag, Layers, AlertCircle, ArrowRightLeft, Users } from 'lucide-react';
 import { USER_GRADES, DESIGNATION_OPTIONS, getLocations, fetchDepartments, RO_LOCATIONS, TE_LOCATIONS } from '../data/nabardMetadata.js';
+import CustomSelect from './ui/CustomSelect.jsx';
 
 const USER_GRADE_OPTIONS = [
     { value: '', label: '— Select grade —', level: '' },
@@ -36,10 +39,11 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
     const [form, setForm] = useState({});
     const [loading, setLoading] = useState(false);
     const [loadingForm, setLoadingForm] = useState(false);
-    const [error, setError] = useState(null);
     const [errors, setErrors] = useState({});
+    const [error, setError] = useState(null);
     const [designationChanged, setDesignationChanged] = useState(false);
     const originalGroupInfoRef = useRef({ officeType: '', roShortCode: '', deptCodes: [], designation: '' });
+    const hindiTouched = useRef({});
 
     // Pending cases / delegate state
     const [checkingInbox,       setCheckingInbox]       = useState(false);
@@ -707,21 +711,12 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                             ) : delegateUsers.length === 0 ? (
                                 <div className="text-xs text-slate-400 py-2">No users found for this department.</div>
                             ) : (
-                                <div className="relative">
-                                    <select
-                                        value={delegateSelectedUser}
-                                        onChange={e => setDelegateSelectedUser(e.target.value)}
-                                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2] bg-white appearance-none pr-8 cursor-pointer"
-                                    >
-                                        <option value="">— Select user —</option>
-                                        {delegateUsers.map(u => (
-                                            <option key={u.r_object_id || u.user_login_name} value={u.object_name}>
-                                                {u.object_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                </div>
+                                <CustomSelect
+                                    value={delegateSelectedUser}
+                                    onChange={setDelegateSelectedUser}
+                                    options={delegateUsers.map(u => ({ value: u.object_name, label: u.object_name }))}
+                                    placeholder="— Select user —"
+                                />
                             )}
                         </div>
                     </div>
@@ -743,9 +738,17 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <DelegateCaseModal />
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh]">
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    {delegateTask && <DelegateCaseModal />}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 20, scale: 0.97 }}
+                        transition={{ duration: 0.2 }}
+                        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh]"
+                    >
 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -759,10 +762,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                 </div>
 
                 {/* Body */}
-                <div className="flex-1 overflow-y-auto p-6">
-                    {error && (
-                        <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>
-                    )}
+                <div className="flex-1 overflow-y-auto overscroll-contain p-6 scrollbar-thin">
                     <form id="editProfileForm" onSubmit={handleSubmit} className="space-y-5">
 
                         {/* ── Basic Info ── */}
@@ -783,23 +783,18 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                 </div>
                                 <div className="space-y-1">
                                     <Label required>Designation</Label>
-                                    <SelectWrapper>
-                                        <select value={form.designation}
-                                            onChange={e => {
-                                                const newDesignation = e.target.value;
-                                                set('designation', newDesignation);
-                                                setErrors(p => ({ ...p, designation: undefined }));
-                                                // Track if designation was actually changed from original
-                                                setDesignationChanged(newDesignation !== originalGroupInfoRef.current.designation);
-                                                // Reset hindi_designation touched so it can auto-populate
-                                                hindiTouched.current.hindi_designation = false;
-                                            }}
-                                            className={errors.designation ? errorCls : selectCls} >
-                                            {DESIGNATION_OPTIONS.map((opt) => (
-                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                            ))}
-                                        </select>
-                                    </SelectWrapper>
+                                    <CustomSelect
+                                        value={form.designation}
+                                        onChange={v => {
+                                            set('designation', v);
+                                            setErrors(p => ({ ...p, designation: undefined }));
+                                            setDesignationChanged(v !== originalGroupInfoRef.current.designation);
+                                            hindiTouched.current.hindi_designation = false;
+                                        }}
+                                        options={DESIGNATION_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+                                        placeholder="— Select designation —"
+                                        className={errors.designation ? 'border-red-400 ring-2 ring-red-400/20' : ''}
+                                    />
                                     {errors.designation && <p className="text-xs text-red-500">{errors.designation}</p>}
                                     {designationChanged && <p className="text-xs text-amber-600 font-medium mt-1">💡 Change user grade if required</p>}
                                 </div>
@@ -811,13 +806,12 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                 </div>
                                 <div className="space-y-1">
                                     <Label>User Grade</Label>
-                                    <SelectWrapper>
-                                        <select value={form.user_grade} onChange={e => handleGradeChange(e.target.value)} className={selectCls}>
-                                            {USER_GRADE_OPTIONS.map(o => (
-                                                <option key={o.value} value={o.value}>{o.label}</option>
-                                            ))}
-                                        </select>
-                                    </SelectWrapper>
+                                    <CustomSelect
+                                        value={form.user_grade}
+                                        onChange={handleGradeChange}
+                                        options={USER_GRADE_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+                                        placeholder="— Select grade —"
+                                    />
                                 </div>
                                 <div className="space-y-1">
                                     <Label>Grade Level</Label>
@@ -869,17 +863,17 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                             <div className="space-y-3">
                                 <div className="space-y-1">
                                     <Label>Office Type</Label>
-                                    <SelectWrapper>
-                                        <select value={form.office_type}
-                                            onChange={e => handleOfficeTypeChange(e.target.value)}
-                                            disabled={checkingOfficeInbox || isLocalAdmin}
-                                            className={(checkingOfficeInbox || isLocalAdmin) ? disabledSelectCls : selectCls}>
-                                            <option value="">— Select office type —</option>
-                                            <option value="HO">HO — Head Office</option>
-                                            <option value="RO">RO — Regional Office</option>
-                                            <option value="TE">TE — Training Establishment</option>
-                                        </select>
-                                    </SelectWrapper>
+                                    <CustomSelect
+                                        value={form.office_type}
+                                        onChange={handleOfficeTypeChange}
+                                        disabled={checkingOfficeInbox || isLocalAdmin}
+                                        options={[
+                                            { value: 'HO', label: 'HO — Head Office' },
+                                            { value: 'RO', label: 'RO — Regional Office' },
+                                            { value: 'TE', label: 'TE — Training Establishment' },
+                                        ]}
+                                        placeholder="— Select office type —"
+                                    />
                                     {checkingOfficeInbox && (
                                         <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
                                             <Loader2 size={12} className="animate-spin" /> Checking case inbox…
@@ -891,21 +885,16 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                     <div className="space-y-1">
                                         <Label><MapPin size={10} className="inline mr-0.5" />Location</Label>
                                         {isHO ? (
-                                            <SelectWrapper>
-                                                <select disabled className={disabledSelectCls}>
-                                                    <option>Mumbai</option>
-                                                </select>
-                                            </SelectWrapper>
+                                            <CustomSelect value="Mumbai" onChange={() => {}} disabled options={[{ value: 'Mumbai', label: 'Mumbai' }]} />
                                         ) : (
                                             <>
-                                                <SelectWrapper>
-                                                    <select value={form.location} onChange={e => handleLocationChange(e.target.value)} disabled={checkingLocationInbox || isLocalAdmin} className={(checkingLocationInbox || isLocalAdmin) ? disabledSelectCls : selectCls}>
-                                                        <option value="">— Select location —</option>
-                                                        {locations.map(l => (
-                                                            <option key={l.location} value={l.location}>{l.location}</option>
-                                                        ))}
-                                                    </select>
-                                                </SelectWrapper>
+                                                <CustomSelect
+                                                    value={form.location}
+                                                    onChange={handleLocationChange}
+                                                    disabled={checkingLocationInbox || isLocalAdmin}
+                                                    options={locations.map(l => ({ value: l.location, label: l.location }))}
+                                                    placeholder="— Select location —"
+                                                />
                                                 {checkingLocationInbox && (
                                                     <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
                                                         <Loader2 size={12} className="animate-spin" /> Checking inbox…
@@ -933,34 +922,82 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                 ) : !form.office_type ? (
                                                     <p className="px-3 py-2 text-sm text-slate-400">— Select office type first —</p>
                                                 ) : (
-                                                    <div className="max-h-40 overflow-y-auto divide-y divide-slate-100">
+                                                    <>
+                                                        <label className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-blue-50 border-b border-slate-200 bg-slate-50">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={depts.length > 0 && (form.department_short_code_multi || []).length === depts.length}
+                                                                onChange={() => {
+                                                                    const currentCodes = form.department_short_code_multi || [];
+                                                                    const allSelected = currentCodes.length === depts.length;
+                                                                    const newCodes = allSelected ? [] : depts.map(d => d.shortCode);
+                                                                    const firstDept = depts[0];
+                                                                    set('department_short_code',       newCodes[0] || '');
+                                                                    set('department_short_code_multi', newCodes);
+                                                                    set('department_name',             allSelected ? '' : (firstDept?.name || ''));
+                                                                    const originalCodes = originalGroupInfoRef.current.deptCodes.map(c => c.toLowerCase());
+                                                                    const removedCodes = originalCodes.filter(c => !newCodes.map(n => n.toLowerCase()).includes(c));
+                                                                    if (removedCodes.length > 0) {
+                                                                        checkDeptInbox(removedCodes);
+                                                                    } else {
+                                                                        setShowDeptBlock(false);
+                                                                        setDeptPendingCases([]);
+                                                                    }
+                                                                }}
+                                                                className="rounded accent-[#0A66C2]"
+                                                            />
+                                                            <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Select All</span>
+                                                        </label>
+                                                        <div className="max-h-40 overflow-y-auto overscroll-contain divide-y divide-slate-100">
+                                                            {depts.map(d => (
+                                                                <label key={d.name} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={(form.department_short_code_multi || []).includes(d.shortCode)}
+                                                                        onChange={() => {
+                                                                            const currentCodes = form.department_short_code_multi || [];
+                                                                            const isRemoving = currentCodes.includes(d.shortCode);
+                                                                            const newCodes = isRemoving
+                                                                                ? currentCodes.filter(c => c !== d.shortCode)
+                                                                                : [...currentCodes, d.shortCode];
+                                                                            const firstDept = depts.find(dept => dept.shortCode === newCodes[0]);
+                                                                            set('department_short_code',       newCodes[0] || '');
+                                                                            set('department_short_code_multi', newCodes);
+                                                                            set('department_name',             firstDept?.name || '');
+                                                                            const originalCodes = originalGroupInfoRef.current.deptCodes.map(c => c.toLowerCase());
+                                                                            const removedCodes = originalCodes.filter(c => !newCodes.map(n => n.toLowerCase()).includes(c));
+                                                                            if (removedCodes.length > 0) {
+                                                                                checkDeptInbox(removedCodes);
+                                                                            } else {
+                                                                                setShowDeptBlock(false);
+                                                                                setDeptPendingCases([]);
+                                                                            }
+                                                                        }}
+                                                                        className="rounded accent-[#0A66C2]"
+                                                                    />
+                                                                    <span className="text-sm text-slate-700">{d.name}</span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                                {!form.office_type ? (
+                                                    <p className="px-3 py-2 text-sm text-slate-400">— Select office type first —</p>
+                                                ) : depts.length === 0 ? (
+                                                    <p className="px-3 py-2 text-sm text-slate-400">— No departments available —</p>
+                                                ) : (
+                                                    <div className="max-h-40 overflow-y-auto overscroll-contain divide-y divide-slate-100">
                                                         {depts.map(d => (
-                                                            <label key={d.name} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50">
+                                                            <label key={d.name} className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50 ${form.department_name === d.name ? 'bg-blue-50' : ''}`}>
                                                                 <input
-                                                                    type="checkbox"
-                                                                    checked={(form.department_short_code_multi || []).includes(d.shortCode)}
-                                                                    onChange={() => {
-                                                                        const currentCodes = form.department_short_code_multi || [];
-                                                                        const isRemoving = currentCodes.includes(d.shortCode);
-                                                                        const newCodes = isRemoving
-                                                                            ? currentCodes.filter(c => c !== d.shortCode)
-                                                                            : [...currentCodes, d.shortCode];
-                                                                        const firstDept = depts.find(dept => dept.shortCode === newCodes[0]);
-                                                                        set('department_short_code',       newCodes[0] || '');
-                                                                        set('department_short_code_multi', newCodes);
-                                                                        set('department_name',             firstDept?.name || '');
-
-                                                                        // RO/TE: check inbox for all departments removed vs original
-                                                                        const originalCodes = originalGroupInfoRef.current.deptCodes.map(c => c.toLowerCase());
-                                                                        const removedCodes = originalCodes.filter(c => !newCodes.map(n => n.toLowerCase()).includes(c));
-                                                                        if (removedCodes.length > 0) {
-                                                                            checkDeptInbox(removedCodes);
-                                                                        } else {
-                                                                            setShowDeptBlock(false);
-                                                                            setDeptPendingCases([]);
-                                                                        }
-                                                                    }}
-                                                                    className="rounded accent-[#0A66C2]"
+                                                                    type="radio"
+                                                                    name="ho_department"
+                                                                    checked={form.department_name === d.name}
+                                                                    onChange={() => handleDepartmentChange(d.name)}
+                                                                    className="accent-[#0A66C2]"
                                                                 />
                                                                 <span className="text-sm text-slate-700">{d.name}</span>
                                                             </label>
@@ -968,20 +1005,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                     </div>
                                                 )}
                                             </div>
-                                        ) : (
-                                            <SelectWrapper>
-                                                <select value={form.department_name}
-                                                    onChange={e => handleDepartmentChange(e.target.value)}
-                                                    disabled={!form.office_type}
-                                                    className={!form.office_type ? disabledSelectCls : selectCls}>
-                                                    <option value="">
-                                                        {!form.office_type ? '— Select office type first —' : '— Select department —'}
-                                                    </option>
-                                                    {depts.map(d => (
-                                                        <option key={d.name} value={d.name}>{d.name}</option>
-                                                    ))}
-                                                </select>
-                                            </SelectWrapper>
                                         )}
                                     </div>
                                     <div className="space-y-1">
@@ -1014,7 +1037,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                         <span className="text-xs font-semibold text-slate-600">Pending Cases</span>
                                         <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">{officePendingCases.length}</span>
                                     </div>
-                                    <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                                    <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto overscroll-contain">
                                         {officePendingCases.map((task, idx) => {
                                             const caseName = pf(task, 'object_name') || task.caseName || '—';
                                             const desc     = pf(task, 'description') || '';
@@ -1062,7 +1085,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                         <span className="text-xs font-semibold text-slate-600">Pending Cases</span>
                                         <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">{deptPendingCases.length}</span>
                                     </div>
-                                    <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                                    <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto overscroll-contain">
                                         {deptPendingCases.map((task, idx) => {
                                             const caseName = pf(task, 'object_name') || task.caseName || '—';
                                             const desc     = pf(task, 'description') || '';
@@ -1110,7 +1133,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                         <span className="text-xs font-semibold text-slate-600">Pending Cases</span>
                                         <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">{locationPendingCases.length}</span>
                                     </div>
-                                    <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                                    <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto overscroll-contain">
                                         {locationPendingCases.map((task, idx) => {
                                             const caseName = pf(task, 'object_name') || task.caseName || '—';
                                             const desc     = pf(task, 'description') || '';
@@ -1150,17 +1173,15 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                         {isSuperAdmin && <div className="space-y-3">
                             <div className="space-y-1">
                                 <Label>User State</Label>
-                                <SelectWrapper>
-                                    <select
-                                        value={String(form.is_active ?? false)}
-                                        onChange={e => handleStatusChange(e.target.value)}
-                                        disabled={checkingInbox}
-                                        className={checkingInbox ? disabledSelectCls : selectCls}
-                                    >
-                                        <option value="true">Active</option>
-                                        <option value="false">Inactive</option>
-                                    </select>
-                                </SelectWrapper>
+                                <CustomSelect
+                                    value={String(form.is_active ?? false)}
+                                    onChange={handleStatusChange}
+                                    disabled={checkingInbox}
+                                    options={[
+                                        { value: 'true',  label: 'Active' },
+                                        { value: 'false', label: 'Inactive' },
+                                    ]}
+                                />
                                 {checkingInbox && (
                                     <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
                                         <Loader2 size={12} className="animate-spin" /> Checking inbox…
@@ -1180,7 +1201,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                             <span className="text-xs font-semibold text-slate-600">Pending Cases</span>
                                             <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">{pendingCases.length}</span>
                                         </div>
-                                        <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                                        <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto overscroll-contain">
                                             {pendingCases.map((task, idx) => {
                                                 const caseName = pf(task, 'object_name') || task.caseName || '—';
                                                 const desc     = pf(task, 'description') || '';
@@ -1227,13 +1248,15 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                         Cancel
                     </button>
                     <button type="submit" form="editProfileForm" disabled={loading || loadingForm || checkingInbox || checkingOfficeInbox || checkingDeptInbox || checkingLocationInbox || (isSuperAdmin && showPendingBlock) || showOfficeBlock || showDeptBlock || showLocationBlock}
-                        className="px-4 py-2 bg-[#0A66C2] text-white rounded-lg text-sm font-medium hover:bg-[#094d92] disabled:opacity-50 flex items-center gap-2 transition-colors">
+                        className="px-4 py-2 bg-[#0A66C2] text-white rounded-lg text-sm font-medium hover:bg-[#094d92] hover:-translate-y-0.5 active:translate-y-0 shadow-md hover:shadow-lg disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none flex items-center gap-2 transition-all">
                         {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
                         Save Changes
                     </button>
                 </div>
-            </div>
+            </motion.div>
         </div>
+        )}
+        </AnimatePresence>
     );
 };
 

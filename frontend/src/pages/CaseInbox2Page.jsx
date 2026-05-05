@@ -59,7 +59,7 @@ const CaseDetailsModal = ({ caseItem, onClose }) => {
                     </button>
                 </div>
 
-                <div className="overflow-y-auto flex-1 p-6">
+                <div className="overflow-y-auto overscroll-contain flex-1 p-6">
                     <div className="flex items-center gap-2 mb-3">
                         <Info size={14} className="text-[#0A66C2]" />
                         <h3 className="text-sm font-bold text-slate-800">Case Details</h3>
@@ -140,7 +140,7 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
                     </button>
                 </div>
 
-                <div className="overflow-y-auto flex-1 p-6">
+                <div className="overflow-y-auto overscroll-contain flex-1 p-6">
                     <div className="flex items-center gap-2 mb-3">
                         <ClipboardList size={14} className="text-[#0A66C2]" />
                         <h3 className="text-sm font-bold text-slate-800">Movement Register</h3>

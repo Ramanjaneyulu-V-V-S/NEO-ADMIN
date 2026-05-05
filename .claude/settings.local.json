@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(taskkill //PID 34684 //F)",
+      "Bash(mvn spring-boot:run -q)",
+      "Bash(xargs grep:*)",
+      "Bash(pkill -f \"npm run dev\")",
+      "Bash(npm run *)",
+      "Read(//tmp/**)",
+      "Bash(curl -s http://localhost:8080/api/health)",
+      "Bash(curl -s -X GET 'http://localhost:8080/api/groups/search?groupName=ecm_tn&page=1&size=10' -H 'Content-Type: application/json')",
+      "Bash(curl -s \"http://localhost:8080/api/groups/search?groupName=ecm_tn&page=1&size=10\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:5173)",
+      "Bash(echo \"Frontend: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:5173 2>&1\\)\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080)",
+      "Bash(echo \"Backend: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080 2>&1\\)\")",
+      "Bash(curl -s -X DELETE 'http://localhost:8080/api/groups/ecm_tn_ddmabi/members?memberName=Mr.%20Premchander&memberType=user' -H 'Content-Type: application/json' -w '\\\\nHTTP Status: %{http_code}\\\\n')",
+      "Bash(awk '{print $2}')",
+      "Bash(xargs -r kill -9 sleep 2 echo \"Old backend process killed\")",
+      "Bash(java -jar target/backend-0.0.1-SNAPSHOT.jar)",
+      "Bash(curl -s http://localhost:8080/api/groups/search?groupName=test)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:8080)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:5173)",
+      "Bash(curl -s -X DELETE 'http://localhost:8080/api/groups/ecm_tn_ddmabi/members?memberName=Mr.%20Premchander&memberType=user' -H 'Content-Type: application/json' -w '\\\\n\\\\nHTTP Status: %{http_code}\\\\n')",
+      "Bash(curl -s -X DELETE 'http://localhost:8080/api/groups/ecm_tn_ddmabi/members?memberName=Mr.%20Premchander&memberType=user' -H 'Content-Type: application/json')",
+      "Bash(lsof -ti:8080)",
+      "Bash(xargs -r kill -9 ps aux)",
+      "Bash(xargs kill *)",
+      "Bash(rm -rf target)",
+      "Bash(mvn package *)",
+      "Bash(grep -o \"neoadminBackend/api\\\\|/backend/api\" \"d:/NBSupportApp/webapps/webapps/neoadmin/assets/\"*.js)",
+      "Bash(export CATALINA_HOME=\"/c/Program Files/Apache Software Foundation/Tomcat 10.1\")",
+      "Read(//c/Program Files/Apache Software Foundation/Tomcat 10.1/bin/**)",
+      "Bash(./startup.bat)",
+      "Bash(./start_services.sh)",
+      "Bash(mvn spring-boot:run)",
+      "Read(//c/Users/KalaiVani K/.claude/projects/d--NBSupportApp/memory/**)",
+      "Read(//d/d/NBSupportApp/**)",
+      "Bash(mvn spring-boot:run -DskipTests)",
+      "Bash(curl -s http://localhost:5179/neoadmin/)",
+      "Bash(curl -s \"http://localhost:8080/api/groups/by-prefix?prefix=ecm_tn_dit\")"
+    ],
+    "additionalDirectories": [
+      "\\tmp",
+      "d:\\tmp",
+      "C:\\Program Files\\Apache Software Foundation\\Tomcat 10.1\\webapps\\neoadmin"
+    ]
+  }
+}

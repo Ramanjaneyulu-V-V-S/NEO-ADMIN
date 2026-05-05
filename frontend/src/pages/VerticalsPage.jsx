@@ -7,6 +7,121 @@ import {
 } from 'lucide-react';
 import { RO_LOCATIONS, TE_LOCATIONS, getLocations, fetchDepartments } from '../data/nabardMetadata.js';
 
+// ─── FixedDropdown — never clips at viewport edge ────────────────────────────
+const FixedDropdown = ({ value, onChange, options = [], placeholder, disabled, multiple = false }) => {
+    const [open, setOpen]       = useState(false);
+    const [search, setSearch]   = useState('');
+    const triggerRef            = useRef(null);
+    const panelRef              = useRef(null);
+    const [panelStyle, setPanelStyle] = useState({});
+
+    const selected = multiple ? (Array.isArray(value) ? value : []) : value;
+
+    useEffect(() => {
+        const close = (e) => {
+            if (!triggerRef.current?.contains(e.target) && !panelRef.current?.contains(e.target))
+                setOpen(false);
+        };
+        document.addEventListener('mousedown', close);
+        return () => document.removeEventListener('mousedown', close);
+    }, []);
+
+    const openDropdown = () => {
+        if (disabled) return;
+        const rect         = triggerRef.current.getBoundingClientRect();
+        const panelH       = Math.min(options.length * 36 + 56, 288);
+        const spaceBelow   = window.innerHeight - rect.bottom - 8;
+        const top          = spaceBelow >= panelH ? rect.bottom + 4 : Math.max(8, rect.top - panelH - 4);
+        setPanelStyle({ top, left: rect.left, width: rect.width, maxHeight: Math.min(panelH, 288) });
+        setSearch('');
+        setOpen(v => !v);
+    };
+
+    const toggle = (val) => {
+        if (multiple) {
+            const arr = Array.isArray(value) ? value : [];
+            onChange(arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val]);
+        } else {
+            onChange(val);
+            setOpen(false);
+        }
+    };
+
+    const filtered    = options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()));
+    const allSelected = multiple && options.length > 0 && options.every(o => selected.includes(o.value));
+
+    const displayText = () => {
+        if (multiple) {
+            if (!Array.isArray(value) || value.length === 0) return null;
+            if (value.length === options.length && options.length > 0) return `All ${value.length} selected`;
+            return `${value.length} selected`;
+        }
+        return options.find(o => o.value === value)?.label || null;
+    };
+
+    const text = displayText();
+
+    return (
+        <>
+            <button
+                ref={triggerRef} type="button" onClick={openDropdown} disabled={disabled}
+                className={`w-full px-4 py-2.5 border rounded-xl text-sm text-left flex items-center justify-between transition-all focus:outline-none
+                    ${disabled ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                               : 'bg-white border-slate-200 hover:border-slate-300 cursor-pointer'}
+                    ${open ? 'border-[#0A66C2] ring-2 ring-blue-500/20' : ''}`}
+            >
+                <span className={text ? 'text-slate-800' : 'text-slate-400'}>{text || placeholder}</span>
+                <ChevronDown size={13} className={`text-slate-400 shrink-0 ml-2 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </button>
+
+            {open && (
+                <div ref={panelRef} style={panelStyle}
+                    className="fixed bg-white/95 backdrop-blur-sm border border-slate-200 rounded-xl shadow-2xl z-[9999] flex flex-col overflow-hidden">
+                    <div className="p-2 border-b border-slate-200 bg-gradient-to-b from-slate-50 to-white">
+                        <input autoFocus type="text" value={search} onChange={e => setSearch(e.target.value)}
+                            placeholder="Search…"
+                            className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/30 focus:border-[#0A66C2]" />
+                    </div>
+                    <div className="overflow-y-auto overscroll-contain scrollbar-thin bg-gradient-to-b from-slate-50/80 via-white to-slate-100/70" style={{ maxHeight: (panelStyle.maxHeight || 288) - 52 }}>
+                        {multiple && options.length > 1 && (
+                            <button onClick={() => onChange(allSelected ? [] : options.map(o => o.value))}
+                                className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide hover:bg-slate-100 border-b border-slate-200 bg-slate-50/90 flex items-center gap-2">
+                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${allSelected ? 'bg-[#0A66C2] border-[#0A66C2]' : 'border-slate-300'}`}>
+                                    {allSelected && <Check size={10} className="text-white" />}
+                                </div>
+                                Select All ({options.length})
+                            </button>
+                        )}
+                        {filtered.length === 0
+                            ? <div className="px-4 py-3 text-xs text-slate-400 text-center bg-white/80">No options found</div>
+                            : filtered.map((opt, index) => {
+                                const isSel = multiple ? selected.includes(opt.value) : value === opt.value;
+                                return (
+                                    <button key={opt.value} onClick={() => toggle(opt.value)}
+                                        className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 transition-colors border-b border-slate-100/80
+                                            ${isSel
+                                                ? 'text-[#0A66C2] font-medium bg-blue-50'
+                                                : index % 2 === 0
+                                                    ? 'text-slate-700 bg-white/90 hover:bg-slate-100/80'
+                                                    : 'text-slate-700 bg-slate-50/75 hover:bg-slate-100'
+                                            }`}>
+                                        {multiple
+                                            ? <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${isSel ? 'bg-[#0A66C2] border-[#0A66C2]' : 'border-slate-300'}`}>
+                                                {isSel && <Check size={10} className="text-white" />}
+                                              </div>
+                                            : <Check size={14} className={isSel ? 'text-[#0A66C2]' : 'opacity-0'} />}
+                                        <span className="truncate">{opt.label}</span>
+                                    </button>
+                                );
+                              })
+                        }
+                    </div>
+                </div>
+            )}
+        </>
+    );
+};
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 function normalizeSuffix(raw) {
@@ -18,6 +133,25 @@ function toVerticalHeadName(groupName) {
     if (!groupName.startsWith('ecm_ho_')) return '';
     const rest = groupName.slice('ecm_ho_'.length);
     return `ecm_ho_vertical_head_${rest}`;
+}
+
+function getSelectableVerticalGroups(groups = []) {
+    const strict = groups.filter((group) => {
+        const name = (group?.group_name || '').toLowerCase();
+        return name &&
+            !name.includes('vertical_head') &&
+            !name.includes('_grade_') &&
+            !name.includes('cgm_sec');
+    });
+
+    if (strict.length > 0) return strict;
+
+    return groups.filter((group) => {
+        const name = (group?.group_name || '').toLowerCase();
+        return name &&
+            !name.includes('vertical_head') &&
+            !name.includes('_grade_');
+    });
 }
 
 // ─── Shared UI primitives ────────────────────────────────────────────────────
@@ -66,6 +200,19 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const containerRef = useRef(null);
+    const panelRef     = useRef(null);
+    const [panelStyle, setPanelStyle] = useState({});
+
+    const openPanel = () => {
+        if (containerRef.current) {
+            const r = containerRef.current.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - r.bottom - 8;
+            const panelH = Math.min(options.length * 36 + 8, 256);
+            const top = spaceBelow >= panelH ? r.bottom + 4 : Math.max(8, r.top - panelH - 4);
+            setPanelStyle({ top, left: r.left, width: r.width, maxHeight: Math.min(panelH, 256) });
+        }
+        setIsOpen(true);
+    };
 
     const filteredOptions = options.filter(o =>
         o.label.toLowerCase().includes(searchTerm.toLowerCase())
@@ -85,7 +232,8 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
 
     useEffect(() => {
         const handleClickOutside = (e) => {
-            if (containerRef.current && !containerRef.current.contains(e.target)) {
+            if (containerRef.current && !containerRef.current.contains(e.target) &&
+                panelRef.current && !panelRef.current.contains(e.target)) {
                 setIsOpen(false);
             }
         };
@@ -119,7 +267,7 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
                         placeholder={value.length === 0 ? placeholder : 'Search...'}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        onFocus={() => setIsOpen(true)}
+                        onFocus={openPanel}
                         disabled={disabled}
                         className="flex-1 outline-none text-sm py-1 px-1 min-w-32 bg-transparent"
                     />
@@ -127,7 +275,7 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
             </div>
 
             {isOpen && !disabled && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
+                <div ref={panelRef} style={panelStyle} className="fixed bg-white border border-slate-200 rounded-xl shadow-xl z-[9999] overflow-y-auto overscroll-contain">
                     {filteredOptions.length > 0 ? (
                         filteredOptions.map(opt => (
                             <button
@@ -297,12 +445,12 @@ const AddMembersTab = ({ setToast }) => {
 
     const [profileCtx, setProfileCtx] = useState(null);
 
-    const [officeType,        setOfficeType]        = useState('HO');
-    const [location,          setLocation]          = useState('');
-    const [roShortCode,       setRoShortCode]       = useState('');
-    const [dept,              setDept]              = useState('');
-    const [verticals,         setVerticals]         = useState([]);
-    const [selectedVertical,  setSelectedVertical]  = useState('');
+    const [officeType,         setOfficeType]         = useState('HO');
+    const [location,           setLocation]           = useState('');
+    const [roShortCode,        setRoShortCode]        = useState('');
+    const [dept,               setDept]               = useState('');
+    const [verticals,          setVerticals]          = useState([]);
+    const [selectedVerticals,  setSelectedVerticals]  = useState([]);
     const [users,             setUsers]             = useState([]);
     const [selectedUsers,     setSelectedUsers]     = useState([]);
 
@@ -371,7 +519,7 @@ const AddMembersTab = ({ setToast }) => {
             if (uRes.status === 'fulfilled') setUsers(uRes.value.data || []);
             if (vRes.status === 'fulfilled') {
                 const all = vRes.value.data || [];
-                setVerticals(all.filter(g => !g.group_name.includes('vertical_head') && !g.group_name.includes('_grade_') && !g.group_name.includes('_cgm_sec')));
+                setVerticals(getSelectableVerticalGroups(all));
             }
             setLoadingUsers(false); setLoadingVerticals(false);
         });
@@ -380,7 +528,7 @@ const AddMembersTab = ({ setToast }) => {
     const resetBelow = (level) => {
         if (level === 'location') { setLocation(''); setRoShortCode(''); }
         setDept('');
-        setSelectedVertical(''); setVerticals([]);
+        setSelectedVerticals([]); setVerticals([]);
         setSelectedUsers([]); setUsers([]);
         setVerticalMembers({ users: [], groups: [] });
         setVhGroupName(''); setVhExists(false); setVhMembers([]);
@@ -412,7 +560,7 @@ const AddMembersTab = ({ setToast }) => {
         else setUsers([]);
         if (vRes.status === 'fulfilled') {
             const all = vRes.value.data || [];
-            setVerticals(all.filter(g => !g.group_name.includes('vertical_head') && !g.group_name.includes('_grade_') && !g.group_name.includes('_cgm_sec')));
+            setVerticals(getSelectableVerticalGroups(all));
         } else setVerticals([]);
         setLoadingUsers(false); setLoadingVerticals(false);
     };
@@ -420,7 +568,7 @@ const AddMembersTab = ({ setToast }) => {
     // On dept change — fetch verticals (for HO also fetch users by dept)
     const handleDeptChange = async (v) => {
         setDept(v);
-        setSelectedVertical(''); setVerticals([]);
+        setSelectedVerticals([]); setVerticals([]);
         setVerticalMembers({ users: [], groups: [] });
         setVhGroupName(''); setVhExists(false); setVhMembers([]);
         if (!v) return;
@@ -435,7 +583,7 @@ const AddMembersTab = ({ setToast }) => {
         try {
             const res = await api.get('/groups/by-prefix', { params: { prefix } });
             const all = res.data || [];
-            setVerticals(all.filter(g => !g.group_name.includes('vertical_head') && !g.group_name.includes('_grade_') && !g.group_name.includes('_cgm_sec')));
+            setVerticals(getSelectableVerticalGroups(all));
         } catch { setVerticals([]); }
         finally { setLoadingVerticals(false); }
 
@@ -471,13 +619,15 @@ const AddMembersTab = ({ setToast }) => {
         finally { setLoadingUsers(false); }
     };
 
-    // On vertical change
-    const handleVerticalChange = useCallback(async (v) => {
-        setSelectedVertical(v);
+    // On vertical change (multi-select — fetch members only when exactly 1 is selected)
+    const handleVerticalChange = useCallback(async (vals) => {
+        setSelectedVerticals(vals);
         setVerticalMembers({ users: [], groups: [] });
         setVhGroupName(''); setVhExists(false); setVhMembers([]);
-        if (!v) return;
+        setVhCurrentDisplayName(''); setModifyVHSelectedUser('');
+        if (vals.length !== 1) return;
 
+        const v = vals[0];
         const vhName = toVerticalHeadName(v);
         setVhGroupName(vhName);
 
@@ -505,58 +655,52 @@ const AddMembersTab = ({ setToast }) => {
         }
     }, []);
 
-    // Get users already in the group
-    const getUsersAlreadyInGroup = () => {
-        return selectedUsers.filter(loginName =>
-            verticalMembers.users.some(u => {
-                const memberLoginName = u.user_login_name || u.login_name || '';
-                return memberLoginName.toLowerCase() === loginName.toLowerCase();
-            })
-        );
-    };
-
-    const usersAlreadyInGroup = getUsersAlreadyInGroup();
+    // Only relevant when exactly 1 vertical is selected
+    const usersAlreadyInGroup = selectedVerticals.length === 1
+        ? selectedUsers.filter(loginName =>
+            verticalMembers.users.some(u =>
+                (u.user_login_name || u.login_name || '').toLowerCase() === loginName.toLowerCase()
+            ))
+        : [];
 
     const handleAddToGroup = async () => {
-        if (!selectedVertical || selectedUsers.length === 0) return;
+        if (selectedVerticals.length === 0 || selectedUsers.length === 0) return;
         if (usersAlreadyInGroup.length > 0) {
-            const alreadyMemberNames = usersAlreadyInGroup.join(', ');
-            setToast({ type: 'error', message: `'${alreadyMemberNames}' already member(s) of '${selectedVertical}'.` });
+            setToast({ type: 'error', message: `'${usersAlreadyInGroup.join(', ')}' already member(s) of '${selectedVerticals[0]}'.` });
             return;
         }
         setAdding(true);
         try {
-            for (const loginName of selectedUsers) {
-                await api.post(`/groups/${selectedVertical}/members`, {
-                    memberName: loginName, memberType: 'user',
-                });
-                const userObj = users.find(u => u.user_login_name === loginName);
-                const userProfileId = userObj?.r_object_id || '';
-                if (userProfileId) {
-                    api.post(`/users/profiles/${userProfileId}/vertical-ids`, {
-                        verticalGroupName: selectedVertical,
-                    }).catch(e => console.warn('vertical_ids update failed:', e?.response?.data?.message || e.message));
+            for (const v of selectedVerticals) {
+                for (const loginName of selectedUsers) {
+                    await api.post(`/groups/${v}/members`, { memberName: loginName, memberType: 'user' });
+                    const userObj = users.find(u => u.user_login_name === loginName);
+                    if (userObj?.r_object_id) {
+                        api.post(`/users/profiles/${userObj.r_object_id}/vertical-ids`, { verticalGroupName: v })
+                            .catch(e => console.warn('vertical_ids update failed:', e?.response?.data?.message || e.message));
+                    }
                 }
             }
-            setToast({ type: 'success', message: `${selectedUsers.length} user(s) added to '${selectedVertical}'.` });
+            setToast({ type: 'success', message: `${selectedUsers.length} user(s) added to ${selectedVerticals.length} vertical(s).` });
             setSelectedUsers([]);
-            // Refresh members
-            const membersRes = await api.get(`/groups/${selectedVertical}/members`);
-            if (membersRes.data) setVerticalMembers({ users: membersRes.data.users || [], groups: membersRes.data.groups || [] });
+            // Refresh members if exactly 1 vertical selected
+            if (selectedVerticals.length === 1) {
+                const membersRes = await api.get(`/groups/${selectedVerticals[0]}/members`);
+                if (membersRes.data) setVerticalMembers({ users: membersRes.data.users || [], groups: membersRes.data.groups || [] });
+            }
         } catch (err) {
-            const msg = err.response?.data?.message || err.message || 'Failed to add members.';
-            setToast({ type: 'error', message: msg });
+            setToast({ type: 'error', message: err.response?.data?.message || err.message || 'Failed to add members.' });
         } finally { setAdding(false); }
     };
 
     const handleMarkVerticalHead = async () => {
-        if (!selectedVertical || selectedUsers.length === 0) return;
+        if (!selectedVerticals[0] || selectedUsers.length === 0) return;
         const firstUser = selectedUsers[0];
         const userObj = users.find(u => u.user_login_name === firstUser);
         const userDisplayName = userObj?.object_name || firstUser;
         setCreatingVH(true);
         try {
-            const vhDisplayName = selectedVertical.replace(/_/g, '-').toUpperCase() + ` -${userDisplayName}`;
+            const vhDisplayName = selectedVerticals[0].replace(/_/g, '-').toUpperCase() + ` -${userDisplayName}`;
             try {
                 await api.post('/groups', { group_name: vhGroupName, group_display_name: vhDisplayName });
             } catch (createErr) {
@@ -604,7 +748,7 @@ const AddMembersTab = ({ setToast }) => {
             const [detailsRes, membersRes, verticalMembersRes] = await Promise.allSettled([
                 api.get(`/groups/${vhGroupName}`),
                 api.get(`/groups/${vhGroupName}/members`),
-                api.get(`/groups/${selectedVertical}/members`), // Refresh main vertical members to update badges
+                api.get(`/groups/${selectedVerticals[0]}/members`), // Refresh main vertical members to update badges
             ]);
 
             if (detailsRes.status === 'fulfilled') {
@@ -630,8 +774,8 @@ const AddMembersTab = ({ setToast }) => {
         } finally { setModifyingVH(false); }
     };
 
-    const showMarkVHButton = selectedVertical && selectedUsers.length === 1;
-    const canAdd = selectedVertical && selectedUsers.length > 0 && usersAlreadyInGroup.length === 0;
+    const showMarkVHButton = selectedVerticals.length === 1 && selectedUsers.length === 1;
+    const canAdd = selectedVerticals.length > 0 && selectedUsers.length > 0 && usersAlreadyInGroup.length === 0;
 
     return (
         <div className="space-y-5">
@@ -642,18 +786,16 @@ const AddMembersTab = ({ setToast }) => {
                     {/* Office Type */}
                     <div>
                         <Label icon={Building2}>Office Type</Label>
-                        <Select value={officeType} onChange={handleOfficeTypeChange}
+                        <FixedDropdown value={officeType} onChange={handleOfficeTypeChange}
                             disabled={isLocalAdmin}
                             placeholder="— Select office type —"
-                            options={[
-                                { value: 'HO', label: 'HO — Head Office' },
-                            ]} />
+                            options={[{ value: 'HO', label: 'HO — Head Office' }]} />
                     </div>
                     {/* Location (RO/TE only) */}
                     {isROTE && (
                         <div>
                             <Label icon={MapPin}>Location</Label>
-                            <Select value={location} onChange={handleLocationChange}
+                            <FixedDropdown value={location} onChange={handleLocationChange}
                                 disabled={!officeType || isLocalAdmin}
                                 placeholder="— Select location —"
                                 options={getLocations(officeType).map(l => ({ value: l.location, label: l.location }))} />
@@ -662,21 +804,24 @@ const AddMembersTab = ({ setToast }) => {
                     {/* Department */}
                     <div>
                         <Label icon={Layers}>Department</Label>
-                        <Select value={dept} onChange={handleDeptChange}
+                        <FixedDropdown value={dept} onChange={handleDeptChange}
                             disabled={!officeType || (isROTE && !location)}
                             placeholder={!officeType ? '— Select office type first —' : (isROTE && !location) ? '— Select location first —' : '— Select dept —'}
                             options={deptOptions.map(d => ({ value: d.name, label: `${d.name} (${d.shortCode})` }))} />
                     </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Vertical */}
+                    {/* Vertical — multi-select */}
                     <div>
-                        <Label icon={UsersRound}>Vertical</Label>
+                        <Label icon={UsersRound}>Vertical <span className="normal-case font-normal text-slate-400">(select multiple)</span></Label>
                         {loadingVerticals
                             ? <div className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-400"><Loader2 size={14} className="animate-spin" /> Loading…</div>
-                            : <Select value={selectedVertical} onChange={handleVerticalChange}
+                            : <FixedDropdown
+                                value={selectedVerticals}
+                                onChange={handleVerticalChange}
+                                multiple
                                 disabled={(isROTE ? !location : !dept) || verticals.length === 0}
-                                placeholder={isROTE ? (!location ? '— Select location first —' : verticals.length === 0 ? 'No verticals found' : '— Select vertical —') : (!dept ? '— Select dept first —' : verticals.length === 0 ? 'No verticals found' : '— Select vertical —')}
+                                placeholder={isROTE ? (!location ? '— Select location first —' : verticals.length === 0 ? 'No verticals found' : '— Select verticals —') : (!dept ? '— Select dept first —' : verticals.length === 0 ? 'No verticals found' : '— Select verticals —')}
                                 options={verticals.map(g => ({ value: g.group_name, label: g.group_name }))} />
                         }
                     </div>
@@ -705,18 +850,18 @@ const AddMembersTab = ({ setToast }) => {
             </Card>
 
             {/* ── Step 2: Info panels (members + vertical head) ── */}
-            {(selectedVertical || selectedUsers.length > 0) && (
+            {(selectedVerticals.length > 0 || selectedUsers.length > 0) && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
 
-                    {/* 1 — Vertical Members */}
-                    {selectedVertical && (
+                    {/* 1 — Vertical Members (only when 1 vertical selected) */}
+                    {selectedVerticals.length === 1 && (
                         <Card>
                             <SectionTitle>Vertical Members</SectionTitle>
                             {loadingMembers
                                 ? <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-slate-400" /></div>
                                 : [...verticalMembers.users, ...verticalMembers.groups].length === 0
                                     ? <p className="text-xs text-slate-400 text-center py-3">No members</p>
-                                    : <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                    : <div className="space-y-1.5 max-h-48 overflow-y-auto overscroll-contain">
                                         {[...verticalMembers.users, ...verticalMembers.groups].map(m => (
                                             <div key={`${m.type}-${m.name}`} className="flex items-center gap-2 text-xs">
                                                 <MemberTag type={m.type} />
@@ -728,8 +873,8 @@ const AddMembersTab = ({ setToast }) => {
                         </Card>
                     )}
 
-                    {/* 2 — Vertical Head Group */}
-                    {selectedVertical && (
+                    {/* 2 — Vertical Head Group (only when 1 vertical selected) */}
+                    {selectedVerticals.length === 1 && (
                         <Card>
                             <SectionTitle>Vertical Head Group</SectionTitle>
                             <p className="text-xs font-mono text-slate-400 mb-2 break-all">{vhGroupName}</p>
@@ -790,7 +935,7 @@ const AddMembersTab = ({ setToast }) => {
             )}
 
             {/* ── Step 3: Action buttons ── */}
-            {selectedVertical && selectedUsers.length > 0 && (
+            {selectedVerticals.length > 0 && selectedUsers.length > 0 && (
                 <Card className="space-y-3">
                     <SectionTitle>Actions</SectionTitle>
 
@@ -816,8 +961,8 @@ const AddMembersTab = ({ setToast }) => {
                     </div>
 
                     <p className="text-xs text-slate-400">
-                        Adding <span className="font-mono text-slate-600">{selectedUsers.length} user(s)</span> to <span className="font-mono text-slate-600">{selectedVertical}</span>
-                        {vhGroupName && <> · Vertical head group: <span className="font-mono text-slate-600">{vhGroupName}</span>{vhExists ? ' (exists)' : ''}</>}
+                        Adding <span className="font-mono text-slate-600">{selectedUsers.length} user(s)</span> to <span className="font-mono text-slate-600">{selectedVerticals.length} vertical(s)</span>
+                        {selectedVerticals.length === 1 && vhGroupName && <> · VH group: <span className="font-mono text-slate-600">{vhGroupName}</span>{vhExists ? ' (exists)' : ''}</>}
                     </p>
                 </Card>
             )}
@@ -1000,7 +1145,7 @@ const RemoveMembersTab = ({ setToast }) => {
         api.get('/groups/by-prefix', { params: { prefix: `ecm_${roShortCode.toLowerCase()}` } })
             .then(res => {
                 const all = res.data || [];
-                setVerticals(all.filter(g => !g.group_name.includes('vertical_head') && !g.group_name.includes('_grade_') && !g.group_name.includes('cgm_sec')));
+                setVerticals(getSelectableVerticalGroups(all));
             })
             .catch(() => setVerticals([]))
             .finally(() => setLoadingVerts(false));
@@ -1030,7 +1175,7 @@ const RemoveMembersTab = ({ setToast }) => {
         try {
             const res = await api.get('/groups/by-prefix', { params: { prefix: `ecm_${roCode.toLowerCase()}` } });
             const all = res.data || [];
-            setVerticals(all.filter(g => !g.group_name.includes('vertical_head') && !g.group_name.includes('_grade_') && !g.group_name.includes('cgm_sec')));
+            setVerticals(getSelectableVerticalGroups(all));
         } catch { setVerticals([]); }
         finally { setLoadingVerts(false); }
     };
@@ -1047,7 +1192,7 @@ const RemoveMembersTab = ({ setToast }) => {
         try {
             const res = await api.get('/groups/by-prefix', { params: { prefix } });
             const all = res.data || [];
-            setVerticals(all.filter(g => !g.group_name.includes('vertical_head') && !g.group_name.includes('_grade_') && !g.group_name.includes('cgm_sec')));
+            setVerticals(getSelectableVerticalGroups(all));
         } catch { setVerticals([]); }
         finally { setLoadingVerts(false); }
     };
@@ -1456,17 +1601,15 @@ const RemoveMembersTab = ({ setToast }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <Label icon={Building2}>Office Type</Label>
-                        <Select value={officeType} onChange={handleOfficeTypeChange}
+                        <FixedDropdown value={officeType} onChange={handleOfficeTypeChange}
                             disabled={isLocalAdmin}
                             placeholder="— Select office type —"
-                            options={[
-                                { value: 'HO', label: 'HO — Head Office' },
-                            ]} />
+                            options={[{ value: 'HO', label: 'HO — Head Office' }]} />
                     </div>
                     {isROTE && (
                         <div>
                             <Label icon={MapPin}>Location</Label>
-                            <Select value={location} onChange={handleLocationChange}
+                            <FixedDropdown value={location} onChange={handleLocationChange}
                                 disabled={!officeType || isLocalAdmin}
                                 placeholder="— Select location —"
                                 options={getLocations(officeType).map(l => ({ value: l.location, label: l.location }))} />
@@ -1474,7 +1617,7 @@ const RemoveMembersTab = ({ setToast }) => {
                     )}
                     <div>
                         <Label icon={Layers}>Department</Label>
-                        <Select value={dept} onChange={handleDeptChange}
+                        <FixedDropdown value={dept} onChange={handleDeptChange}
                             disabled={!officeType || (isROTE && !location)}
                             placeholder={!officeType ? '— Select office type first —' : (isROTE && !location) ? '— Select location first —' : '— Select dept —'}
                             options={deptOptions.map(d => ({ value: d.name, label: `${d.name} (${d.shortCode})` }))} />
@@ -1484,7 +1627,7 @@ const RemoveMembersTab = ({ setToast }) => {
                     <Label icon={UsersRound}>Vertical / Group</Label>
                     {loadingVerts
                         ? <div className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-400"><Loader2 size={14} className="animate-spin" /> Loading…</div>
-                        : <Select value={selectedGroup} onChange={handleGroupChange}
+                        : <FixedDropdown value={selectedGroup} onChange={handleGroupChange}
                             disabled={!officeType || (isROTE ? !location : !dept) || verticals.length === 0}
                             placeholder={
                                 !officeType ? '— Select office type first —'
@@ -1562,7 +1705,7 @@ const RemoveMembersTab = ({ setToast }) => {
                                                                         <span className="text-xs font-semibold text-slate-600">Pending Cases</span>
                                                                         <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">{inboxTotal}</span>
                                                                     </div>
-                                                                    <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                                                                    <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto overscroll-contain">
                                                                         {inboxTasks.map((task, idx) => {
                                                                             const pf = (f) => task[`packagescase_folder${f}`] || task[f] || '';
                                                                             const caseName = pf('object_name') || task.caseName || '—';

@@ -36,7 +36,7 @@ const MainLayout = () => {
     }
 
     return (
-        <div className="bg-slate-50 min-h-screen font-sans text-slate-900">
+        <div className="bg-slate-100 min-h-screen font-sans text-slate-900">
             <Sidebar />
             <Topbar />
             <main className="pl-64 pt-16 min-h-screen">

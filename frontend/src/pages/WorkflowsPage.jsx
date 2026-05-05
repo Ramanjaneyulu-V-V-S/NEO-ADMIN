@@ -522,7 +522,7 @@ const WorkflowsPage = () => {
                 </div>
 
                 {/* Workflow list */}
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto overscroll-contain">
                     {!selectedProcess ? (
                         <div className="flex flex-col items-center justify-center h-48 text-slate-300 px-4 text-center">
                             <Activity size={32} className="mb-2" />
@@ -625,7 +625,7 @@ const WorkflowsPage = () => {
             </aside>
 
             {/* ═══════════════ RIGHT DETAIL PANEL ═══════════════ */}
-            <main ref={detailRef} className="flex-1 overflow-y-auto">
+            <main ref={detailRef} className="flex-1 overflow-y-auto overscroll-contain">
                 {/* Empty state */}
                 {!directId && !loadingDetail && !detailData && (
                     <div className="flex flex-col items-center justify-center h-full text-slate-300">
@@ -769,7 +769,7 @@ const WorkflowsPage = () => {
                                     key={id}
                                     onClick={() => setActiveTab(id)}
                                     className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === id
-                                        ? error ? 'bg-orange-500 text-white shadow-sm' : 'bg-[#0A66C2] text-white shadow-sm'
+                                        ? error ? 'bg-orange-500 text-white shadow-sm' : 'bg-blue-50 text-[#0A66C2] border border-blue-200'
                                         : error ? 'text-orange-600 hover:bg-orange-50 border border-orange-200 animate-pulse' : 'text-slate-600 hover:bg-slate-100'
                                         }`}
                                 >
@@ -777,7 +777,7 @@ const WorkflowsPage = () => {
                                     {label}
                                     {count !== null && (
                                         <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${activeTab === id
-                                            ? 'bg-white/20 text-white'
+                                            ? error ? 'bg-white/20 text-white' : 'bg-[#0A66C2]/10 text-[#0A66C2]'
                                             : error ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'
                                             }`}>
                                             {count}
@@ -1006,7 +1006,7 @@ const WorkflowsPage = () => {
 
                                     <div className="mt-5 border-t border-slate-100 pt-4">
                                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Full JSON Response</p>
-                                        <pre className="bg-slate-900 text-slate-300 rounded-lg p-4 text-[11px] font-mono overflow-x-auto max-h-64 overflow-y-auto">
+                                        <pre className="bg-slate-900 text-slate-300 rounded-lg p-4 text-[11px] font-mono overflow-x-auto max-h-64 overflow-y-auto overscroll-contain">
                                             {JSON.stringify(
                                                 Object.fromEntries(
                                                     Object.entries(detailData).filter(([k]) => !['workItems', 'queueItems'].includes(k))

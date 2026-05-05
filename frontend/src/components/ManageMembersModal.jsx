@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import axios from '../api/axios';
 import {
     X, Users, UserPlus, Search, Trash2, Loader2, CheckCircle,
@@ -13,7 +15,6 @@ const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
     const [searchResults, setSearchResults] = useState([]);
     const [searching, setSearching] = useState(false);
     const [processing, setProcessing] = useState(false);
-    const [notification, setNotification] = useState(null);
     const [confirmRemove, setConfirmRemove] = useState(null);
 
     useEffect(() => {
@@ -72,18 +73,18 @@ const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
             });
 
             if (response.data.success) {
-                showNotification('success', response.data.message);
+                toast.success(response.data.message);
                 fetchMembers();
                 setSearchQuery('');
                 setSearchResults([]);
                 if (onUpdate) onUpdate();
             } else {
-                showNotification('error', response.data.message);
+                toast.error(response.data.message);
             }
         } catch (error) {
             console.error('Error adding member:', error);
             const errorMsg = error.response?.data?.message || error.response?.data || 'Failed to add member';
-            showNotification('error', `Failed to add member: ${errorMsg}`);
+            toast.error(`Failed to add member: ${errorMsg}`);
         } finally {
             setProcessing(false);
         }
@@ -98,16 +99,16 @@ const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
             );
 
             if (response.data.success) {
-                showNotification('success', response.data.message);
+                toast.success(response.data.message);
                 fetchMembers();
                 setConfirmRemove(null);
                 if (onUpdate) onUpdate();
             } else {
-                showNotification('error', response.data.message);
+                toast.error(response.data.message);
             }
         } catch (error) {
             console.error('Error removing member:', error);
-            showNotification('error', 'Failed to remove member');
+            toast.error('Failed to remove member');
         } finally {
             setProcessing(false);
         }
@@ -123,11 +124,17 @@ const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
                members.groups.some(g => g.name === name);
     };
 
-    if (!isOpen) return null;
-
     return (
+        <AnimatePresence>
+        {isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full h-[70vh] overflow-hidden flex flex-col">
+            <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="bg-white rounded-xl shadow-2xl max-w-5xl w-full h-[70vh] overflow-hidden flex flex-col"
+            >
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-slate-50">
                     <div>
@@ -145,22 +152,10 @@ const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
                     </button>
                 </div>
 
-                {/* Notification Toast */}
-                {notification && (
-                    <div className={`mx-6 mt-4 px-4 py-3 rounded-lg flex items-center gap-2 ${
-                        notification.type === 'success'
-                            ? 'bg-green-50 text-green-800 border border-green-200'
-                            : 'bg-red-50 text-red-800 border border-red-200'
-                    }`}>
-                        {notification.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                        <span className="text-sm font-medium">{notification.message}</span>
-                    </div>
-                )}
-
-                {/* Content */}
+{/* Content */}
                 <div className="flex-1 overflow-hidden grid grid-cols-2 divide-x divide-slate-200 min-h-0">
                     {/* Left Panel - Current Members */}
-                    <div className="p-6 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
+                    <div className="p-6 overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Current Members</h3>
 
                         {loadingMembers ? (
@@ -269,7 +264,7 @@ const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
                     </div>
 
                     {/* Right Panel - Add Members */}
-                    <div className="p-6 overflow-y-auto bg-slate-50 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
+                    <div className="p-6 overflow-y-auto overscroll-contain bg-slate-50 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
                         <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                             <UserPlus size={20} />
                             Add Members
@@ -367,13 +362,15 @@ const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
                 <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end">
                     <button
                         onClick={onClose}
-                        className="px-6 py-2.5 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium"
+                        className="px-6 py-2.5 bg-slate-700 text-white rounded-lg hover:bg-slate-800 hover:-translate-y-0.5 active:translate-y-0 shadow-md hover:shadow-lg transition-all font-medium"
                     >
                         Close
                     </button>
                 </div>
-            </div>
+            </motion.div>
         </div>
+        )}
+        </AnimatePresence>
     );
 };
 

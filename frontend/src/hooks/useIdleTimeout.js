@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const useIdleTimeout = (warningTime = 30000, logoutTime = 60000) => {
@@ -7,22 +7,18 @@ const useIdleTimeout = (warningTime = 30000, logoutTime = 60000) => {
   const [remainingTime, setRemainingTime] = useState(0);
 
   const idleTimerRef = useRef(null);
-  const warningTimerRef = useRef(null);
   const countdownTimerRef = useRef(null);
   const isIdleRef = useRef(false);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     localStorage.removeItem('user');
     navigate('/login', { replace: true });
-  };
+  }, [navigate]);
 
-  const resetIdleTimer = () => {
-    if (showWarning) return;
+  const resetIdleTimer = useCallback(() => {
+    if (isIdleRef.current) return;
 
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-
-    isIdleRef.current = false;
 
     idleTimerRef.current = setTimeout(() => {
       isIdleRef.current = true;
@@ -40,20 +36,29 @@ const useIdleTimeout = (warningTime = 30000, logoutTime = 60000) => {
         });
       }, 1000);
     }, logoutTime - warningTime);
-  };
+  }, [warningTime, logoutTime, handleLogout]);
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
+    isIdleRef.current = false;
     setShowWarning(false);
     if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
     resetIdleTimer();
-  };
+  }, [resetIdleTimer]);
 
   useEffect(() => {
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    let lastActivityTime = Date.now();
 
     const handleActivity = () => {
-      if (!isIdleRef.current) return;
-      handleContinue();
+      if (isIdleRef.current) {
+        handleContinue();
+      } else {
+        const now = Date.now();
+        if (now - lastActivityTime > 500) {
+          lastActivityTime = now;
+          resetIdleTimer();
+        }
+      }
     };
 
     events.forEach(event => {
@@ -67,10 +72,9 @@ const useIdleTimeout = (warningTime = 30000, logoutTime = 60000) => {
         document.removeEventListener(event, handleActivity);
       });
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
       if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
     };
-  }, []);
+  }, [handleContinue, resetIdleTimer]);
 
   return { showWarning, remainingTime, handleContinue };
 };
