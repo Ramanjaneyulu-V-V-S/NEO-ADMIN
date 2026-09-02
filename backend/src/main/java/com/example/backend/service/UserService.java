@@ -36,21 +36,42 @@ public class UserService {
                 (username + ":" + password).getBytes(StandardCharsets.UTF_8));
     }
 
-    @SuppressWarnings("unchecked")
+    /** Whitelist of DQL columns the User Directory may sort by (guards against injection via sortBy). */
+    private static final Map<String, String> SORT_COLUMNS = Map.of(
+            "object_name",           "object_name",
+            "uin",                   "uin",
+            "user_grade",            "user_grade",
+            "designation",           "designation",
+            "department_short_code", "department_short_code",
+            "ro_short_code",         "ro_short_code");
+
+    /** Backwards-compatible overload (no extra filters / sort / total). */
     public Map<String, Object> searchUserProfiles(String query, int page, int itemsPerPage,
                                                     String officeTypeFilter, String locationFilter,
                                                     String deptNames) {
+        return searchUserProfiles(query, page, itemsPerPage, officeTypeFilter, locationFilter, deptNames,
+                null, null, null, null, null, null, false);
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> searchUserProfiles(String query, int page, int itemsPerPage,
+                                                    String officeTypeFilter, String locationFilter,
+                                                    String deptNames,
+                                                    String uin, String grade, String deptCode, String roCode,
+                                                    String sortBy, String sortDir, boolean includeTotal) {
         StringBuilder dqlBuilder = new StringBuilder();
         dqlBuilder.append("SELECT r_object_id, object_name, uin, department_name, department_short_code, ro_short_code, user_grade, designation, ");
         dqlBuilder.append("user_email_address, user_login_name, primary_mobile_number, location, office_type, ");
         dqlBuilder.append("is_active, hindi_user_name, hindi_designation, user_role, department_short_code_multi ");
         dqlBuilder.append("FROM cms_user_profile WHERE object_name IS NOT NULL AND object_name != ' ' ");
 
-        // Local Admin office type restriction
+        // Office type restriction — exact match for HO / RO / TE
         if ("HO".equalsIgnoreCase(officeTypeFilter)) {
             dqlBuilder.append("AND office_type = 'HO' ");
         } else if ("RO".equalsIgnoreCase(officeTypeFilter)) {
-            dqlBuilder.append("AND office_type != 'HO' ");
+            dqlBuilder.append("AND office_type = 'RO' ");
+        } else if ("TE".equalsIgnoreCase(officeTypeFilter)) {
+            dqlBuilder.append("AND office_type = 'TE' ");
         }
 
         // Location filter (for RO/TE Local Admin)
@@ -71,7 +92,7 @@ public class UserService {
         }
 
         if (query != null && !query.trim().isEmpty()) {
-            String q = query.trim();
+            String q = query.trim().replace("'", "''");
             dqlBuilder.append("AND (object_name LIKE '%").append(q).append("%' ");
             dqlBuilder.append("OR uin LIKE '%").append(q).append("%' ");
             dqlBuilder.append("OR user_login_name LIKE '%").append(q).append("%' ");
@@ -79,11 +100,101 @@ public class UserService {
             dqlBuilder.append("OR designation LIKE '%").append(q).append("%') ");
         }
 
+        // Dedicated UIN filter (User Directory)
+        if (uin != null && !uin.isBlank()) {
+            dqlBuilder.append("AND uin LIKE '%").append(uin.trim().replace("'", "''")).append("%' ");
+        }
+        // Grade filter (exact)
+        if (grade != null && !grade.isBlank()) {
+            dqlBuilder.append("AND user_grade = '").append(grade.trim().replace("'", "''")).append("' ");
+        }
+        // HO department filter (Super Admin) — repeating attribute
+        if (deptCode != null && !deptCode.isBlank()) {
+            dqlBuilder.append("AND ANY department_short_code_multi = '")
+                      .append(deptCode.trim().toLowerCase().replace("'", "''")).append("' ");
+        }
+        // RO/TE location code filter (Super Admin)
+        if (roCode != null && !roCode.isBlank()) {
+            dqlBuilder.append("AND ro_short_code = '").append(roCode.trim().toLowerCase().replace("'", "''")).append("' ");
+        }
+
+        String sortCol = SORT_COLUMNS.getOrDefault(sortBy, "object_name");
+        String dir = "desc".equalsIgnoreCase(sortDir) ? "DESC" : "ASC";
+        dqlBuilder.append("ORDER BY ").append(sortCol).append(" ").append(dir);
+
+        log.info("User profile search — officeType: {}, location: {}, deptNames: {}, sort: {} {}",
+                officeTypeFilter, locationFilter, deptNames, sortCol, dir);
+
+        return executeDql(dqlBuilder.toString(), page, itemsPerPage, includeTotal);
+    }
+
+    /**
+     * Fetch user profiles for all members of a role group, independent of office
+     * type filters. Supported roles: localAdmin (ecm_local_admin members) and
+     * cgmSect (members of any ecm_*cgm_sec group across HO/RO/TE).
+     */
+    public Map<String, Object> getRoleMemberProfiles(String role, int page, int itemsPerPage) {
+        String groupCondition;
+        if ("localAdmin".equals(role)) {
+            groupCondition = "group_name = 'ecm_local_admin'";
+        } else if ("cgmSect".equals(role)) {
+            groupCondition = "group_name LIKE 'ecm_%cgm_sec'";
+        } else {
+            throw new IllegalArgumentException("Unknown role: " + role);
+        }
+
+        String dql = "SELECT r_object_id, object_name, uin, department_name, department_short_code, "
+                + "ro_short_code, designation, user_email_address, user_login_name, location, office_type "
+                + "FROM cms_user_profile "
+                + "WHERE object_name IN (SELECT users_names FROM dm_group WHERE " + groupCondition + ") "
+                + "ORDER BY object_name";
+
+        log.info("Role member profile export — role: {}", role);
+        return executeDql(dql, page, itemsPerPage);
+    }
+
+    /**
+     * Bulk fetch of the repeating department_short_code_multi attribute, keyed by r_object_id,
+     * for every cms_user_profile matching the office-type filter. Used by the User Data Export
+     * feature to expand multi-department users (e.g. CGMs/RO heads) into one export row per department.
+     * officeTypeFilter: 'HO' → only HO users; 'RO' → non-HO users (RO/TE); null/blank → all.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, List<String>> getDeptMultiByOfficeType(String officeTypeFilter) {
+        StringBuilder dqlBuilder = new StringBuilder();
+        dqlBuilder.append("SELECT r_object_id, department_short_code_multi FROM cms_user_profile ");
+        dqlBuilder.append("WHERE object_name IS NOT NULL AND object_name != ' ' ");
+        if ("HO".equalsIgnoreCase(officeTypeFilter)) {
+            dqlBuilder.append("AND office_type = 'HO' ");
+        } else if ("RO".equalsIgnoreCase(officeTypeFilter)) {
+            dqlBuilder.append("AND office_type != 'HO' ");
+        }
         dqlBuilder.append("ORDER BY object_name");
+        String dql = dqlBuilder.toString();
 
-        log.info("User profile search — officeType: {}, location: {}, deptNames: {}", officeTypeFilter, locationFilter, deptNames);
-
-        return executeDql(dqlBuilder.toString(), page, itemsPerPage);
+        Map<String, List<String>> result = new HashMap<>();
+        int page = 1;
+        while (true) {
+            Map<String, Object> response = executeDql(dql, page, 2000);
+            List<Map<String, Object>> users = (List<Map<String, Object>>) response.get("users");
+            if (users == null || users.isEmpty()) break;
+            for (Map<String, Object> u : users) {
+                String objectId = (String) u.get("r_object_id");
+                if (objectId == null) continue;
+                List<String> codes = result.computeIfAbsent(objectId, k -> new ArrayList<>());
+                Object raw = u.get("department_short_code_multi");
+                if (raw instanceof List<?> list) {
+                    for (Object v : list) {
+                        if (v instanceof String s && !s.isBlank() && !codes.contains(s)) codes.add(s);
+                    }
+                } else if (raw instanceof String s && !s.isBlank() && !codes.contains(s)) {
+                    codes.add(s);
+                }
+            }
+            if (!Boolean.TRUE.equals(response.get("hasNext"))) break;
+            page++;
+        }
+        return result;
     }
 
     /**
@@ -1074,11 +1185,16 @@ public class UserService {
     }
 
     private Map<String, Object> executeDql(String dql, int page, int itemsPerPage) {
+        return executeDql(dql, page, itemsPerPage, false);
+    }
+
+    private Map<String, Object> executeDql(String dql, int page, int itemsPerPage, boolean includeTotal) {
         String url = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository();
         try {
+            String uriTemplate = url + "?dql={dql}&items-per-page={itemsPerPage}&page={page}&inline=true"
+                    + (includeTotal ? "&include-total=true" : "");
             Map<String, Object> response = restClient.get()
-                    .uri(url + "?dql={dql}&items-per-page={itemsPerPage}&page={page}&inline=true", 
-                         dql, itemsPerPage, page)
+                    .uri(uriTemplate, dql, itemsPerPage, page)
                     .header("Authorization", getAuthHeader())
                     .header("Accept", "application/vnd.emc.documentum+json")
                     .retrieve()
@@ -1178,6 +1294,12 @@ public class UserService {
         result.put("users", users);
         result.put("page", page);
         result.put("itemsPerPage", itemsPerPage);
+
+        // total is present only when the DQL feed was requested with include-total=true
+        Object total = response.get("total");
+        if (total != null) {
+            result.put("total", total);
+        }
 
         List<Map<String, Object>> links = (List<Map<String, Object>>) response.get("links");
         boolean hasNext = false;

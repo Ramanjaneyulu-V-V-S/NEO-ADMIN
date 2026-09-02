@@ -511,6 +511,58 @@ public class GroupService {
     }
 
     /**
+     * Lists vertical folders under /ECM CONFIG/Office Type/HO/<deptName> — the dm_folder
+     * shadow objects created alongside each vertical's dm_group (see createVerticalFolder).
+     * object_name = vertical full name, title = shortcode, subject = the dm_group group_name.
+     */
+    @SuppressWarnings("unchecked")
+    public List<Map<String, String>> listVerticalFolders(String deptName) {
+        String path = "/ECM CONFIG/Office Type/HO/" + deptName;
+        String safePath = path.replace("'", "''");
+        String dql = "SELECT object_name, title, subject FROM dm_folder"
+                + " WHERE FOLDER('" + safePath + "')"
+                + " ORDER BY object_name";
+        String url = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository()
+                + "?dql={dql}&items-per-page=100&page=1&inline=true";
+
+        log.info("[Vertical] Listing vertical folders under '{}'", path);
+        try {
+            Map<String, Object> response = restClient.get()
+                    .uri(url, dql)
+                    .header("Authorization", getAuthHeader())
+                    .header("Accept", "application/vnd.emc.documentum+json")
+                    .retrieve()
+                    .body(Map.class);
+
+            List<Map<String, String>> results = new ArrayList<>();
+            List<Map<String, Object>> entries = (List<Map<String, Object>>) response.get("entries");
+            if (entries != null) {
+                for (Map<String, Object> entry : entries) {
+                    Map<String, Object> content = (Map<String, Object>) entry.get("content");
+                    if (content != null) {
+                        Map<String, Object> props = (Map<String, Object>) content.get("properties");
+                        if (props != null) {
+                            String name = (String) props.get("object_name");
+                            String groupName = (String) props.get("subject");
+                            if (name != null && groupName != null) {
+                                Map<String, String> item = new LinkedHashMap<>();
+                                item.put("name", name);
+                                item.put("shortCode", (String) props.get("title"));
+                                item.put("groupName", groupName);
+                                results.add(item);
+                            }
+                        }
+                    }
+                }
+            }
+            return results;
+        } catch (Exception e) {
+            log.error("Error listing vertical folders under '{}': {}", path, e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /**
      * Get verticals from ECM CONFIG folder hierarchy using DQL.
      * Queries dm_folder objects instead of dm_group.
      * Returns folders under /ECM CONFIG/Office Type/{OFFICE_TYPE}/{DEPT_NAME}/

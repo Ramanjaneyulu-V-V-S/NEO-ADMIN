@@ -103,6 +103,16 @@ public class GroupController {
     }
 
     /**
+     * Lists verticals (with their full display name) for an HO department, sourced from
+     * the dm_folder shadow objects under /ECM CONFIG/Office Type/HO/<deptName>.
+     * GET /api/groups/vertical-folders?deptName=Digital Initiatives
+     */
+    @GetMapping("/vertical-folders")
+    public List<Map<String, String>> listVerticalFolders(@RequestParam String deptName) {
+        return groupService.listVerticalFolders(deptName);
+    }
+
+    /**
      * Get all groups a user belongs to.
      * GET /api/groups/by-user?username=xxx
      */
