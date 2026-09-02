@@ -17,7 +17,7 @@
 | HTTP client | axios | 1.13 |
 | Animation | framer-motion | 12.29 |
 | Icons | lucide-react | 0.563 |
-| Spreadsheet export | exceljs 4.4 + xlsx 0.18 | — |
+| Spreadsheet export | exceljs 4.4 (lazy-loaded via `await import('exceljs')`) | — |
 | Lint | ESLint 9 (flat config), `eslint-plugin-react-hooks`, `eslint-plugin-react-refresh` | — |
 
 The frontend is served under the path prefix **`/neoadmin/`** and talks to a Spring Boot
@@ -62,10 +62,10 @@ flowchart TB
     end
 
     subgraph API["API layer"]
-        axiosInstance["axios instance\nbaseURL: /neoadminBackend/api\n+ Bearer interceptor"]
+        axiosInstance["axios instance<br/>baseURL: /neoadminBackend/api<br/>+ Bearer request interceptor<br/>+ 401 auto-logout response interceptor"]
     end
 
-    otds["OTDS token endpoint\n(environment-specific)"]
+    otds["OTDS token endpoint<br/>(environment-specific)"]
 
     login -->|"1 · POST username/password"| otds
     login -->|"2 · GET /auth/profile"| axiosInstance
@@ -74,7 +74,7 @@ flowchart TB
     subgraph Backend["Spring Boot backend"]
         b1["/auth/*  /users/*  /groups/*"]
         b2["/cases/*  /workflows/*  /inbox/*"]
-        b3["/metadata/*  /departments/*  /query/*  /reports/*"]
+        b3["/metadata/*  /departments/*  /query/*  /digidak/*  /rajbhasha/*"]
     end
     axiosInstance --> b1
     axiosInstance --> b2
@@ -113,7 +113,8 @@ frontend/
       usePrefersReducedMotion.js # media-query hook, gates all motion
     utils/
       cn.js                      # tiny classnames join helper (no clsx dependency)
-      userExport.js              # CSV / XLSX roster generation for User Data Export
+      userExport.js              # client-side CSV / XLSX download helpers (lazy exceljs) —
+                                 #   used by the User Data Export tab and ReportsPage
     data/
       nabardMetadata.js          # static option lists — grades, office types, RO/TE
                                  #   locations, HO departments
@@ -146,8 +147,8 @@ frontend/
       MetadataPage.jsx           # ECM CONFIG metadata (Case Type, etc.) — tabbed
       SfsPage.jsx                # SFS access management — tabbed (HRMD only)
       QueryPage.jsx              # DQL query console with history + column filters
-      UserExportPage.jsx         # legacy standalone export page (route redirects to /users)
-      Verticals2Page / …        # see route table
+      UserExportPage.jsx         # "User Data Export" — imported into UsersPage as <UserExportTab>
+                                 #   (the /dashboard/user-export route redirects to /users)
 ```
 
 ---
@@ -180,8 +181,9 @@ relative to that prefix.
 | `*` | `Navigate → /dashboard/users` | Catch-all. |
 
 > `DelegatePage` and `CaseInbox2Page` are still separate files — they render as **tabs inside
-> `CasesPage`**, and their standalone routes redirect. `UserExportPage` is likewise retained
-> but superseded by the "User Data Export" tab in `UsersPage`.
+> `CasesPage`**, and their standalone routes redirect. `UserExportPage` has no live route of
+> its own — `UsersPage` imports it as `UserExportTab` and renders it as the "User Data Export"
+> tab; `/dashboard/user-export` redirects to `/dashboard/users`.
 
 ### Route guarding & roles
 
@@ -224,6 +226,10 @@ sequenceDiagram
 - `api/axios.js` request interceptor adds `Authorization: Bearer <token>` from
   `localStorage.token` on every call when a token is present. The backend also maintains
   server-side session state.
+- **Session expiry** — `api/axios.js` also has a **response** interceptor: any `401` clears
+  `token` + `user` from `localStorage` and hard-redirects to `/neoadmin/login` (guarded by a
+  module-level `redirecting` flag against stacked redirects, and skipped when already on the
+  login page).
 - **Sign-out** (`Topbar` profile menu, `useIdleTimeout`, and the Access-denied card) does
   `localStorage.removeItem('user')` then navigates to `/login`.
 - **Idle timeout** — `MainLayout` runs `useIdleTimeout(30_000, 1_800_000)`: after 29½ min of
@@ -321,7 +327,7 @@ Status is a token + a text label — never a rainbow of hues. **No hard-coded he
 | Role | Family | Usage |
 |---|---|---|
 | `font-display` | **Fraunces** (400–600) | page mastheads, login, empty-state headlines **only** — never body |
-| `font-sans` | **IBM Plex Sans** (+ IBM Plex Sans Devanagari) | all interface text |
+| `font-sans` | **IBM Plex Sans** (stack also names *IBM Plex Sans Devanagari* as a fallback family for Hindi, though only IBM Plex Sans itself is `@import`-ed) | all interface text |
 | `font-mono` | **IBM Plex Mono** | identifiers — UIN, `r_object_id`, codes, timestamps, counts, DQL. Carries `tabular-nums` via a `.font-mono` rule in `index.css`. |
 
 Fixed type scale: `text-display-lg` (1.875rem), `text-display` (1.5rem), `text-title`
@@ -438,8 +444,12 @@ log sub-modal). Also hosts the **Case Inbox** (`CaseInbox2Page`) and **Delegate 
 
 ### 9.3 ReportsPage — `/dashboard/reports`
 
-Reporting console with **Report / Digidak / Rajbhasha** tabs. Office / location / department
-filters (some via `MultiSelectDropdown`), tabular results, page-size picker.
+Reporting console with **Report / Digidak / Rajbhasha** tabs (the Rajbhasha tab is hidden
+from Local Admin). Office / location / department filters (some via `MultiSelectDropdown`),
+tabular results, page-size picker. Endpoints: `GET /cases/report` + `GET /cases/count` (Report
+tab), `GET /digidak/{report,inbox,draft,count,metadata,verticals,…}` (Digidak tab),
+`GET /rajbhasha/report` + `GET /rajbhasha/report/export` (Rajbhasha tab). XLSX export is built
+client-side via `utils/userExport.js` helpers (lazy `exceljs`).
 
 ### 9.4 WorkflowsPage — `/dashboard/workflows` *(hidden from Local Admin)*
 
@@ -506,11 +516,28 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// request: attach the OTDS bearer token
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
+
+// response: auto sign-out on an expired / invalid session
+const LOGIN_PATH = '/neoadmin/login';
+let redirecting = false;
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && !redirecting) {
+      const onLoginPage = window.location.pathname.startsWith(LOGIN_PATH);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      if (!onLoginPage) { redirecting = true; window.location.assign(LOGIN_PATH); }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;
 ```
@@ -519,7 +546,8 @@ export default api;
   stripping the `/neoadminBackend` prefix (backend serves the same APIs at `/api`).
 - **Deployed**: the app server serves the backend under the `neoadminBackend` context, so the
   same relative path works with no proxy.
-- Only a **request** interceptor (Bearer token). No response interceptor.
+- **Request** interceptor: Bearer token. **Response** interceptor: 401 → clear stored
+  credentials + redirect to the login screen (see §5).
 
 ### Representative endpoints by area
 
@@ -530,6 +558,7 @@ export default api;
 | Groups | `GET /groups/search`, `GET /groups/{name}/members`, `GET /groups/search-members`, `GET /groups/by-user?username=`, `POST /groups/{name}/members`, `DELETE /groups/{name}/members/{member}` |
 | Cases / Workflows | `GET /cases/search`, `GET /workflows/case/{objectId}`, `GET /workflows/processes`, `GET /workflows/instances`, `POST /workflows/{id}/restart`, `POST /workflows/{id}/activity/{actId}/retry` |
 | Inbox | `GET /inbox/tasklist` |
+| Reports | `GET /cases/report`, `GET /cases/count`, `GET /digidak/*` (`/report`, `/inbox`, `/draft`, `/count`, `/metadata`, `/movement`, …), `GET /rajbhasha/report`, `GET /rajbhasha/report/export` |
 | Metadata / Departments | `GET|POST /metadata/<name>s`, department CRUD under `/departments/*` |
 | Query | `POST /query/execute` |
 | Settings | `GET /settings` |
