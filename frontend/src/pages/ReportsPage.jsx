@@ -4,8 +4,8 @@ import {
     FileBarChart2, Filter, X, Search, ChevronLeft, ChevronRight,
     ChevronsLeft, FileText, ClipboardList, Download, AlertCircle
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import axios from '../api/axios';
+import { downloadXlsx } from '../utils/userExport';
 import { getLocations, fetchDepartments } from '../data/nabardMetadata';
 import { CaseDetailsModal, MovementRegisterModal } from './DelegatePage';
 import { PageHeader, Tabs } from '../components/ui';
@@ -939,10 +939,15 @@ const ReportsPage = () => {
             'Types':           r.types            ?? '',
             'Functions':       r.functions        ?? '',
         }));
-        const ws = XLSX.utils.json_to_sheet(sheetData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Cases Report');
-        XLSX.writeFile(wb, `cases_report_${new Date().toISOString().slice(0,10)}.xlsx`);
+        const columns = Object.keys(sheetData[0]).map(k => ({
+            header: k,
+            key: k,
+            width: k === 'Description' ? 40 : k === '#' ? 6 : 18,
+        }));
+        await downloadXlsx(
+            [{ name: 'Cases Report', columns, rows: sheetData }],
+            `cases_report_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        );
     };
 
     // ── Digidak Export Functions ──────────────────────────────────────────────
@@ -1030,10 +1035,16 @@ const ReportsPage = () => {
             row['Date Created'] = r.r_creation_date ?? '';
             return row;
         });
-        const ws = XLSX.utils.json_to_sheet(sheetData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, `${digidakSubTab.charAt(0).toUpperCase() + digidakSubTab.slice(1)} Report`);
-        XLSX.writeFile(wb, `digidak_${digidakSubTab}_report_${new Date().toISOString().slice(0,10)}.xlsx`);
+        const columns = Object.keys(sheetData[0]).map(k => ({
+            header: k,
+            key: k,
+            width: k === 'Letter Subject' ? 40 : k === 'Object ID' ? 22 : k === '#' ? 6 : 16,
+        }));
+        const sheetName = `${digidakSubTab.charAt(0).toUpperCase() + digidakSubTab.slice(1)} Report`;
+        await downloadXlsx(
+            [{ name: sheetName, columns, rows: sheetData }],
+            `digidak_${digidakSubTab}_report_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        );
     };
 
     // ── Helpers ───────────────────────────────────────────────────────────────

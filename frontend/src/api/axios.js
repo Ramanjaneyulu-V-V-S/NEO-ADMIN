@@ -16,4 +16,26 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Auto sign-out on an expired / invalid session: any 401 clears the stored
+// credentials and bounces to the login screen. Guarded so concurrent 401s
+// don't stack redirects and so it never loops while already on /login.
+const LOGIN_PATH = '/neoadmin/login';
+let redirecting = false;
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && !redirecting) {
+      const onLoginPage = window.location.pathname.startsWith(LOGIN_PATH);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      if (!onLoginPage) {
+        redirecting = true;
+        window.location.assign(LOGIN_PATH);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
