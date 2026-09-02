@@ -8,45 +8,37 @@ import api from '../api/axios';
 const getDefaultRepository = () => {
     // Check for explicit environment variable first
     if (import.meta.env.VITE_DCTM_REPOSITORY) {
-        console.log('[DCTM] Using environment variable:', import.meta.env.VITE_DCTM_REPOSITORY);
         return import.meta.env.VITE_DCTM_REPOSITORY;
     }
 
     // Check hostname to determine environment
     const hostname = window.location.hostname.toLowerCase();
-    console.log('[DCTM] Detected hostname:', hostname);
 
     // Production: use EDMS (exact match first)
     if (hostname === 'neo.nabard.org' || hostname.endsWith('.neo.nabard.org')) {
-        console.log('[DCTM] Environment: Production (neo.nabard.org) - Using EDMS');
         return 'EDMS';
     }
 
     // UAT: use NABARDUAT (exact match first)
     if (hostname === 'ecmrevampuat.nabard.org' || hostname.endsWith('.ecmrevampuat.nabard.org')) {
-        console.log('[DCTM] Environment: UAT (ecmrevampuat.nabard.org) - Using NABARDUAT');
         return 'NABARDUAT';
     }
 
     // Azure: use NABARDUAT
     if (hostname === '172.172.20.214' || hostname.includes('172.172.20.214') || hostname.includes('azure')) {
-        console.log('[DCTM] Environment: Azure (172.172.20.214) - Using NABARDUAT');
         return 'NABARDUAT';
     }
 
     // Check for environment keywords as fallback
     if (hostname.includes('production') || hostname.includes('prod')) {
-        console.log('[DCTM] Environment: Production (keyword match) - Using EDMS');
         return 'EDMS';
     }
 
     if (hostname.includes('uat') || hostname.includes('test')) {
-        console.log('[DCTM] Environment: UAT (keyword match) - Using NABARDUAT');
         return 'NABARDUAT';
     }
 
     // Local/default: NABARDUAT
-    console.log('[DCTM] Environment: Development/Local (default) - Using NABARDUAT');
     return 'NABARDUAT';
 };
 
@@ -54,51 +46,43 @@ const getDefaultRepository = () => {
 const getOtdsUrl = () => {
     // Check for explicit environment variable first (highest priority)
     if (import.meta.env.VITE_OTDS_URL) {
-        console.log('[OTDS] Using environment variable:', import.meta.env.VITE_OTDS_URL);
         return import.meta.env.VITE_OTDS_URL;
     }
 
     // Check hostname to determine environment
     const hostname = window.location.hostname.toLowerCase();
-    console.log('[OTDS] Detected hostname:', hostname);
 
     // Production: neo.nabard.org (check with exact match first)
     if (hostname === 'neo.nabard.org' || hostname.endsWith('.neo.nabard.org')) {
         const url = 'https://neo.nabard.org/proxy/otds/Integration/otds-proxy/token';
-        console.log('[OTDS] Environment: Production (neo.nabard.org)');
         return url;
     }
 
     // UAT: ecmrevampuat.nabard.org (check with exact match first)
     if (hostname === 'ecmrevampuat.nabard.org' || hostname.endsWith('.ecmrevampuat.nabard.org')) {
         const url = 'https://ecmrevampuat.nabard.org/proxy/otds/Integration/otds-proxy/token';
-        console.log('[OTDS] Environment: UAT (ecmrevampuat.nabard.org)');
         return url;
     }
 
     // Azure: IP-based or contains 'azure'
     if (hostname === '172.172.20.214' || hostname.includes('172.172.20.214') || hostname.includes('azure')) {
         const url = 'http://172.172.20.214/proxy/otds/Integration/otds-proxy/token';
-        console.log('[OTDS] Environment: Azure (172.172.20.214)');
         return url;
     }
 
     // Check for environment keywords as fallback
     if (hostname.includes('production') || hostname.includes('prod')) {
         const url = 'https://neo.nabard.org/proxy/otds/Integration/otds-proxy/token';
-        console.log('[OTDS] Environment: Production (keyword match)');
         return url;
     }
 
     if (hostname.includes('uat') || hostname.includes('test')) {
         const url = 'https://ecmrevampuat.nabard.org/proxy/otds/Integration/otds-proxy/token';
-        console.log('[OTDS] Environment: UAT (keyword match)');
         return url;
     }
 
     // Local/default: use Azure IP for development
     const url = 'http://172.172.20.214/proxy/otds/Integration/otds-proxy/token';
-    console.log('[OTDS] Environment: Development/Local (default)');
     return url;
 };
 
@@ -120,10 +104,6 @@ const LoginPage = () => {
             try {
                 const response = await api.get('/auth/config');
                 if (response.data) {
-                    console.log('[AUTH] Backend config loaded:', response.data);
-                    console.log('[AUTH] Active Environment:', response.data.environment);
-                    console.log('[AUTH] Repository:', response.data.repository);
-                    console.log('[AUTH] OTDS Token API URL:', response.data.otdsTokenApiUrl);
                     setAuthConfig(response.data);
                     // Update formData with repository from backend
                     setFormData(prev => ({
@@ -135,7 +115,6 @@ const LoginPage = () => {
                 console.error('[AUTH] Failed to fetch auth config from backend:', err);
                 console.warn('[AUTH] Error details:', err.message);
                 // Fallback to client-side detection if backend endpoint fails
-                console.log('[AUTH] Falling back to client-side environment detection');
             }
         };
         fetchAuthConfig();
@@ -161,8 +140,6 @@ const LoginPage = () => {
 
             // Use OTDS endpoint from backend config (priority) or fallback to client-side detection
             const otdsUrl = authConfig?.otdsTokenApiUrl || getOtdsUrl();
-            console.log('[LOGIN] Attempting OTDS authentication with URL:', otdsUrl);
-            console.log('[LOGIN] Using backend config:', !!authConfig?.otdsTokenApiUrl);
             const otdsResponse = await fetch(otdsUrl, {
                 method: 'POST',
                 headers: {
@@ -220,9 +197,9 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen flex font-sans">
-            {/* Left Side - Brand Section (Blue) */}
-            <div className="hidden lg:flex w-[45%] bg-[#0A66C2] relative flex-col justify-between p-12 text-white overflow-hidden">
+        <div className="min-h-[100dvh] flex font-sans text-ink">
+            {/* Left Side - Brand Section */}
+            <div className="hidden lg:flex w-[45%] bg-canopy relative flex-col justify-between p-12 text-white overflow-hidden">
                 {/* Background Pattern */}
                 <div className="absolute inset-0 opacity-10" 
                      style={{
@@ -236,28 +213,35 @@ const LoginPage = () => {
                 <div className="absolute -bottom-10 -left-10 w-64 h-64 rounded-full border border-white/10" />
 
                 <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-16">
+                    <div className="flex items-center gap-3">
                         <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
                             <Compass size={28} className="text-white" />
                         </div>
-                        <span className="text-2xl font-bold tracking-tight">NEO Admin</span>
+                        <span className="font-display text-2xl font-medium tracking-tight">NEO Admin</span>
                     </div>
                 </div>
 
-                <div className="relative z-10">
+                <div className="relative z-10 max-w-sm">
+                    <p className="font-display text-display-lg font-medium leading-tight">
+                        A registry of record for NABARD.
+                    </p>
+                    <p className="mt-3 text-sm text-white/70">
+                        Cases, workflows, users and groups — one console for the people who keep them in order.
+                    </p>
                 </div>
             </div>
 
-            {/* Right Side - Login Form (Light Grey) */}
-            <div className="flex-1 bg-[#F8F9FA] flex flex-col justify-center items-center p-8 relative">
-                <motion.div 
+            {/* Right Side - Login Form */}
+            <div className="flex-1 bg-paper flex flex-col justify-center items-center p-8 relative">
+                <motion.div
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
-                    className="w-full max-w-md bg-white rounded-xl shadow-lg p-8 md:p-10"
+                    className="w-full max-w-md bg-white rounded-card border border-line shadow-card p-8 md:p-10"
                 >
-                    <div className="mb-8">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Sign In</h2>
+                    <div className="ledger-spine pl-4 mb-8">
+                        <h2 className="font-display text-display font-medium text-ink">Sign in</h2>
+                        <p className="mt-1 text-sm text-slate-500">Use your NABARD OTDS credentials.</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-5">
@@ -265,7 +249,7 @@ const LoginPage = () => {
                         <div>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                                    <Mail size={18} className="text-gray-400" />
+                                    <Mail size={18} className="text-slate-400" />
                                 </div>
                                 <input
                                     id="username"
@@ -273,8 +257,8 @@ const LoginPage = () => {
                                     name="username"
                                     value={formData.username}
                                     onChange={handleChange}
-                                    className="block w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg
-                                             text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2]
+                                    className="block w-full pl-10 pr-3 py-2.5 bg-paper border border-line rounded-lg
+                                             text-ink placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy
                                              transition-all text-sm"
                                     placeholder="Username"
                                     required
@@ -285,7 +269,7 @@ const LoginPage = () => {
                         <div>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                                    <Lock size={18} className="text-gray-400" />
+                                    <Lock size={18} className="text-slate-400" />
                                 </div>
                                 <input
                                     id="password"
@@ -293,8 +277,8 @@ const LoginPage = () => {
                                     name="password"
                                     value={formData.password}
                                     onChange={handleChange}
-                                    className="block w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-lg
-                                             text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2]
+                                    className="block w-full pl-10 pr-10 py-2.5 bg-paper border border-line rounded-lg
+                                             text-ink placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy
                                              transition-all text-sm"
                                     placeholder="Password"
                                     required
@@ -302,7 +286,7 @@ const LoginPage = () => {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-ink transition-colors"
                                     title={showPassword ? 'Hide password' : 'Show password'}
                                 >
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -311,8 +295,8 @@ const LoginPage = () => {
                         </div>
 
                         {error && (
-                            <div className="p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-xs font-medium flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                            <div className="p-3 rounded-lg bg-danger-tint border border-danger/20 text-danger text-xs font-medium flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-danger shrink-0" />
                                 {error}
                             </div>
                         )}
@@ -320,8 +304,8 @@ const LoginPage = () => {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full flex items-center justify-center py-2.5 px-4 rounded-lg shadow-sm text-sm font-bold text-white 
-                                     bg-[#1877F2] hover:bg-[#166fe5] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1877F2] 
+                            className="w-full flex items-center justify-center py-2.5 px-4 rounded-lg shadow-sm text-sm font-semibold text-white
+                                     bg-canopy hover:bg-canopy-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-canopy
                                      disabled:opacity-70 disabled:cursor-not-allowed transition-all gap-2"
                         >
                             {isLoading ? (

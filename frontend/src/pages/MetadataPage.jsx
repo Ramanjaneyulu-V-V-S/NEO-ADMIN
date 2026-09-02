@@ -2,39 +2,23 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 import {
     FolderOpen, FileText, Layers, Building2, MapPin, Tag, MessageSquareText,
-    CheckCircle2, AlertCircle, X, Loader2, Plus, Hash, RefreshCw, Trash2, Pencil
+    CheckCircle2, AlertCircle, X, Loader2, Plus, Hash, RefreshCw, Trash2, Pencil, Download
 } from 'lucide-react';
 import { getLocations, fetchDepartments } from '../data/nabardMetadata.js';
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-const Toast = ({ toast, onDismiss }) => {
-    useEffect(() => {
-        if (!toast) return;
-        const t = setTimeout(onDismiss, toast.type === 'success' ? 3000 : 5000);
-        return () => clearTimeout(t);
-    }, [toast, onDismiss]);
-    if (!toast) return null;
-    const styles = { success: 'bg-green-50 text-green-800 border-green-200', error: 'bg-red-50 text-red-800 border-red-200' };
-    const Icon = toast.type === 'success' ? CheckCircle2 : AlertCircle;
-    return (
-        <div className={`fixed top-5 right-5 z-50 flex items-start gap-3 px-4 py-3 border rounded-xl shadow-lg max-w-sm ${styles[toast.type]}`}>
-            <Icon size={18} className="mt-0.5 shrink-0" />
-            <div className="flex-1 text-sm font-medium">{toast.message}</div>
-            <button onClick={onDismiss}><X size={16} /></button>
-        </div>
-    );
-};
+import { downloadCsv, downloadXlsx } from '../utils/userExport.js';
+import { PageHeader, Tabs, useToast } from '../components/ui';
+import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 const inputCls = (err) =>
-    `w-full px-4 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] ${
-        err ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white hover:border-slate-300'
+    `w-full px-4 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy ${
+        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
     }`;
 
 const selectCls = (err, disabled) => disabled
     ? 'w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-100 text-slate-400 cursor-not-allowed appearance-none pr-10'
-    : `w-full px-4 py-2.5 border rounded-xl text-sm appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] transition-all cursor-pointer ${
-        err ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white hover:border-slate-300'
+    : `w-full px-4 py-2.5 border rounded-xl text-sm appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy transition-all cursor-pointer ${
+        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
     }`;
 
 const ChevronDown = ({ disabled }) => (
@@ -50,14 +34,14 @@ const FieldLabel = ({ icon: Icon, label, required }) => (
         <span className="flex items-center gap-1.5">
             <Icon size={14} className="text-slate-400" />
             {label}
-            {required && <span className="text-red-400">*</span>}
+            {required && <span className="text-danger/70">*</span>}
             {!required && <span className="text-xs font-normal text-slate-400">(optional)</span>}
         </span>
     </label>
 );
 
 const FieldError = ({ msg }) => msg
-    ? <p className="mt-1 text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12} />{msg}</p>
+    ? <p className="mt-1 text-xs text-danger flex items-center gap-1"><AlertCircle size={12} />{msg}</p>
     : null;
 
 // ─── Existing File Numbers List ───────────────────────────────────────────────
@@ -78,6 +62,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
     const [filterDescription, setFilterDescription] = useState('');
     const [validating, setValidating] = useState(null); // r_object_id being validated
     const [validationResults, setValidationResults] = useState({}); // { r_object_id: { message, caseCount, canDelete } }
+    const [exporting, setExporting] = useState(false);
     const itemsPerPage = 10;
 
     const canFetch = hoRo && deptShortCode && (hoRo === 'HO' || roShortCode);
@@ -254,6 +239,43 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
         setCurrentPage(1);
     }, [filterFileNumber, filterDescription]);
 
+    const isFiltered = !!(filterFileNumber || filterDescription);
+
+    // Export the currently listed file numbers (respects active filters).
+    const handleExport = async (format) => {
+        if (filteredItems.length === 0) return;
+        setExporting(true);
+        try {
+            const showLoc = hoRo !== 'HO';
+            const rows = filteredItems.map((it, i) => ({
+                sno: i + 1,
+                fileNumber: it.object_name || '',
+                description: it.description || '',
+                deptCode: it.dept_short_code || deptShortCode || '',
+                ...(showLoc ? { locationCode: it.ro_short_code || roShortCode || '' } : {}),
+            }));
+            const columns = [
+                { header: '#', key: 'sno', width: 6 },
+                { header: 'File Number', key: 'fileNumber', width: 28 },
+                { header: 'Description', key: 'description', width: 50 },
+                { header: 'Dept Code', key: 'deptCode', width: 14 },
+                ...(showLoc ? [{ header: 'Location Code', key: 'locationCode', width: 16 }] : []),
+            ];
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const base = `file-numbers_${roShortCode ? roShortCode + '_' : ''}${deptShortCode}_${dateStr}`;
+            if (format === 'csv') {
+                downloadCsv(columns.map(c => c.header), rows.map(r => columns.map(c => r[c.key] ?? '')), `${base}.csv`);
+            } else {
+                await downloadXlsx([{ name: 'File Numbers', columns, rows }], `${base}.xlsx`);
+            }
+            onToast({ type: 'success', message: `Exported ${filteredItems.length} file number${filteredItems.length !== 1 ? 's' : ''}.` });
+        } catch (err) {
+            onToast({ type: 'error', message: err.message || 'Export failed' });
+        } finally {
+            setExporting(false);
+        }
+    };
+
     if (!canFetch) return null;
 
     return (
@@ -263,15 +285,32 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                     <Hash size={14} className="text-slate-400" />
                     <span className="text-sm font-semibold text-slate-700">Existing File Numbers</span>
                     {!loading && (
-                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full">
+                        <span className="px-2 py-0.5 bg-canopy-tint text-canopy text-xs font-semibold rounded-full">
                             {items.length}
                         </span>
                     )}
                 </div>
-                <button onClick={loadList} disabled={loading}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-all disabled:opacity-40">
-                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                </button>
+                <div className="flex items-center gap-1.5">
+                    {!loading && !error && items.length > 0 && (
+                        <>
+                            <button onClick={() => handleExport('xlsx')} disabled={exporting || filteredItems.length === 0}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-canopy border border-canopy/30 hover:bg-canopy-tint transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                title={isFiltered ? 'Export filtered file numbers (XLSX)' : 'Export all file numbers (XLSX)'}>
+                                {exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                                Export{isFiltered ? ` (${filteredItems.length})` : ''}
+                            </button>
+                            <button onClick={() => handleExport('csv')} disabled={exporting || filteredItems.length === 0}
+                                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 border border-slate-200 hover:bg-slate-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                title="Export as CSV">
+                                CSV
+                            </button>
+                        </>
+                    )}
+                    <button onClick={loadList} disabled={loading}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-all disabled:opacity-40">
+                        <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                    </button>
+                </div>
             </div>
 
             {/* Filter Section */}
@@ -285,7 +324,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                 placeholder="Search file number..."
                                 value={filterFileNumber}
                                 onChange={e => setFilterFileNumber(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-white"
                             />
                         </div>
                         <div className="flex-1 min-w-56">
@@ -295,7 +334,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                 placeholder="Search description..."
                                 value={filterDescription}
                                 onChange={e => setFilterDescription(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-white"
                             />
                         </div>
                         {(filterFileNumber || filterDescription) && (
@@ -316,11 +355,11 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
 
             {loading ? (
                 <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                    <Loader2 size={18} className="animate-spin text-indigo-500" />
+                    <Loader2 size={18} className="animate-spin text-canopy" />
                     <span className="text-sm">Loading…</span>
                 </div>
             ) : error ? (
-                <div className="px-5 py-4 text-sm text-red-600 flex items-center gap-2">
+                <div className="px-5 py-4 text-sm text-danger flex items-center gap-2">
                     <AlertCircle size={15} /> {error}
                 </div>
             ) : items.length === 0 ? (
@@ -353,7 +392,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                 const isEditing    = editingId === item.r_object_id;
                                 const hasValidation = !!validationResults[item.r_object_id];
                                 const canDelete = validationResults[item.r_object_id]?.canDelete;
-                                const rowBg = hasValidation && !canDelete ? 'bg-red-50' : isEditing ? 'bg-blue-50' : isConfirming ? 'bg-green-50' : 'hover:bg-indigo-50/30';
+                                const rowBg = hasValidation && !canDelete ? 'bg-danger-tint' : isEditing ? 'bg-canopy-tint' : isConfirming ? 'bg-canopy-tint' : 'hover:bg-canopy-tint/30';
                                 return [
                                     (<tr key={item.r_object_id || idx}
                                         className={`transition-colors ${rowBg}`}>
@@ -363,7 +402,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                                 <input
                                                     value={editValues.object_name}
                                                     onChange={e => setEditValues(v => ({ ...v, object_name: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-blue-300 rounded text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-sm font-mono focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white"
                                                 />
                                             ) : (item.object_name || '—')}
                                         </td>
@@ -372,7 +411,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                                 <input
                                                     value={editValues.description}
                                                     onChange={e => setEditValues(v => ({ ...v, description: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-xs focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white"
                                                 />
                                             ) : (
                                                 <span className="truncate block">{item.description || '—'}</span>
@@ -385,7 +424,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                         </td>
                                         {hoRo !== 'HO' && (
                                             <td className="px-4 py-2.5">
-                                                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-mono">
+                                                <span className="px-2 py-0.5 bg-canopy-tint text-canopy rounded text-xs font-mono">
                                                     {item.ro_short_code || '—'}
                                                 </span>
                                             </td>
@@ -395,7 +434,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                                 {isEditing ? (
                                                     <>
                                                         <button onClick={() => handleSave(item)} disabled={saving || editValidating === item.r_object_id}
-                                                            className="p-1 rounded text-green-600 hover:bg-green-50 disabled:opacity-40 transition-colors"
+                                                            className="p-1 rounded text-canopy hover:bg-canopy-tint disabled:opacity-40 transition-colors"
                                                             title="Save">
                                                             {saving || editValidating === item.r_object_id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                                                         </button>
@@ -408,7 +447,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                                 ) : isConfirming ? (
                                                     <>
                                                         <button onClick={() => handleDelete(item)} disabled={isDeleting}
-                                                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 disabled:opacity-40 transition-colors"
+                                                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-danger bg-danger-tint border border-danger/20 rounded hover:bg-danger-tint disabled:opacity-40 transition-colors"
                                                             title="Confirm delete">
                                                             {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                                                             Delete
@@ -422,12 +461,12 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                                 ) : (
                                                     <>
                                                         <button onClick={() => startEdit(item)}
-                                                            className="p-1 rounded text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                                            className="p-1 rounded text-canopy hover:bg-canopy-tint transition-colors"
                                                             title="Edit">
                                                             <Pencil size={16} />
                                                         </button>
                                                         <button onClick={() => handleValidateDelete(item)} disabled={validating === item.r_object_id}
-                                                            className="p-1 rounded text-red-500 hover:bg-red-50 disabled:opacity-40 transition-colors"
+                                                            className="p-1 rounded text-danger hover:bg-danger-tint disabled:opacity-40 transition-colors"
                                                             title="Delete">
                                                             {validating === item.r_object_id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                                                         </button>
@@ -437,15 +476,15 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                         </td>
                                     </tr>),
                                     editValidationMsg && isEditing && (
-                                        <tr key={`edit-validation-${item.r_object_id}`} className="border-t-0 border-b transition-colors bg-red-50 border-b-red-200">
+                                        <tr key={`edit-validation-${item.r_object_id}`} className="border-t-0 border-b transition-colors bg-danger-tint border-b-danger/20">
                                             <td colSpan={hoRo === 'HO' ? 5 : 6} className="px-4 py-3">
                                                 <div className="flex items-center justify-between gap-3">
                                                     <div className="flex items-center gap-2.5">
-                                                        <AlertCircle size={16} className="text-red-500 shrink-0" />
-                                                        <span className="text-sm font-medium text-red-700">{editValidationMsg}</span>
+                                                        <AlertCircle size={16} className="text-danger shrink-0" />
+                                                        <span className="text-sm font-medium text-danger">{editValidationMsg}</span>
                                                     </div>
                                                     <button onClick={cancelEdit}
-                                                        className="p-1 rounded transition-colors text-red-400 hover:text-red-600 hover:bg-red-100"
+                                                        className="p-1 rounded transition-colors text-danger/70 hover:text-danger hover:bg-danger-tint"
                                                         title="Dismiss">
                                                         <X size={16} />
                                                     </button>
@@ -454,21 +493,21 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                         </tr>
                                     ),
                                     hasValidation && (
-                                        <tr key={`validation-${item.r_object_id}`} className={`border-t-0 border-b transition-colors ${canDelete ? 'bg-green-50 border-b-green-200' : 'bg-red-50 border-b-red-200'}`}>
+                                        <tr key={`validation-${item.r_object_id}`} className={`border-t-0 border-b transition-colors ${canDelete ? 'bg-canopy-tint border-b-canopy/20' : 'bg-danger-tint border-b-danger/20'}`}>
                                             <td colSpan={hoRo === 'HO' ? 5 : 6} className="px-4 py-3">
                                                 <div className="flex items-center justify-between gap-3">
                                                     <div className="flex items-center gap-2.5">
                                                         {canDelete ? (
-                                                            <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+                                                            <CheckCircle2 size={16} className="text-canopy shrink-0" />
                                                         ) : (
-                                                            <AlertCircle size={16} className="text-red-500 shrink-0" />
+                                                            <AlertCircle size={16} className="text-danger shrink-0" />
                                                         )}
-                                                        <span className={`text-sm font-medium ${canDelete ? 'text-green-700' : 'text-red-700'}`}>
+                                                        <span className={`text-sm font-medium ${canDelete ? 'text-canopy' : 'text-danger'}`}>
                                                             {validationResults[item.r_object_id]?.message}
                                                         </span>
                                                     </div>
                                                     <button onClick={() => clearValidationResult(item.r_object_id)}
-                                                        className={`p-1 rounded transition-colors ${canDelete ? 'text-green-400 hover:text-green-600 hover:bg-green-100' : 'text-red-400 hover:text-red-600 hover:bg-red-100'}`}
+                                                        className={`p-1 rounded transition-colors ${canDelete ? 'text-canopy/70 hover:text-canopy hover:bg-canopy-tint' : 'text-danger/70 hover:text-danger hover:bg-danger-tint'}`}
                                                         title="Dismiss">
                                                         <X size={16} />
                                                     </button>
@@ -508,7 +547,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                             max={totalPages}
                             value={currentPage}
                             onChange={e => setCurrentPage(Math.min(totalPages, Math.max(1, parseInt(e.target.value) || 1)))}
-                            className="w-12 px-2 py-1 border border-slate-200 rounded text-center text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-12 px-2 py-1 border border-slate-200 rounded text-center text-sm focus:outline-none focus:ring-1 focus:ring-canopy"
                         />
                         <span className="text-slate-500">/ {totalPages}</span>
                         <button
@@ -684,8 +723,8 @@ const FileNumberTab = ({ onToast }) => {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
             {/* ── Left: creation form ── */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-slate-50 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm shrink-0">
+                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm shrink-0">
                         <FileText size={17} className="text-white" />
                     </div>
                     <div>
@@ -700,17 +739,18 @@ const FileNumberTab = ({ onToast }) => {
                     {/* Office Type */}
                     <div>
                         <FieldLabel icon={Building2} label="Office Type" required />
-                        <div className="relative">
-                            <select value={form.officeType} onChange={e => handleOfficeType(e.target.value)}
-                                disabled={isLocalAdmin}
-                                className={selectCls(errors.officeType, isLocalAdmin)}>
-                                <option value="">— Select office type —</option>
-                                <option value="HO">HO — Head Office</option>
-                                <option value="RO">RO — Regional Office</option>
-                                <option value="TE">TE — Training Establishment</option>
-                            </select>
-                            <ChevronDown />
-                        </div>
+                        <CustomSelect
+                            value={form.officeType}
+                            onChange={handleOfficeType}
+                            disabled={isLocalAdmin}
+                            invalid={!!errors.officeType}
+                            placeholder="— Select office type —"
+                            options={[
+                                { value: 'HO', label: 'HO — Head Office' },
+                                { value: 'RO', label: 'RO — Regional Office' },
+                                { value: 'TE', label: 'TE — Training Establishment' },
+                            ]}
+                        />
                         <FieldError msg={errors.officeType} />
                     </div>
 
@@ -726,18 +766,14 @@ const FileNumberTab = ({ onToast }) => {
                                     <ChevronDown disabled />
                                 </>
                             ) : (
-                                <>
-                                    <select value={form.location}
-                                        onChange={e => handleLocation(e.target.value)}
-                                        disabled={!form.officeType || isLocalAdmin}
-                                        className={selectCls(errors.location, !form.officeType || isLocalAdmin)}>
-                                        <option value="">— Select location —</option>
-                                        {locationOptions.map(l => (
-                                            <option key={l.location} value={l.location}>{l.location}</option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown disabled={!form.officeType} />
-                                </>
+                                <CustomSelect
+                                    value={form.location}
+                                    onChange={handleLocation}
+                                    disabled={!form.officeType || isLocalAdmin}
+                                    invalid={!!errors.location}
+                                    placeholder="— Select location —"
+                                    options={locationOptions.map(l => ({ value: l.location, label: l.location }))}
+                                />
                             )}
                         </div>
                         <FieldError msg={errors.location} />
@@ -750,18 +786,14 @@ const FileNumberTab = ({ onToast }) => {
                             const disabled = !form.officeType || (!isHO && !form.location);
                             return (
                                 <>
-                                    <div className="relative">
-                                        <select value={form.department}
-                                            onChange={e => handleDept(e.target.value)}
-                                            disabled={disabled}
-                                            className={selectCls(errors.department, disabled)}>
-                                            <option value="">— Select department —</option>
-                                            {deptOptions.map(d => (
-                                                <option key={d.shortCode} value={d.name}>{d.name}</option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown disabled={disabled} />
-                                    </div>
+                                    <CustomSelect
+                                        value={form.department}
+                                        onChange={handleDept}
+                                        disabled={disabled}
+                                        invalid={!!errors.department}
+                                        placeholder="— Select department —"
+                                        options={deptOptions.map(d => ({ value: d.name, label: d.name }))}
+                                    />
                                     {form.shortCode && (
                                         <p className="mt-1 text-xs text-slate-400 flex items-center gap-1">
                                             <Tag size={11} />Short code: <span className="font-mono text-slate-600">{form.shortCode}</span>
@@ -791,7 +823,7 @@ const FileNumberTab = ({ onToast }) => {
                             onChange={e => set('description', e.target.value)}
                             placeholder="e.g. Jammu & Kashmir - State Master File (SMF)"
                             rows={3}
-                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] hover:border-slate-300 bg-white resize-none transition-all" />
+                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy hover:border-slate-300 bg-white resize-none transition-all" />
                     </div>
 
                     {/* DQL preview */}
@@ -819,7 +851,7 @@ const FileNumberTab = ({ onToast }) => {
                             Reset
                         </button>
                         <button type="submit" disabled={submitting || checking}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
+                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
                             {submitting ? <Loader2 size={15} className="animate-spin" /> : checking ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                             {submitting ? 'Creating…' : checking ? 'Validating…' : 'Create File Number'}
                         </button>
@@ -888,8 +920,8 @@ const CaseTypeTab = ({ onToast }) => {
             {/* Create form */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                        <FolderOpen size={20} className="text-indigo-600" />
+                    <div className="w-10 h-10 bg-canopy-tint rounded-xl flex items-center justify-center">
+                        <FolderOpen size={20} className="text-canopy" />
                     </div>
                     <div>
                         <p className="text-sm font-semibold text-slate-900">Create Case Type</p>
@@ -915,7 +947,7 @@ const CaseTypeTab = ({ onToast }) => {
                     disabled={!caseType.trim() || submitting}
                     className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                         caseType.trim() && !submitting
-                            ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-500/20'
+                            ? 'bg-canopy text-white hover:bg-canopy-dark shadow-md shadow-canopy/20'
                             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                     }`}
                 >
@@ -942,7 +974,7 @@ const CaseTypeTab = ({ onToast }) => {
                         {items.map((item, idx) => (
                             <div key={item.r_object_id || idx}
                                 className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-lg">
-                                <FolderOpen size={14} className="text-indigo-500 shrink-0" />
+                                <FolderOpen size={14} className="text-canopy shrink-0" />
                                 <span className="text-sm text-slate-800 font-medium">{item.object_name}</span>
                             </div>
                         ))}
@@ -993,8 +1025,8 @@ const HindiCommentsTab = ({ onToast }) => {
             {/* Create form */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-                        <MessageSquareText size={20} className="text-indigo-600" />
+                    <div className="w-10 h-10 bg-canopy-tint rounded-xl flex items-center justify-center">
+                        <MessageSquareText size={20} className="text-canopy" />
                     </div>
                     <div>
                         <p className="text-sm font-semibold text-slate-900">Add Hindi Comment</p>
@@ -1020,7 +1052,7 @@ const HindiCommentsTab = ({ onToast }) => {
                     disabled={!comment.trim() || submitting}
                     className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                         comment.trim() && !submitting
-                            ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md shadow-indigo-500/20'
+                            ? 'bg-canopy text-white hover:bg-canopy-dark shadow-md shadow-canopy/20'
                             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                     }`}
                 >
@@ -1034,7 +1066,7 @@ const HindiCommentsTab = ({ onToast }) => {
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-slate-700">Existing Hindi Comments</span>
                         {items.length > 0 && (
-                            <span className="text-xs bg-indigo-50 text-indigo-600 font-semibold px-2 py-0.5 rounded-full">{items.length}</span>
+                            <span className="text-xs bg-canopy-tint text-canopy font-semibold px-2 py-0.5 rounded-full">{items.length}</span>
                         )}
                     </div>
                     <button onClick={() => setRefreshKey(k => k + 1)}
@@ -1052,7 +1084,7 @@ const HindiCommentsTab = ({ onToast }) => {
                         {items.map((item, idx) => (
                             <div key={item.r_object_id || idx}
                                 className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-lg">
-                                <MessageSquareText size={14} className="text-indigo-500 shrink-0" />
+                                <MessageSquareText size={14} className="text-canopy shrink-0" />
                                 <span className="text-sm text-slate-800 font-medium">{item.object_name}</span>
                             </div>
                         ))}
@@ -1083,7 +1115,7 @@ const CaseSection = ({ onToast, isLocalAdmin }) => {
                     <button key={t.id} onClick={() => setActiveTab(t.id)}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                             activeTab === t.id
-                                ? 'bg-white text-indigo-700 shadow-sm'
+                                ? 'bg-white text-canopy shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'
                         }`}>
                         <t.icon size={15} />
@@ -1198,8 +1230,8 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
             {/* Left: form (only shown if add allowed) */}
             {allowAdd && (
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-slate-50 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm shrink-0">
+                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm shrink-0">
                         <Tag size={17} className="text-white" />
                     </div>
                     <div>
@@ -1218,7 +1250,7 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                     </div>
                     <div className="flex items-center justify-end pt-2 border-t border-slate-100">
                         <button type="submit" disabled={submitting || !value.trim()}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
+                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
                             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                             {submitting ? 'Adding…' : 'Add'}
                         </button>
@@ -1234,7 +1266,7 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                         <Hash size={14} className="text-slate-400" />
                         <span className="text-sm font-semibold text-slate-700">{listLabel}</span>
                         {!loading && (
-                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full">
+                            <span className="px-2 py-0.5 bg-canopy-tint text-canopy text-xs font-semibold rounded-full">
                                 {items.length}
                             </span>
                         )}
@@ -1247,11 +1279,11 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
 
                 {loading ? (
                     <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                        <Loader2 size={18} className="animate-spin text-indigo-500" />
+                        <Loader2 size={18} className="animate-spin text-canopy" />
                         <span className="text-sm">Loading…</span>
                     </div>
                 ) : error ? (
-                    <div className="px-5 py-4 text-sm text-red-600 flex items-center gap-2">
+                    <div className="px-5 py-4 text-sm text-danger flex items-center gap-2">
                         <AlertCircle size={15} /> {error}
                     </div>
                 ) : items.length === 0 ? (
@@ -1271,7 +1303,7 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                                     const isEditing    = editingId  === item.r_object_id;
                                     const isConfirming = confirmId  === item.r_object_id;
                                     const isDeleting   = deleting   === item.r_object_id;
-                                    const rowBg = isEditing ? 'bg-blue-50' : isConfirming ? 'bg-red-50' : 'hover:bg-indigo-50/30';
+                                    const rowBg = isEditing ? 'bg-canopy-tint' : isConfirming ? 'bg-danger-tint' : 'hover:bg-canopy-tint/30';
                                     return (
                                         <tr key={item.r_object_id || idx} className={`transition-colors ${rowBg}`}>
                                             <td className="px-4 py-2.5 text-slate-400 text-xs font-mono">{idx + 1}</td>
@@ -1279,14 +1311,14 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                                                 {isEditing ? (
                                                     <input value={editValue}
                                                         onChange={e => setEditValue(e.target.value)}
-                                                        className="w-full px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white" />
+                                                        className="w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white" />
                                                 ) : (item.results || '—')}
                                             </td>
                                             <td className="px-4 py-2.5 text-center">
                                                 {isEditing ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button onClick={() => handleSave(item)} disabled={saving}
-                                                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-50 flex items-center gap-1">
+                                                            className="px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-50 flex items-center gap-1">
                                                             {saving ? <Loader2 size={11} className="animate-spin" /> : null}
                                                             Save
                                                         </button>
@@ -1296,11 +1328,11 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                                                         </button>
                                                     </div>
                                                 ) : isDeleting ? (
-                                                    <Loader2 size={15} className="animate-spin text-red-400 mx-auto" />
+                                                    <Loader2 size={15} className="animate-spin text-danger/70 mx-auto" />
                                                 ) : allowEditDelete && isConfirming ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button onClick={() => handleDelete(item)}
-                                                            className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-all">
+                                                            className="px-2 py-1 bg-danger hover:bg-danger text-white text-xs font-semibold rounded-lg transition-all">
                                                             Delete
                                                         </button>
                                                         <button onClick={() => setConfirmId(null)}
@@ -1311,12 +1343,12 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                                                 ) : allowEditDelete ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button onClick={() => startEdit(item)}
-                                                            className="p-1.5 rounded-lg text-slate-300 hover:text-blue-500 hover:bg-blue-50 transition-all"
+                                                            className="p-1.5 rounded-lg text-slate-300 hover:text-canopy hover:bg-canopy-tint transition-all"
                                                             title="Edit">
                                                             <Pencil size={14} />
                                                         </button>
                                                         <button onClick={() => { setConfirmId(item.r_object_id); setEditingId(null); }}
-                                                            className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                                                            className="p-1.5 rounded-lg text-slate-300 hover:text-danger hover:bg-danger-tint transition-all"
                                                             title="Delete">
                                                             <Trash2 size={14} />
                                                         </button>
@@ -1350,7 +1382,7 @@ const NatureOfCorrespondenceSection = ({ onToast }) => {
                     <button key={t.id} onClick={() => setActiveTab(t.id)}
                         className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                             activeTab === t.id
-                                ? 'bg-white text-indigo-700 shadow-sm'
+                                ? 'bg-white text-canopy shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'
                         }`}>
                         {t.label}
@@ -1400,7 +1432,7 @@ const DigidakSection = ({ onToast }) => {
                     <button key={t.id} onClick={() => setActiveTab(t.id)}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                             activeTab === t.id
-                                ? 'bg-white text-indigo-700 shadow-sm'
+                                ? 'bg-white text-canopy shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'
                         }`}>
                         {t.label}
@@ -1445,7 +1477,7 @@ const TOP_TABS = [
 // ─── MetadataPage ─────────────────────────────────────────────────────────────
 const MetadataPage = () => {
     const [activeTab, setActiveTab] = useState('case');
-    const [toast, setToast]         = useState(null);
+    const toast = useToast();
 
     // Get user info to check if Local Admin
     const storedUser = localStorage.getItem('user');
@@ -1459,36 +1491,17 @@ const MetadataPage = () => {
         : TOP_TABS;
 
     return (
-        <div className="flex flex-col h-full bg-slate-50">
-            <Toast toast={toast} onDismiss={() => setToast(null)} />
+        <div className="flex flex-1 flex-col">
+            <PageHeader
+                title="Metadata"
+                icon={Layers}
+                description="Manage ECM configuration metadata objects."
+            />
+            <Tabs tabs={visibleTopTabs} value={activeTab} onChange={setActiveTab} className="mb-5" />
 
-            {/* Page header */}
-            <div className="bg-white border-b border-slate-200 px-6 py-4">
-                <h1 className="text-lg font-bold text-slate-900">Metadata</h1>
-                <p className="text-xs text-slate-500 mt-0.5">Manage ECM configuration metadata objects</p>
-            </div>
-
-            {/* Top tab bar */}
-            <div className="bg-white border-b border-slate-200 px-6">
-                <div className="flex gap-0">
-                    {visibleTopTabs.map(t => (
-                        <button key={t.id} onClick={() => setActiveTab(t.id)}
-                            className={`flex items-center gap-2 px-4 py-3.5 text-sm font-medium border-b-2 transition-all ${
-                                activeTab === t.id
-                                    ? 'border-indigo-600 text-indigo-700'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                            }`}>
-                            <t.icon size={15} />
-                            {t.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-                {activeTab === 'case'    && <CaseSection onToast={setToast} isLocalAdmin={isLocalAdmin} />}
-                {activeTab === 'digidak' && <DigidakSection onToast={setToast} />}
+            <div className="flex-1">
+                {activeTab === 'case'    && <CaseSection onToast={toast.show} isLocalAdmin={isLocalAdmin} />}
+                {activeTab === 'digidak' && <DigidakSection onToast={toast.show} />}
             </div>
         </div>
     );

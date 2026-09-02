@@ -25,7 +25,7 @@ function App() {
         
         {/* Protected Dashboard Routes */}
         <Route path="/dashboard" element={<MainLayout />}>
-            <Route index element={<Navigate to="/dashboard/cases" replace />} />
+            <Route index element={<Navigate to="/dashboard/users" replace />} />
             <Route path="cases" element={<CasesPage />} />
             <Route path="workflows" element={<WorkflowsPage />} />
             <Route path="groups" element={<GroupsPage />} />
@@ -36,6 +36,7 @@ function App() {
             <Route path="departments" element={<DepartmentPage />} />
             <Route path="metadata" element={<MetadataPage />} />
             <Route path="sfs" element={<SfsPage />} />
+            <Route path="user-export" element={<Navigate to="/dashboard/users" replace />} />
             <Route path="query" element={<QueryPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="delegate" element={<Navigate to="/dashboard/cases" replace />} />
@@ -43,6 +44,7 @@ function App() {
         </Route>
         
         <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard/users" replace />} />
       </Routes>
     </Router>
   );

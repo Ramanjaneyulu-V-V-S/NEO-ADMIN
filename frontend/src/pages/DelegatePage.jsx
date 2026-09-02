@@ -6,39 +6,9 @@ import {
     ChevronsLeft, X, UserRoundCog, Users, Building2, MapPin, FolderOpen,
     FileText, Info, ClipboardList
 } from 'lucide-react';
+import { useToast } from '../components/ui';
+import CustomSelect from '../components/ui/CustomSelect.jsx';
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
-const Toast = ({ toast, onClose }) => {
-    useEffect(() => {
-        if (!toast) return;
-        const t = setTimeout(onClose, 4000);
-        return () => clearTimeout(t);
-    }, [toast, onClose]);
-
-    if (!toast) return null;
-    const isError = toast.type === 'error';
-    return (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium border
-            ${isError ? 'bg-red-50 border-red-200 text-red-800' : 'bg-green-50 border-green-200 text-green-800'}`}>
-            <span>{toast.message}</span>
-            <button onClick={onClose} className="ml-1 opacity-60 hover:opacity-100"><X size={14} /></button>
-        </div>
-    );
-};
-
-// ─── SelectWrapper ─────────────────────────────────────────────────────────
-const SelectWrapper = ({ children }) => (
-    <div className="relative">
-        {children}
-        <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-            <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 20 20" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 8l4 4 4-4" />
-            </svg>
-        </div>
-    </div>
-);
-
-const selectCls         = 'w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2] bg-white appearance-none cursor-pointer pr-8';
 const disabledSelectCls = 'w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-slate-100 text-slate-400 cursor-not-allowed appearance-none pr-8';
 
 const FieldLabel = ({ icon: Icon, label }) => (
@@ -63,9 +33,9 @@ const CaseDetailsModal = ({ caseItem, onClose }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50 shrink-0">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm">
+                        <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
                             <FileText size={17} className="text-white" />
                         </div>
                         <div>
@@ -81,7 +51,7 @@ const CaseDetailsModal = ({ caseItem, onClose }) => {
 
                 <div className="overflow-y-auto flex-1 p-6">
                     <div className="flex items-center gap-2 mb-3">
-                        <Info size={14} className="text-[#0A66C2]" />
+                        <Info size={14} className="text-canopy" />
                         <h3 className="text-sm font-bold text-slate-800">Case Details</h3>
                     </div>
                     <div className="bg-slate-50 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 border border-slate-100">
@@ -142,9 +112,9 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50 shrink-0">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm">
+                        <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
                             <ClipboardList size={17} className="text-white" />
                         </div>
                         <div>
@@ -160,10 +130,10 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
 
                 <div className="overflow-y-auto flex-1 p-6">
                     <div className="flex items-center gap-2 mb-3">
-                        <ClipboardList size={14} className="text-[#0A66C2]" />
+                        <ClipboardList size={14} className="text-canopy" />
                         <h3 className="text-sm font-bold text-slate-800">Movement Register</h3>
                         {!loading && (
-                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                            <span className="px-2 py-0.5 bg-canopy-tint text-canopy text-xs font-semibold rounded-full">
                                 {movement.length}
                             </span>
                         )}
@@ -171,7 +141,7 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
 
                     {loading ? (
                         <div className="flex items-center gap-2 py-12 justify-center text-slate-400">
-                            <Loader2 size={18} className="animate-spin text-[#0A66C2]" />
+                            <Loader2 size={18} className="animate-spin text-canopy" />
                             <span className="text-sm">Loading movement register…</span>
                         </div>
                     ) : movement.length === 0 ? (
@@ -193,7 +163,7 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {movement.map((rec, idx) => (
-                                        <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
+                                        <tr key={idx} className="hover:bg-canopy-tint/30 transition-colors">
                                             <td className="px-3 py-2 text-slate-400 font-mono">{idx + 1}</td>
                                             {movCols.map(col => (
                                                 <td key={col.key} className="px-3 py-2 text-slate-700 max-w-xs truncate"
@@ -234,7 +204,9 @@ const DelegatePage = () => {
     const [activeQuery, setActiveQuery] = useState('');
 
     const [delegating, setDelegating] = useState(null);
-    const [toast,      setToast]      = useState(null);
+    const globalToast = useToast();
+    const [toast, setToast] = useState(null);
+    useEffect(() => { if (toast) globalToast.show(toast); }, [toast, globalToast]);
 
     const [detailCase,   setDetailCase]   = useState(null); // Case Details modal
     const [movementCase, setMovementCase] = useState(null); // Movement Register modal
@@ -427,9 +399,7 @@ const DelegatePage = () => {
     const rangeEnd   = (page - 1) * pageSize + cases.length;
 
     return (
-        <div className="max-w-7xl mx-auto">
-            <Toast toast={toast} onClose={() => setToast(null)} />
-
+        <div>
             {detailCase   && <CaseDetailsModal      caseItem={detailCase}   onClose={() => setDetailCase(null)} />}
             {movementCase && <MovementRegisterModal  caseItem={movementCase} onClose={() => setMovementCase(null)} />}
 
@@ -440,28 +410,28 @@ const DelegatePage = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                         <FieldLabel icon={Building2} label="Office Type" />
-                        <SelectWrapper>
-                            <select value={officeType} onChange={e => handleOfficeTypeChange(e.target.value)}
-                                disabled={isLocalAdmin}
-                                className={isLocalAdmin ? disabledSelectCls : selectCls}>
-                                <option value="">— All offices —</option>
-                                <option value="HO">HO — Head Office</option>
-                                <option value="RO">RO — Regional Office</option>
-                                <option value="TE">TE — Training Establishment</option>
-                            </select>
-                        </SelectWrapper>
+                        <CustomSelect
+                            value={officeType}
+                            onChange={handleOfficeTypeChange}
+                            disabled={isLocalAdmin}
+                            placeholder="— All offices —"
+                            options={[
+                                { value: 'HO', label: 'HO — Head Office' },
+                                { value: 'RO', label: 'RO — Regional Office' },
+                                { value: 'TE', label: 'TE — Training Establishment' },
+                            ]}
+                        />
                     </div>
                     <div>
                         <FieldLabel icon={MapPin} label="Location" />
                         {isRoTe ? (
-                            <SelectWrapper>
-                                <select value={location} onChange={e => handleLocationChange(e.target.value)}
-                                    disabled={isLocalAdmin}
-                                    className={isLocalAdmin ? disabledSelectCls : selectCls}>
-                                    <option value="">— Select location —</option>
-                                    {locations.map(l => <option key={l.shortCode} value={l.location}>{l.location}</option>)}
-                                </select>
-                            </SelectWrapper>
+                            <CustomSelect
+                                value={location}
+                                onChange={handleLocationChange}
+                                disabled={isLocalAdmin}
+                                placeholder="— Select location —"
+                                options={locations.map(l => ({ value: l.location, label: l.location }))}
+                            />
                         ) : officeType === 'HO' ? (
                             <input readOnly value="Mumbai (Head Office)" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-slate-100 text-slate-500 cursor-not-allowed" />
                         ) : (
@@ -470,32 +440,30 @@ const DelegatePage = () => {
                     </div>
                     <div>
                         <FieldLabel icon={FolderOpen} label="Department" />
-                        <SelectWrapper>
-                            <select value={department?.shortCode || ''} onChange={e => handleDepartmentChange(e.target.value)}
-                                disabled={!officeType || (isRoTe && !location)}
-                                className={!officeType || (isRoTe && !location) ? disabledSelectCls : selectCls}>
-                                <option value="">{!officeType ? '— Select office first —' : (isRoTe && !location) ? '— Select location first —' : '— Select department —'}</option>
-                                {departments.map(d => <option key={d.shortCode} value={d.shortCode}>{d.name}</option>)}
-                            </select>
-                        </SelectWrapper>
+                        <CustomSelect
+                            value={department?.shortCode || ''}
+                            onChange={handleDepartmentChange}
+                            disabled={!officeType || (isRoTe && !location)}
+                            placeholder={!officeType ? '— Select office first —' : (isRoTe && !location) ? '— Select location first —' : '— Select department —'}
+                            options={departments.map(d => ({ value: d.shortCode, label: d.name }))}
+                        />
                     </div>
                     <div>
                         <FieldLabel icon={Users} label="Delegate To" />
-                        <SelectWrapper>
-                            {/* Show filtered users if department selected, otherwise show all users */}
-                            {(() => {
-                                const displayUsers = department && isRoTe ? filteredUsers : users;
-                                const isEmpty = displayUsers.length === 0;
-                                return (
-                                    <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)}
-                                        disabled={loadingUsers || isEmpty}
-                                        className={loadingUsers || isEmpty ? disabledSelectCls : selectCls}>
-                                        <option value="">{loadingUsers ? 'Loading users…' : isEmpty ? '— No matching users —' : '— Select user —'}</option>
-                                        {displayUsers.map(u => <option key={u.r_object_id || u.user_login_name} value={u.object_name}>{u.object_name}</option>)}
-                                    </select>
-                                );
-                            })()}
-                        </SelectWrapper>
+                        {/* Show filtered users if department selected, otherwise show all users */}
+                        {(() => {
+                            const displayUsers = department && isRoTe ? filteredUsers : users;
+                            const isEmpty = displayUsers.length === 0;
+                            return (
+                                <CustomSelect
+                                    value={selectedUser}
+                                    onChange={setSelectedUser}
+                                    disabled={loadingUsers || isEmpty}
+                                    placeholder={loadingUsers ? 'Loading users…' : isEmpty ? '— No matching users —' : '— Select user —'}
+                                    options={displayUsers.map(u => ({ value: u.object_name, label: u.object_name }))}
+                                />
+                            );
+                        })()}
                     </div>
                 </div>
             </div>
@@ -507,7 +475,7 @@ const DelegatePage = () => {
                         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                             placeholder="Search by case number…"
-                            className="w-64 pl-9 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] shadow-sm transition-all" />
+                            className="w-64 pl-9 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy shadow-sm transition-all" />
                         {searchQuery && (
                             <button type="button" onClick={clearSearch} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
                                 <X size={14} />
@@ -515,16 +483,16 @@ const DelegatePage = () => {
                         )}
                     </div>
                     <button type="submit" disabled={!searchQuery.trim() || loadingCases}
-                        className="px-5 py-2.5 bg-[#0A66C2] text-white rounded-lg text-sm font-semibold hover:bg-[#094d92] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all">
+                        className="px-5 py-2.5 bg-canopy text-white rounded-lg text-sm font-semibold hover:bg-canopy-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all">
                         {loadingCases ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
                         Search
                     </button>
                 </form>
                 <div className="flex items-center gap-2 flex-wrap">
-                    {officeType  && <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-medium"><Building2 size={11} /> {officeType}</span>}
+                    {officeType  && <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-canopy-tint text-canopy border border-canopy/20 rounded-full text-xs font-medium"><Building2 size={11} /> {officeType}</span>}
                     {location    && <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-full text-xs font-medium"><MapPin size={11} /> {location}</span>}
-                    {department  && <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-xs font-medium"><FolderOpen size={11} /> {department.name}</span>}
-                    {selectedUser && <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-medium"><UserRoundCog size={11} /> {selectedUser}</span>}
+                    {department  && <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-canopy-tint text-canopy border border-canopy/20 rounded-full text-xs font-medium"><FolderOpen size={11} /> {department.name}</span>}
+                    {selectedUser && <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-canopy-tint text-canopy border border-canopy/20 rounded-full text-xs font-medium"><UserRoundCog size={11} /> {selectedUser}</span>}
                 </div>
             </div>
 
@@ -533,9 +501,9 @@ const DelegatePage = () => {
                 {!loadingCases && cases.length > 0 && (
                     <div className="px-6 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between text-sm">
                         <span className="text-slate-600">
-                            Showing <span className="font-semibold text-[#0A66C2]">{rangeStart}–{rangeEnd}</span>{hasNext ? '+' : ''} cases
+                            Showing <span className="font-semibold text-canopy">{rangeStart}–{rangeEnd}</span>{hasNext ? '+' : ''} cases
                         </span>
-                        {!selectedUser && <span className="text-amber-600 text-xs font-medium">Select a user above to enable delegation</span>}
+                        {!selectedUser && <span className="text-harvest text-xs font-medium">Select a user above to enable delegation</span>}
                     </div>
                 )}
 
@@ -572,7 +540,7 @@ const DelegatePage = () => {
                                 cases.map((c, idx) => {
                                     const isDelegating = delegating === c.r_object_id;
                                     return (
-                                        <tr key={c.r_object_id || idx} className="hover:bg-blue-50/30 transition-colors">
+                                        <tr key={c.r_object_id || idx} className="hover:bg-canopy-tint/30 transition-colors">
                                             <td className="px-5 py-2.5 text-slate-400 font-mono text-xs">{(page - 1) * pageSize + idx + 1}</td>
                                             <td className="px-5 py-2.5 font-medium text-slate-900">{c.object_name || '-'}</td>
                                             <td className="px-5 py-2.5 text-slate-500 max-w-xs truncate" title={c.description}>{c.description || '-'}</td>
@@ -586,18 +554,18 @@ const DelegatePage = () => {
                                                 <div className="flex items-center justify-center gap-2">
                                                     {/* Case Details */}
                                                     <button onClick={() => setDetailCase(c)} title="Case Details"
-                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-[#0A66C2] hover:bg-blue-50 transition-all">
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
                                                         <FileText size={15} />
                                                     </button>
                                                     {/* Movement Register */}
                                                     <button onClick={() => setMovementCase(c)} title="Movement Register"
-                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all">
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
                                                         <ClipboardList size={15} />
                                                     </button>
                                                     {/* Delegate */}
                                                     <button onClick={() => handleDelegate(c)}
                                                         disabled={!selectedUser || isDelegating || !!delegating}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0A66C2] hover:bg-[#094d92] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg shadow-sm transition-all">
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg shadow-sm transition-all">
                                                         {isDelegating ? <><Loader2 size={12} className="animate-spin" /> Delegating…</> : <><ArrowRightLeft size={12} /> Delegate</>}
                                                     </button>
                                                 </div>

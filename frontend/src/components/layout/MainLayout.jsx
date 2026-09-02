@@ -1,10 +1,12 @@
-import React from 'react';
+import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { ShieldAlert } from 'lucide-react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import useIdleTimeout from '../../hooks/useIdleTimeout';
 import IdleWarningModal from '../IdleWarningModal';
+import { ToastProvider } from '../ui/ToastProvider';
+import { Button } from '../ui/Button';
 
 const MainLayout = () => {
     const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -12,40 +14,45 @@ const MainLayout = () => {
     const hasAccess = adminRole === 'Super Admin' || adminRole === 'Local Admin';
     const navigate = useNavigate();
     const { showWarning, remainingTime, handleContinue } = useIdleTimeout(30000, 1800000);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     if (!hasAccess) {
         return (
-            <div className="bg-slate-50 min-h-screen font-sans text-slate-900 flex items-center justify-center">
-                <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 max-w-md w-full text-center">
-                    <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <ShieldAlert size={28} className="text-red-600" />
+            <div className="flex min-h-[100dvh] items-center justify-center bg-paper px-4 font-sans text-ink">
+                <div className="w-full max-w-md rounded-card border border-line bg-white p-8 text-center shadow-card">
+                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-danger-tint">
+                        <ShieldAlert size={28} className="text-danger" />
                     </div>
-                    <h2 className="text-lg font-bold text-slate-900 mb-2">Access Denied</h2>
-                    <p className="text-sm text-slate-600 mb-6">
-                        You do not have sufficient privileges to access this. The user must have Super Admin or Local Admin rights.
+                    <h2 className="mb-2 font-display text-title font-medium text-ink">Access denied</h2>
+                    <p className="mb-6 text-body text-slate-500">
+                        This area needs Super Admin or Local Admin rights. Sign in with an account that has them.
                     </p>
-                    <button
-                        onClick={() => { localStorage.removeItem('user'); navigate('/login'); }}
-                        className="px-6 py-2.5 bg-[#0A66C2] text-white text-sm font-semibold rounded-lg hover:bg-[#094d92] transition-colors"
+                    <Button
+                        onClick={() => {
+                            localStorage.removeItem('user');
+                            navigate('/login');
+                        }}
                     >
-                        Back to Login
-                    </button>
+                        Back to sign in
+                    </Button>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="bg-slate-50 min-h-screen font-sans text-slate-900">
-            <Sidebar />
-            <Topbar />
-            <main className="pl-64 pt-16 min-h-screen">
-                <div className="max-w-7xl mx-auto">
-                    <Outlet />
-                </div>
-            </main>
-            <IdleWarningModal isOpen={showWarning} remainingTime={remainingTime} onContinue={handleContinue} />
-        </div>
+        <ToastProvider>
+            <div className="min-h-[100dvh] bg-paper font-sans text-ink">
+                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                <Topbar onMenuClick={() => setIsSidebarOpen(true)} />
+                <main className="min-h-[100dvh] overflow-x-hidden pt-14 lg:pl-64">
+                    <div className="flex min-h-[calc(100dvh-3.5rem)] w-full flex-col p-4">
+                        <Outlet />
+                    </div>
+                </main>
+                <IdleWarningModal isOpen={showWarning} remainingTime={remainingTime} onContinue={handleContinue} />
+            </div>
+        </ToastProvider>
     );
 };
 

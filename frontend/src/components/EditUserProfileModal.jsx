@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../api/axios';
-import { X, Save, Loader2, User, Building2, MapPin, Tag, Layers, AlertCircle, ArrowRightLeft, Users, ChevronDown } from 'lucide-react';
+import { X, Save, Loader2, User, Building2, MapPin, Tag, Layers, AlertCircle, ArrowRightLeft, Users } from 'lucide-react';
 import { USER_GRADES, DESIGNATION_OPTIONS, getLocations, fetchDepartments, RO_LOCATIONS, TE_LOCATIONS, DDM_DISTRICTS } from '../data/nabardMetadata.js';
+import { Modal } from './ui';
+import CustomSelect from './ui/CustomSelect.jsx';
 
 const USER_GRADE_OPTIONS = [
     { value: '', label: '— Select grade —', level: '' },
@@ -18,6 +20,24 @@ const DESIGNATION_GRADE_MAPPING = {
     'GM': 'grade_e',      // Grade E
     'GM(OIC)': 'grade_e(oic)', // Grade E (OIC)
     'CGM': 'grade_f',     // Grade F
+    'DDM GRADE B': 'grade_b', // DDM users (Grade B)
+    'DDM GRADE C': 'grade_c', // DDM users (Grade C)
+    'DDM GRADE D': 'grade_d', // DDM users (Grade D)
+};
+
+// Designation options shown for DDM users (department = DDM, office type RO/TE)
+const DDM_DESIGNATION_OPTIONS = [
+    { value: '', label: '— Select designation —' },
+    { value: 'DDM GRADE B', label: 'DDM GRADE B' },
+    { value: 'DDM GRADE C', label: 'DDM GRADE C' },
+    { value: 'DDM GRADE D', label: 'DDM GRADE D' },
+];
+
+// User Grade to Designation mapping for DDM users (keeps the DDM-only dropdown consistent)
+const DDM_GRADE_DESIGNATION_MAPPING = {
+    'grade_b': 'DDM GRADE B',
+    'grade_c': 'DDM GRADE C',
+    'grade_d': 'DDM GRADE D',
 };
 
 // User Grade to Designation mapping (reverse mapping)
@@ -32,18 +52,17 @@ const GRADE_DESIGNATION_MAPPING = {
     'grade_f': 'CGM',
 };
 
-const inputCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2] bg-white';
-const readonlyCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-500 cursor-default font-mono';
-const selectCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2] bg-white appearance-none cursor-pointer';
-const disabledSelectCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-100 text-slate-400 cursor-not-allowed appearance-none';
+const inputCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-white';
+const readonlyCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm bg-slate-50 text-slate-500 cursor-default font-mono';
+const disabledSelectCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm bg-slate-100 text-slate-400 cursor-not-allowed appearance-none';
 
 const Label = ({ children, required }) => (
     <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-        {children}{required && <span className="text-red-500 ml-0.5">*</span>}
+        {children}{required && <span className="text-danger ml-0.5">*</span>}
     </label>
 );
 
-const errorCls = 'w-full px-3 py-2 border border-red-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-500 bg-white';
+const errorCls = 'w-full px-3 py-2 border border-danger/70 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-danger/70/20 focus:border-danger bg-white';
 
 const SelectWrapper = ({ children }) => (
     <div className="relative">
@@ -64,7 +83,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
     const [errors, setErrors] = useState({});
     const [designationChanged, setDesignationChanged] = useState(false);
     const [gradeChanged, setGradeChanged] = useState(false);
-    const originalGroupInfoRef = useRef({ officeType: '', roShortCode: '', deptCodes: [], designation: '' });
+    const originalGroupInfoRef = useRef({ officeType: '', roShortCode: '', deptCodes: [], designation: '', location: '', departmentName: '', deptShortCode: '' });
     const hindiTouched = useRef({});
     const lastManualChangeRef = useRef(null); // Track which field was last manually changed ('designation' or 'grade')
 
@@ -88,6 +107,11 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
     const [locationPendingCases,   setLocationPendingCases]   = useState([]);
     const [showLocationBlock,      setShowLocationBlock]      = useState(false);
 
+    // Retired user — pending cases block
+    const [checkingRetiredInbox,   setCheckingRetiredInbox]   = useState(false);
+    const [retiredPendingCases,    setRetiredPendingCases]    = useState([]);
+    const [showRetiredBlock,       setShowRetiredBlock]       = useState(false);
+
     // Delegate modal state
     const [delegateTask,         setDelegateTask]         = useState(null);
     const [delegateUsers,        setDelegateUsers]        = useState([]);
@@ -108,6 +132,8 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
         setShowDeptBlock(false);
         setLocationPendingCases([]);
         setShowLocationBlock(false);
+        setRetiredPendingCases([]);
+        setShowRetiredBlock(false);
         setDelegateTask(null);
         setDesignationChanged(false);
         setGradeChanged(false);
@@ -141,7 +167,10 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
     // Auto-populate designation when user_grade changes (only if user manually changed grade, not during initial load)
     useEffect(() => {
         if (!form.user_grade || lastManualChangeRef.current !== 'grade') return;
-        const mappedDesignation = GRADE_DESIGNATION_MAPPING[form.user_grade];
+        const isDDMUser = form.department_name === 'DDM' && ['RO', 'TE'].includes(form.office_type);
+        const mappedDesignation = isDDMUser
+            ? DDM_GRADE_DESIGNATION_MAPPING[form.user_grade]
+            : GRADE_DESIGNATION_MAPPING[form.user_grade];
         if (mappedDesignation) {
             set('designation', mappedDesignation);
             const designationObj = DESIGNATION_OPTIONS.find(opt => opt.value === mappedDesignation);
@@ -150,15 +179,15 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
             }
             setGradeChanged(true);
         }
+        // department_name/office_type only gate the DDM branch; re-running on them is not wanted
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [form.user_grade]);
 
     const initForm = async (profile) => {
-        console.log('[initForm] Profile received:', profile);
         const officeType = profile.office_type || '';
         const location   = profile.location   || '';
         const deptName   = profile.department_name || '';
         const isDDMProfile = deptName === 'DDM';
-        console.log('[initForm] Extracted values:', { officeType, location, deptName, isDDMProfile });
 
         const locs        = getLocations(officeType);
         const locObj      = locs.find(l => l.location === location);
@@ -178,7 +207,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
             deptShortCodeMulti = multiCodes;
             deptShortCode      = multiCodes[0] || '';
             // For DDM users: store empty deptCodes so standard group logic doesn't process district names
-            originalGroupInfoRef.current = { officeType, roShortCode, deptCodes: isDDMProfile ? [] : multiCodes, designation: profile.designation || '' };
+            originalGroupInfoRef.current = { officeType, roShortCode, deptCodes: isDDMProfile ? [] : multiCodes, designation: profile.designation || '', location, departmentName: deptName, deptShortCode };
         } else {
             // For HO users: support multi-select departments
             const multiCodes = Array.isArray(profile.department_short_code_multi)
@@ -196,7 +225,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                 }
             }
 
-            originalGroupInfoRef.current = { officeType, roShortCode, deptCodes: deptShortCodeMulti, designation: profile.designation || '' };
+            originalGroupInfoRef.current = { officeType, roShortCode, deptCodes: deptShortCodeMulti, designation: profile.designation || '', location, departmentName: deptName, deptShortCode };
         }
 
         const gradeObj   = USER_GRADES.find(g => g.value === profile.user_grade);
@@ -221,7 +250,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
             grade_level:                 gradeLevel,
             is_active:                   profile.is_active              ?? false,
         };
-        console.log('[initForm] Final form state:', finalForm);
         setForm(finalForm);
         setError(null);
         setErrors({});
@@ -270,6 +298,74 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
         }
     };
 
+    // ── Retired user ──────────────────────────────────────────────────────────
+    // Retiring blanks the office identity to the literal 'RETIRED', deactivates the
+    // account, and (on Save) drops every group. Toggle-off before Save restores the
+    // values captured at load time.
+    const applyRetiredFields = () => {
+        set('office_type', 'RETIRED');
+        set('location', 'RETIRED');
+        set('ro_short_code', 'RETIRED');
+        set('department_name', 'RETIRED');
+        set('department_short_code', 'retired');
+        set('department_short_code_multi', []);
+        set('is_active', false);
+    };
+
+    const restoreFromRetired = () => {
+        const orig = originalGroupInfoRef.current;
+        set('office_type', orig.officeType || 'HO');
+        set('location', orig.location || '');
+        set('ro_short_code', orig.roShortCode || '');
+        set('department_name', orig.departmentName || '');
+        set('department_short_code', orig.deptShortCode || '');
+        set('department_short_code_multi', orig.deptCodes || []);
+        set('is_active', true);
+    };
+
+    const handleRetiredChange = async (checked) => {
+        setShowRetiredBlock(false);
+        setRetiredPendingCases([]);
+
+        if (!checked) {
+            restoreFromRetired();
+            return;
+        }
+
+        if (!user?.object_name) {
+            applyRetiredFields();
+            return;
+        }
+
+        setCheckingRetiredInbox(true);
+        try {
+            const res = await api.get('/inbox/tasklist', {
+                params: { username: user.object_name, page: 1, start: 0 }
+            });
+            const data = res.data || {};
+            let items = [];
+            if (Array.isArray(data.entries)) {
+                items = data.entries.map(en => {
+                    const props = en?.content?.properties || en?.properties || en;
+                    return { ...props, _raw: en };
+                });
+            } else if (Array.isArray(data.tasks)) {
+                items = data.tasks;
+            }
+            if (items.length > 0) {
+                setRetiredPendingCases(items);
+                setShowRetiredBlock(true);
+            } else {
+                applyRetiredFields();
+            }
+        } catch {
+            // Inbox check failed — proceed with retirement
+            applyRetiredFields();
+        } finally {
+            setCheckingRetiredInbox(false);
+        }
+    };
+
     // ── Delegate helpers ──────────────────────────────────────────────────────
     const pf = (task, f) => task[`packagescase_folder${f}`] || task[f] || '';
 
@@ -283,14 +379,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
         const isHO = originalOfficeType === 'HO';
         const isROTE = originalOfficeType === 'RO' || originalOfficeType === 'TE';
 
-        console.log('[Delegate] Using original profile values:', {
-            originalOfficeType,
-            isHO,
-            isROTE,
-            originalDeptCodes: originalGroupInfoRef.current.deptCodes,
-            originalRoShortCode: originalGroupInfoRef.current.roShortCode
-        });
-        console.log('[Delegate] Case number:', { caseNumber });
 
         setDelegateTask(task);
         setDelegateSelectedUser('');
@@ -307,12 +395,10 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                     return;
                 }
 
-                console.log('[Delegate] HO user delegating:', { caseNumber, userDeptCode });
 
                 const res = await api.get('/users/by-dept', { params: { shortCode: userDeptCode.toLowerCase(), officeType: 'HO', page: 1, size: 500 } });
                 const allUsers = Array.isArray(res.data?.users) ? res.data.users : (Array.isArray(res.data) ? res.data : []);
 
-                console.log('[Delegate] Fetched HO users from user dept:', { userDeptCode, count: allUsers.length });
 
                 if (allUsers.length === 0) {
                     setDelegateError(`No users found in department ${userDeptCode.toUpperCase()}.`);
@@ -332,7 +418,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                         return userName !== currentName && userObjName !== currentName;
                     });
 
-                console.log('[Delegate] Filtered HO users:', { count: filteredUsers.length, names: filteredUsers.map(u => u.object_name || u.name) });
                 setDelegateUsers(filteredUsers);
             } else if (isROTE) {
                 // RO/TE user: Always delegate to users in their own location
@@ -354,12 +439,10 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                     return;
                 }
 
-                console.log('[Delegate] RO/TE user delegating:', { caseNumber, roShortCode, userLocation, originalOfficeType });
 
                 const res = await api.get('/users/by-location', { params: { location: userLocation, page: 1, size: 500 } });
                 const allUsers = Array.isArray(res.data?.users) ? res.data.users : (Array.isArray(res.data) ? res.data : []);
 
-                console.log('[Delegate] Fetched RO/TE users from user location:', { userLocation, count: allUsers.length });
 
                 if (allUsers.length === 0) {
                     setDelegateError(`No users found in location ${userLocation}.`);
@@ -379,7 +462,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                         return userName !== currentName && userObjName !== currentName;
                     });
 
-                console.log('[Delegate] Filtered RO/TE users:', { count: filteredUsers.length, names: filteredUsers.map(u => u.object_name || u.name) });
                 setDelegateUsers(filteredUsers);
             } else {
                 setDelegateError('Could not determine office type for this user.');
@@ -426,6 +508,12 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
             setLocationPendingCases(locationRemaining);
             if (locationRemaining.length === 0) {
                 setShowLocationBlock(false);
+            }
+            const retiredRemaining = filterOut(retiredPendingCases);
+            setRetiredPendingCases(retiredRemaining);
+            if (retiredRemaining.length === 0 && showRetiredBlock) {
+                setShowRetiredBlock(false);
+                applyRetiredFields();
             }
             setDelegateTask(null);
         } catch (err) {
@@ -708,6 +796,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
         if (showOfficeBlock) return;  // block save if office type changed with pending cases
         if (showDeptBlock) return;    // block save if department changed with pending cases
         if (showLocationBlock) return; // block save if location changed with pending cases
+        if (showRetiredBlock) return;  // block save while retiring with pending cases
         const v = {};
         if (!form.designation?.trim())        v.designation        = 'Designation is required';
         if (!form.uin?.trim())                v.uin                = 'UIN is required';
@@ -721,6 +810,27 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
         setLoading(true);
         setError(null);
         try {
+            // ── Retiring the user ────────────────────────────────────────────────
+            // Persist the RETIRED office identity, then drop every group the user is
+            // in. This bypasses the standard DDM/CGM/Digidak group reconciliation.
+            if (form.office_type === 'RETIRED') {
+                await api.patch(`/users/profiles/${user.r_object_id}`, { ...form, department_short_code_multi: [] });
+                const loginName = user.user_login_name;
+                if (loginName) {
+                    try {
+                        const res = await api.get('/groups/by-user', { params: { username: loginName } });
+                        const userGroups = Array.isArray(res.data) ? res.data : [];
+                        for (const g of userGroups) {
+                            const gName = g.group_name || g.name || g;
+                            if (gName) api.delete(`/groups/${gName}/members/${encodeURIComponent(loginName)}`).catch(() => {});
+                        }
+                    } catch { /* best-effort group cleanup */ }
+                }
+                onUpdate();
+                onClose();
+                return;
+            }
+
             const isROTE = ['RO', 'TE'].includes(form.office_type);
             const isHO = form.office_type === 'HO';
             const { department_short_code_multi, ...rest } = form;
@@ -784,14 +894,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                 // DDM-specific group management: handle ecm_digidak_ro_<code>_ddm groups
                 const oldRoCode = (old.roShortCode || '').toLowerCase();
 
-                console.log('DDM User Management Debug:', {
-                    isDDMUser,
-                    wasDDMBefore,
-                    oldRoCode,
-                    newRoShortCode,
-                    locationChanged: oldRoCode !== newRoShortCode,
-                    memberName
-                });
 
                 // If transitioning FROM standard departments TO DDM, remove all department-related groups
                 if (!wasDDMBefore) {
@@ -799,7 +901,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                     api.get(`/groups/by-user?username=${encodeURIComponent(memberName)}`)
                         .then(groupsResponse => {
                             const currentGroups = Array.isArray(groupsResponse.data) ? groupsResponse.data : [];
-                            console.log('Transitioning to DDM - current groups:', { memberName, currentGroups });
 
                             for (const groupObj of currentGroups) {
                                 const groupName = groupObj.group_name || groupObj.name;
@@ -807,7 +908,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                 if (groupName &&
                                     groupName !== 'dm_superusers_dynamic' &&
                                     !groupName.includes('_ddm')) {
-                                    console.log(`Removing non-DDM group: ${groupName}`);
                                     api.delete(`/groups/${groupName}/members/${encodeURIComponent(memberName)}`).catch(err => {
                                         console.error(`Failed to remove ${groupName}:`, err.response?.data || err.message);
                                     });
@@ -820,7 +920,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                             const oldGroups = getGroups(old.officeType, old.roShortCode, old.deptCodes);
                             const oldDigidakGroups = getDigidakGroups(old.officeType, old.roShortCode, old.deptCodes);
                             const allOldGroups = [...oldGroups, ...oldDigidakGroups];
-                            console.log('Fallback - removing calculated groups:', { allOldGroups });
                             for (const g of allOldGroups) {
                                 api.delete(`/groups/${g}/members/${encodeURIComponent(memberName)}`).catch(() => {});
                             }
@@ -840,7 +939,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                     api.get(`/groups/by-user?username=${encodeURIComponent(memberName)}`)
                         .then(groupsResponse => {
                             const currentGroups = Array.isArray(groupsResponse.data) ? groupsResponse.data : [];
-                            console.log('Current groups for DDM user - cleanup:', { memberName, currentGroups });
 
                             for (const groupObj of currentGroups) {
                                 const groupName = groupObj.group_name || groupObj.name;
@@ -848,7 +946,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                 if (groupName &&
                                     groupName !== 'dm_superusers_dynamic' &&
                                     !groupName.includes('_ddm')) {
-                                    console.log(`Removing non-DDM group from DDM user: ${groupName}`);
                                     api.delete(`/groups/${groupName}/members/${encodeURIComponent(memberName)}`).catch(err => {
                                         console.error(`Failed to remove ${groupName}:`, err.response?.data || err.message);
                                     });
@@ -862,7 +959,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
 
                 // If location changed and user was DDM before, remove from old DDM group and clean up
                 if (wasDDMBefore && oldRoCode && oldRoCode !== newRoShortCode) {
-                    console.log('DDM user changing district - removing old DDM group and cleaning up');
                     // Remove from old DDM group
                     api.delete(`/groups/ecm_digidak_ro_${oldRoCode}_ddm/members/${encodeURIComponent(memberName)}`).catch(err => {
                         console.warn(`Failed to remove old DDM group: ${err.message}`);
@@ -870,7 +966,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                     cleanupNonDDMGroups();
                 } else if (wasDDMBefore) {
                     // User was already DDM, just ensure non-DDM groups are removed
-                    console.log('DDM user - cleaning up non-DDM groups');
                     cleanupNonDDMGroups();
                 }
             } else {
@@ -897,21 +992,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                 const removedDepts = oldDeptCodesLower.filter(d => !newDeptCodesLower.includes(d));
                 const addedDepts = newDeptCodesLower.filter(d => !oldDeptCodesLower.includes(d));
 
-                console.log('Group Management Debug:', {
-                    memberName,
-                    oldOfficeType: old.officeType,
-                    oldRoCode: old.roShortCode,
-                    oldDeptCodes: old.deptCodes,
-                    oldGroups,
-                    newOfficeType: form.office_type,
-                    newRoCode: newRoShortCode,
-                    newDeptCodes,
-                    newGroups,
-                    removedDepts,
-                    addedDepts,
-                    groupsToRemove: oldGroups.filter(g => !newGroups.includes(g)),
-                    groupsToAdd: newGroups.filter(g => !oldGroups.includes(g))
-                });
 
                 // Only remove groups for departments that were actually removed
                 for (const g of oldGroups) {
@@ -927,7 +1007,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                     }
 
                     if (shouldRemove) {
-                        console.log(`Removing user from group (dept removed): ${g}`);
                         api.delete(`/groups/${g}/members/${encodeURIComponent(memberName)}`).catch(err => {
                             console.error(`Failed to remove ${g}:`, err.response?.data || err.message);
                         });
@@ -948,7 +1027,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                     }
 
                     if (shouldAdd) {
-                        console.log(`Adding user to group (new dept): ${g}`);
                         api.post(`/groups/${g}/members`, { memberName, memberType: 'user' }).catch(err => {
                             console.error(`Failed to add ${g}:`, err.response?.data || err.message);
                         });
@@ -982,7 +1060,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                     // Designation changed TO CGM — add CGM group
                     const cgmGroup = getCgmGroup(form.office_type, newRoShortCode, newDeptCodes);
                     if (cgmGroup) {
-                        console.log(`Adding CGM group: ${cgmGroup}`);
                         api.post(`/groups/${cgmGroup}/members`, { memberName, memberType: 'user' }).catch(err => {
                             console.error(`Failed to add ${cgmGroup}:`, err.response?.data || err.message);
                         });
@@ -991,7 +1068,6 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                     // Designation changed FROM CGM — remove old CGM group
                     const cgmGroup = getCgmGroup(old.officeType, old.roShortCode, old.deptCodes);
                     if (cgmGroup) {
-                        console.log(`Removing CGM group (designation change): ${cgmGroup}`);
                         api.delete(`/groups/${cgmGroup}/members/${encodeURIComponent(memberName)}`).catch(err => {
                             console.error(`Failed to remove ${cgmGroup}:`, err.response?.data || err.message);
                         });
@@ -1002,13 +1078,11 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                     const newCgmGroup = getCgmGroup(form.office_type, newRoShortCode, newDeptCodes);
 
                     if (oldCgmGroup && oldCgmGroup !== newCgmGroup) {
-                        console.log(`Removing CGM group (location change): ${oldCgmGroup}`);
                         api.delete(`/groups/${oldCgmGroup}/members/${encodeURIComponent(memberName)}`).catch(err => {
                             console.error(`Failed to remove ${oldCgmGroup}:`, err.response?.data || err.message);
                         });
                     }
                     if (newCgmGroup && oldCgmGroup !== newCgmGroup) {
-                        console.log(`Adding CGM group (location change): ${newCgmGroup}`);
                         api.post(`/groups/${newCgmGroup}/members`, { memberName, memberType: 'user' }).catch(err => {
                             console.error(`Failed to add ${newCgmGroup}:`, err.response?.data || err.message);
                         });
@@ -1081,11 +1155,11 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
             }
         }
         return (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="fixed inset-0 z-[9995] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50">
                         <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm">
+                            <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
                                 <ArrowRightLeft size={17} className="text-white" />
                             </div>
                             <div>
@@ -1110,7 +1184,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                             )}
                         </div>
                         {delegateError && (
-                            <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{delegateError}</div>
+                            <div className="text-xs text-danger bg-danger-tint border border-danger/20 rounded-lg px-3 py-2">{delegateError}</div>
                         )}
                         <div>
                             <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
@@ -1123,21 +1197,12 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                             ) : delegateUsers.length === 0 ? (
                                 <div className="text-xs text-slate-400 py-2">No users found for this department.</div>
                             ) : (
-                                <div className="relative">
-                                    <select
-                                        value={delegateSelectedUser}
-                                        onChange={e => setDelegateSelectedUser(e.target.value)}
-                                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2] bg-white appearance-none pr-8 cursor-pointer"
-                                    >
-                                        <option value="">— Select user —</option>
-                                        {delegateUsers.map(u => (
-                                            <option key={u.r_object_id || u.user_login_name} value={u.object_name}>
-                                                {u.object_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                </div>
+                                <CustomSelect
+                                    value={delegateSelectedUser}
+                                    onChange={setDelegateSelectedUser}
+                                    placeholder="— Select user —"
+                                    options={delegateUsers.map(u => ({ value: u.object_name, label: u.object_name }))}
+                                />
                             )}
                         </div>
                     </div>
@@ -1149,7 +1214,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                         <button
                             onClick={handleDelegateConfirm}
                             disabled={!delegateSelectedUser || !!delegatingCaseId}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-[#0A66C2] hover:bg-[#094d92] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-all">
+                            className="flex items-center gap-1.5 px-4 py-2 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-all">
                             {delegatingCaseId ? <><Loader2 size={12} className="animate-spin" /> Delegating…</> : <><ArrowRightLeft size={12} /> Delegate</>}
                         </button>
                     </div>
@@ -1159,32 +1224,40 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <DelegateCaseModal />
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh]">
-
-                {/* Header */}
-                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                    <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                        <User size={16} className="text-[#0A66C2]" />
-                        Edit User Profile
-                    </h2>
-                    <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
-                        <X size={18} />
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            size="4xl"
+            title={
+                <span className="flex items-center gap-2">
+                    <User size={16} className="text-canopy" />
+                    Edit User Profile
+                </span>
+            }
+            footer={
+                <>
+                    <button onClick={onClose}
+                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
+                        Cancel
                     </button>
-                </div>
-
-                {/* Body */}
-                <div className="flex-1 overflow-y-auto p-6">
-                    {error && (
-                        <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>
-                    )}
-                    <form id="editProfileForm" onSubmit={handleSubmit} className="space-y-5">
+                    <button type="submit" form="editProfileForm" disabled={loading || loadingForm || checkingInbox || checkingOfficeInbox || checkingDeptInbox || checkingLocationInbox || checkingRetiredInbox || (isSuperAdmin && showPendingBlock) || showOfficeBlock || showDeptBlock || showLocationBlock || showRetiredBlock}
+                        className="px-4 py-2 bg-canopy text-white rounded-lg text-sm font-medium hover:bg-canopy-dark disabled:opacity-50 flex items-center gap-2 transition-colors">
+                        {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                        Save Changes
+                    </button>
+                </>
+            }
+        >
+            <DelegateCaseModal />
+            {error && (
+                <div className="mb-4 p-3 bg-danger-tint text-danger rounded-lg text-sm border border-danger-tint">{error}</div>
+            )}
+            <form id="editProfileForm" onSubmit={handleSubmit} className="space-y-5">
 
                         {/* ── Basic Info ── */}
                         <div>
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Basic Information</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <div className="space-y-1">
                                     <Label>Name</Label>
                                     <input type="text" value={form.object_name} readOnly
@@ -1195,30 +1268,26 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                     <input type="text" value={form.uin}
                                         onChange={e => { set('uin', e.target.value); setErrors(p => ({ ...p, uin: undefined })); }}
                                         className={errors.uin ? errorCls : inputCls} />
-                                    {errors.uin && <p className="text-xs text-red-500">{errors.uin}</p>}
+                                    {errors.uin && <p className="text-xs text-danger">{errors.uin}</p>}
                                 </div>
                                 <div className="space-y-1">
                                     <Label required>Designation</Label>
-                                    <SelectWrapper>
-                                        <select value={form.designation}
-                                            onChange={e => {
-                                                const newDesignation = e.target.value;
-                                                lastManualChangeRef.current = 'designation';
-                                                set('designation', newDesignation);
-                                                setErrors(p => ({ ...p, designation: undefined }));
-                                                // Track if designation was actually changed from original
-                                                setDesignationChanged(newDesignation !== originalGroupInfoRef.current.designation);
-                                                // Reset hindi_designation touched so it can auto-populate
-                                                hindiTouched.current.hindi_designation = false;
-                                            }}
-                                            className={errors.designation ? errorCls : selectCls} >
-                                            {DESIGNATION_OPTIONS.map((opt) => (
-                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                            ))}
-                                        </select>
-                                    </SelectWrapper>
-                                    {errors.designation && <p className="text-xs text-red-500">{errors.designation}</p>}
-                                    {designationChanged && <p className="text-xs text-amber-600 font-medium mt-1">💡 User grade has been auto-updated based on designation</p>}
+                                    <CustomSelect
+                                        value={form.designation}
+                                        invalid={!!errors.designation}
+                                        onChange={newDesignation => {
+                                            lastManualChangeRef.current = 'designation';
+                                            set('designation', newDesignation);
+                                            setErrors(p => ({ ...p, designation: undefined }));
+                                            // Track if designation was actually changed from original
+                                            setDesignationChanged(newDesignation !== originalGroupInfoRef.current.designation);
+                                            // Reset hindi_designation touched so it can auto-populate
+                                            hindiTouched.current.hindi_designation = false;
+                                        }}
+                                        options={isDDMUser ? DDM_DESIGNATION_OPTIONS : DESIGNATION_OPTIONS}
+                                    />
+                                    {errors.designation && <p className="text-xs text-danger">{errors.designation}</p>}
+                                    {designationChanged && <p className="text-xs text-harvest font-medium mt-1">💡 User grade has been auto-updated based on designation</p>}
                                 </div>
                                 <div className="space-y-1">
                                     <Label>User Role</Label>
@@ -1228,14 +1297,12 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                 </div>
                                 <div className="space-y-1">
                                     <Label>User Grade</Label>
-                                    <SelectWrapper>
-                                        <select value={form.user_grade} onChange={e => handleGradeChange(e.target.value)} className={selectCls}>
-                                            {USER_GRADE_OPTIONS.map(o => (
-                                                <option key={o.value} value={o.value}>{o.label}</option>
-                                            ))}
-                                        </select>
-                                    </SelectWrapper>
-                                    {gradeChanged && <p className="text-xs text-amber-600 font-medium mt-1">💡 Designation has been auto-updated based on grade</p>}
+                                    <CustomSelect
+                                        value={form.user_grade}
+                                        onChange={handleGradeChange}
+                                        options={USER_GRADE_OPTIONS}
+                                    />
+                                    {gradeChanged && <p className="text-xs text-harvest font-medium mt-1">💡 Designation has been auto-updated based on grade</p>}
                                 </div>
                                 <div className="space-y-1">
                                     <Label>Grade Level</Label>
@@ -1248,7 +1315,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                     <input type="email" value={form.user_email_address}
                                         onChange={e => { set('user_email_address', e.target.value); setErrors(p => ({ ...p, user_email_address: undefined })); }}
                                         className={errors.user_email_address ? errorCls : inputCls} />
-                                    {errors.user_email_address && <p className="text-xs text-red-500">{errors.user_email_address}</p>}
+                                    {errors.user_email_address && <p className="text-xs text-danger">{errors.user_email_address}</p>}
                                 </div>
                                 <div className="space-y-1">
                                     <Label>Mobile</Label>
@@ -1268,7 +1335,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                     <input type="text" value={form.hindi_user_name}
                                         onChange={e => { set('hindi_user_name', e.target.value); setErrors(p => ({ ...p, hindi_user_name: undefined })); }}
                                         className={errors.hindi_user_name ? errorCls : inputCls} />
-                                    {errors.hindi_user_name && <p className="text-xs text-red-500">{errors.hindi_user_name}</p>}
+                                    {errors.hindi_user_name && <p className="text-xs text-danger">{errors.hindi_user_name}</p>}
                                 </div>
                                 <div className="space-y-1">
                                     <Label required>Hindi Designation</Label>
@@ -1287,17 +1354,17 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                             <div className="space-y-3">
                                 <div className="space-y-1">
                                     <Label>Office Type</Label>
-                                    <SelectWrapper>
-                                        <select value={form.office_type}
-                                            onChange={e => handleOfficeTypeChange(e.target.value)}
-                                            disabled={checkingOfficeInbox || isLocalAdmin}
-                                            className={(checkingOfficeInbox || isLocalAdmin) ? disabledSelectCls : selectCls}>
-                                            <option value="">— Select office type —</option>
-                                            <option value="HO">HO — Head Office</option>
-                                            <option value="RO">RO — Regional Office</option>
-                                            <option value="TE">TE — Training Establishment</option>
-                                        </select>
-                                    </SelectWrapper>
+                                    <CustomSelect
+                                        value={form.office_type}
+                                        onChange={handleOfficeTypeChange}
+                                        disabled={checkingOfficeInbox || isLocalAdmin}
+                                        placeholder="— Select office type —"
+                                        options={[
+                                            { value: 'HO', label: 'HO — Head Office' },
+                                            { value: 'RO', label: 'RO — Regional Office' },
+                                            { value: 'TE', label: 'TE — Training Establishment' },
+                                        ]}
+                                    />
                                     {checkingOfficeInbox && (
                                         <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
                                             <Loader2 size={12} className="animate-spin" /> Checking case inbox…
@@ -1316,14 +1383,13 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                             </SelectWrapper>
                                         ) : (
                                             <>
-                                                <SelectWrapper>
-                                                    <select value={form.location} onChange={e => handleLocationChange(e.target.value)} disabled={checkingLocationInbox || isLocalAdmin} className={(checkingLocationInbox || isLocalAdmin) ? disabledSelectCls : selectCls}>
-                                                        <option value="">— Select location —</option>
-                                                        {locations.map(l => (
-                                                            <option key={l.location} value={l.location}>{l.location}</option>
-                                                        ))}
-                                                    </select>
-                                                </SelectWrapper>
+                                                <CustomSelect
+                                                    value={form.location}
+                                                    onChange={handleLocationChange}
+                                                    disabled={checkingLocationInbox || isLocalAdmin}
+                                                    placeholder="— Select location —"
+                                                    options={locations.map(l => ({ value: l.location, label: l.location }))}
+                                                />
                                                 {checkingLocationInbox && (
                                                     <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
                                                         <Loader2 size={12} className="animate-spin" /> Checking inbox…
@@ -1349,7 +1415,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                             <div className="space-y-2">
                                                 {/* DDM option - always visible for RO/TE */}
                                                 {!needsLoc && form.office_type && (
-                                                    <label className="flex items-center gap-3 px-3 py-2 cursor-pointer border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100">
+                                                    <label className="flex items-center gap-3 px-3 py-2 cursor-pointer border border-canopy/20 rounded-lg bg-canopy-tint hover:bg-canopy-tint">
                                                         <input
                                                             type="checkbox"
                                                             checked={form.department_name === 'DDM'}
@@ -1364,26 +1430,22 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                                     set('department_short_code_multi', []);
                                                                 }
                                                             }}
-                                                            className="rounded accent-[#0A66C2]"
+                                                            className="rounded accent-canopy"
                                                         />
-                                                        <span className="text-sm font-semibold text-blue-700">DDM — District Development Manager</span>
+                                                        <span className="text-sm font-semibold text-canopy">DDM — District Development Manager</span>
                                                     </label>
                                                 )}
 
                                                 {/* District dropdown for DDM users OR Department checkboxes for regular users */}
                                                 {isDDMUser ? (
                                                     // District dropdown for checked DDM
-                                                    <SelectWrapper>
-                                                        <select value={form.department_short_code || ''}
-                                                            onChange={e => handleDDMDistrictChange(e.target.value)}
-                                                            disabled={!form.location}
-                                                            className={!form.location ? disabledSelectCls : selectCls}>
-                                                            <option value="">— Select district —</option>
-                                                            {(DDM_DISTRICTS[form.location] || []).map(d => (
-                                                                <option key={d} value={d}>{d}</option>
-                                                            ))}
-                                                        </select>
-                                                    </SelectWrapper>
+                                                    <CustomSelect
+                                                        value={form.department_short_code || ''}
+                                                        onChange={handleDDMDistrictChange}
+                                                        disabled={!form.location}
+                                                        placeholder="— Select district —"
+                                                        options={(DDM_DISTRICTS[form.location] || []).map(d => ({ value: d, label: d }))}
+                                                    />
                                                 ) : (
                                                     // Department checkboxes for unchecked DDM
                                                     <div className="border border-slate-200 rounded-lg overflow-hidden">
@@ -1418,7 +1480,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                                                     setDeptPendingCases([]);
                                                                                 }
                                                                             }}
-                                                                            className="rounded accent-[#0A66C2]"
+                                                                            className="rounded accent-canopy"
                                                                         />
                                                                         <span className="text-sm text-slate-700">{(form.department_short_code_multi || []).length === depts.length && depts.length > 0 ? 'Deselect All' : 'Select All'}</span>
                                                                     </label>
@@ -1450,7 +1512,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                                                         setDeptPendingCases([]);
                                                                                     }
                                                                                 }}
-                                                                                className="rounded accent-[#0A66C2]"
+                                                                                className="rounded accent-canopy"
                                                                             />
                                                                             <span className="text-sm text-slate-700">{d.name}</span>
                                                                         </label>
@@ -1477,7 +1539,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                                     checked={(form.department_short_code_multi || []).length === deptOptions.length && deptOptions.length > 0}
                                                                     indeterminate={(form.department_short_code_multi || []).length > 0 && (form.department_short_code_multi || []).length < deptOptions.length}
                                                                     onChange={handleHODepartmentSelectAll}
-                                                                    className="rounded accent-[#0A66C2]"
+                                                                    className="rounded accent-canopy"
                                                                 />
                                                                 <span className="text-sm text-slate-700">{(form.department_short_code_multi || []).length === deptOptions.length && deptOptions.length > 0 ? 'Deselect All' : 'Select All'}</span>
                                                             </label>
@@ -1489,7 +1551,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                                         type="checkbox"
                                                                         checked={(form.department_short_code_multi || []).includes(d.shortCode)}
                                                                         onChange={(e) => handleHODepartmentChange(d.shortCode, e.target.checked)}
-                                                                        className="rounded accent-[#0A66C2]"
+                                                                        className="rounded accent-canopy"
                                                                     />
                                                                     <span className="text-sm text-slate-700">{d.name}</span>
                                                                 </label>
@@ -1502,13 +1564,17 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                     </div>
                                     <div className="space-y-1">
                                         <Label><Tag size={10} className="inline mr-0.5" />{isDDMUser ? 'District Code' : 'Dept. Short Code'}</Label>
-                                        <input type="text" readOnly
-                                            value={isDDMUser
+                                        {(() => {
+                                            const shortCodeText = isDDMUser
                                                 ? (form.department_short_code || '')
-                                                : (form.department_short_code_multi || []).join(',')}
-                                            placeholder="Auto-filled"
-                                            className={readonlyCls} />
-                                        {isDDMUser && errors.department_short_code && <p className="text-xs text-red-500">{errors.department_short_code}</p>}
+                                                : (form.department_short_code_multi || []).join(', ');
+                                            return (
+                                                <div className={`${readonlyCls} min-h-[2.375rem] whitespace-pre-wrap break-words leading-relaxed`}>
+                                                    {shortCodeText || <span className="text-slate-400">Auto-filled</span>}
+                                                </div>
+                                            );
+                                        })()}
+                                        {isDDMUser && errors.department_short_code && <p className="text-xs text-danger">{errors.department_short_code}</p>}
                                     </div>
                                 </div>
                                 {checkingDeptInbox && (
@@ -1522,14 +1588,14 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                         {/* Office type change — pending cases block */}
                         {showOfficeBlock && officePendingCases.length > 0 && (
                             <div className="space-y-2">
-                                <div className="flex items-start gap-2.5 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-                                    <AlertCircle size={15} className="mt-0.5 shrink-0 text-amber-500" />
+                                <div className="flex items-start gap-2.5 px-3 py-2.5 bg-harvest/10 border border-harvest/25 rounded-xl text-sm text-harvest">
+                                    <AlertCircle size={15} className="mt-0.5 shrink-0 text-harvest" />
                                     <span>Cannot change Office Type — this user has pending cases. Delegate or resolve them first.</span>
                                 </div>
                                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                                     <div className="px-3 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
                                         <span className="text-xs font-semibold text-slate-600">Pending Cases</span>
-                                        <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">{officePendingCases.length}</span>
+                                        <span className="px-2 py-0.5 text-xs bg-harvest/15 text-harvest rounded-full font-medium">{officePendingCases.length}</span>
                                     </div>
                                     <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
                                         {officePendingCases.map((task, idx) => {
@@ -1544,18 +1610,18 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                         <p className="text-xs text-slate-500 truncate">{desc}</p>
                                                     </div>
                                                     <div className="shrink-0 flex items-center gap-1.5">
-                                                        {status && <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 font-medium whitespace-nowrap">{status}</span>}
+                                                        {status && <span className="px-1.5 py-0.5 text-xs rounded-full bg-canopy-tint text-canopy font-medium whitespace-nowrap">{status}</span>}
                                                         {priority && (
                                                             <span className={`px-1.5 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${
-                                                                priority === 'High' ? 'bg-red-100 text-red-700' :
-                                                                priority === 'Medium' ? 'bg-amber-100 text-amber-700' :
+                                                                priority === 'High' ? 'bg-danger-tint text-danger' :
+                                                                priority === 'Medium' ? 'bg-harvest/15 text-harvest' :
                                                                 'bg-slate-100 text-slate-600'
                                                             }`}>{priority}</span>
                                                         )}
                                                         <button
                                                             type="button"
                                                             onClick={() => handleDelegateClick(task)}
-                                                            className="flex items-center gap-1 px-2 py-1 bg-[#0A66C2] hover:bg-[#094d92] text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
+                                                            className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
                                                             <ArrowRightLeft size={11} /> Delegate
                                                         </button>
                                                     </div>
@@ -1570,14 +1636,14 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                         {/* Department change — pending cases block */}
                         {showDeptBlock && deptPendingCases.length > 0 && (
                             <div className="space-y-2">
-                                <div className="flex items-start gap-2.5 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-                                    <AlertCircle size={15} className="mt-0.5 shrink-0 text-amber-500" />
+                                <div className="flex items-start gap-2.5 px-3 py-2.5 bg-harvest/10 border border-harvest/25 rounded-xl text-sm text-harvest">
+                                    <AlertCircle size={15} className="mt-0.5 shrink-0 text-harvest" />
                                     <span>Cannot change department — this user has pending cases in the department. Delegate or resolve them first.</span>
                                 </div>
                                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                                     <div className="px-3 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
                                         <span className="text-xs font-semibold text-slate-600">Pending Cases</span>
-                                        <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">{deptPendingCases.length}</span>
+                                        <span className="px-2 py-0.5 text-xs bg-harvest/15 text-harvest rounded-full font-medium">{deptPendingCases.length}</span>
                                     </div>
                                     <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
                                         {deptPendingCases.map((task, idx) => {
@@ -1592,18 +1658,18 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                         <p className="text-xs text-slate-500 truncate">{desc}</p>
                                                     </div>
                                                     <div className="shrink-0 flex items-center gap-1.5">
-                                                        {status && <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 font-medium whitespace-nowrap">{status}</span>}
+                                                        {status && <span className="px-1.5 py-0.5 text-xs rounded-full bg-canopy-tint text-canopy font-medium whitespace-nowrap">{status}</span>}
                                                         {priority && (
                                                             <span className={`px-1.5 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${
-                                                                priority === 'High' ? 'bg-red-100 text-red-700' :
-                                                                priority === 'Medium' ? 'bg-amber-100 text-amber-700' :
+                                                                priority === 'High' ? 'bg-danger-tint text-danger' :
+                                                                priority === 'Medium' ? 'bg-harvest/15 text-harvest' :
                                                                 'bg-slate-100 text-slate-600'
                                                             }`}>{priority}</span>
                                                         )}
                                                         <button
                                                             type="button"
                                                             onClick={() => handleDelegateClick(task)}
-                                                            className="flex items-center gap-1 px-2 py-1 bg-[#0A66C2] hover:bg-[#094d92] text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
+                                                            className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
                                                             <ArrowRightLeft size={11} /> Delegate
                                                         </button>
                                                     </div>
@@ -1618,14 +1684,14 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                         {/* Location change — pending cases block (RO/TE only) */}
                         {showLocationBlock && locationPendingCases.length > 0 && ['RO', 'TE'].includes(form.office_type) && (
                             <div className="space-y-2">
-                                <div className="flex items-start gap-2.5 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-                                    <AlertCircle size={15} className="mt-0.5 shrink-0 text-amber-500" />
+                                <div className="flex items-start gap-2.5 px-3 py-2.5 bg-harvest/10 border border-harvest/25 rounded-xl text-sm text-harvest">
+                                    <AlertCircle size={15} className="mt-0.5 shrink-0 text-harvest" />
                                     <span>Cannot change location — this user has pending cases from the current location. Delegate or resolve them first.</span>
                                 </div>
                                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                                     <div className="px-3 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
                                         <span className="text-xs font-semibold text-slate-600">Pending Cases</span>
-                                        <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">{locationPendingCases.length}</span>
+                                        <span className="px-2 py-0.5 text-xs bg-harvest/15 text-harvest rounded-full font-medium">{locationPendingCases.length}</span>
                                     </div>
                                     <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
                                         {locationPendingCases.map((task, idx) => {
@@ -1640,18 +1706,18 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                         <p className="text-xs text-slate-500 truncate">{desc}</p>
                                                     </div>
                                                     <div className="shrink-0 flex items-center gap-1.5">
-                                                        {status && <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 font-medium whitespace-nowrap">{status}</span>}
+                                                        {status && <span className="px-1.5 py-0.5 text-xs rounded-full bg-canopy-tint text-canopy font-medium whitespace-nowrap">{status}</span>}
                                                         {priority && (
                                                             <span className={`px-1.5 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${
-                                                                priority === 'High' ? 'bg-red-100 text-red-700' :
-                                                                priority === 'Medium' ? 'bg-amber-100 text-amber-700' :
+                                                                priority === 'High' ? 'bg-danger-tint text-danger' :
+                                                                priority === 'Medium' ? 'bg-harvest/15 text-harvest' :
                                                                 'bg-slate-100 text-slate-600'
                                                             }`}>{priority}</span>
                                                         )}
                                                         <button
                                                             type="button"
                                                             onClick={() => handleDelegateClick(task)}
-                                                            className="flex items-center gap-1 px-2 py-1 bg-[#0A66C2] hover:bg-[#094d92] text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
+                                                            className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
                                                             <ArrowRightLeft size={11} /> Delegate
                                                         </button>
                                                     </div>
@@ -1663,21 +1729,91 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                             </div>
                         )}
 
+                        {/* ── Retired User (Super Admin only) ── */}
+                        {isSuperAdmin && (
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between gap-4 p-4 bg-paper border border-line rounded-card">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-ink">Retired User</p>
+                                        <p className="text-xs text-slate-500">Marking the user as retired sets their office details to RETIRED, deactivates the account, and drops their associated groups on save.</p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                                        <input type="checkbox" className="sr-only peer"
+                                            checked={form.office_type === 'RETIRED'}
+                                            onChange={e => handleRetiredChange(e.target.checked)}
+                                            disabled={checkingRetiredInbox} />
+                                        <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-canopy/20 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-canopy peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
+                                    </label>
+                                </div>
+
+                                {checkingRetiredInbox && (
+                                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                                        <Loader2 size={12} className="animate-spin" /> Checking inbox…
+                                    </div>
+                                )}
+
+                                {showRetiredBlock && retiredPendingCases.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-start gap-2.5 px-3 py-2.5 bg-harvest/10 border border-harvest/25 rounded-xl text-sm text-harvest">
+                                            <AlertCircle size={15} className="mt-0.5 shrink-0 text-harvest" />
+                                            <span>Delegate the pending cases before retiring this user.</span>
+                                        </div>
+                                        <div className="border border-slate-200 rounded-xl overflow-hidden">
+                                            <div className="px-3 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+                                                <span className="text-xs font-semibold text-slate-600">Pending Cases</span>
+                                                <span className="px-2 py-0.5 text-xs bg-harvest/15 text-harvest rounded-full font-medium">{retiredPendingCases.length}</span>
+                                            </div>
+                                            <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
+                                                {retiredPendingCases.map((task, idx) => {
+                                                    const caseName = pf(task, 'object_name') || task.caseName || '—';
+                                                    const desc     = pf(task, 'description') || '';
+                                                    const status   = pf(task, 'status') || task.status || '';
+                                                    const priority = pf(task, 'task_priority') || task.priority || '';
+                                                    return (
+                                                        <div key={pf(task, 'id') || task.id || idx} className="px-3 py-2.5 flex items-start justify-between gap-3">
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs font-medium text-slate-800 truncate">{caseName}</p>
+                                                                <p className="text-xs text-slate-500 truncate">{desc}</p>
+                                                            </div>
+                                                            <div className="shrink-0 flex items-center gap-1.5">
+                                                                {status && <span className="px-1.5 py-0.5 text-xs rounded-full bg-canopy-tint text-canopy font-medium whitespace-nowrap">{status}</span>}
+                                                                {priority && (
+                                                                    <span className={`px-1.5 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${
+                                                                        priority === 'High' ? 'bg-danger-tint text-danger' :
+                                                                        priority === 'Medium' ? 'bg-harvest/15 text-harvest' :
+                                                                        'bg-slate-100 text-slate-600'
+                                                                    }`}>{priority}</span>
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDelegateClick(task)}
+                                                                    className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
+                                                                    <ArrowRightLeft size={11} /> Delegate
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* ── User State (Super Admin only) ── */}
                         {isSuperAdmin && <div className="space-y-3">
                             <div className="space-y-1">
                                 <Label>User State</Label>
-                                <SelectWrapper>
-                                    <select
-                                        value={String(form.is_active ?? false)}
-                                        onChange={e => handleStatusChange(e.target.value)}
-                                        disabled={checkingInbox}
-                                        className={checkingInbox ? disabledSelectCls : selectCls}
-                                    >
-                                        <option value="true">Active</option>
-                                        <option value="false">Inactive</option>
-                                    </select>
-                                </SelectWrapper>
+                                <CustomSelect
+                                    value={String(form.is_active ?? false)}
+                                    onChange={handleStatusChange}
+                                    disabled={checkingInbox}
+                                    options={[
+                                        { value: 'true', label: 'Active' },
+                                        { value: 'false', label: 'Inactive' },
+                                    ]}
+                                />
                                 {checkingInbox && (
                                     <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
                                         <Loader2 size={12} className="animate-spin" /> Checking inbox…
@@ -1688,14 +1824,14 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                             {/* Pending cases block */}
                             {showPendingBlock && pendingCases.length > 0 && (
                                 <div className="space-y-2">
-                                    <div className="flex items-start gap-2.5 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-                                        <AlertCircle size={15} className="mt-0.5 shrink-0 text-amber-500" />
+                                    <div className="flex items-start gap-2.5 px-3 py-2.5 bg-harvest/10 border border-harvest/25 rounded-xl text-sm text-harvest">
+                                        <AlertCircle size={15} className="mt-0.5 shrink-0 text-harvest" />
                                         <span>Delegate the pending cases to make this user inactive.</span>
                                     </div>
                                     <div className="border border-slate-200 rounded-xl overflow-hidden">
                                         <div className="px-3 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
                                             <span className="text-xs font-semibold text-slate-600">Pending Cases</span>
-                                            <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">{pendingCases.length}</span>
+                                            <span className="px-2 py-0.5 text-xs bg-harvest/15 text-harvest rounded-full font-medium">{pendingCases.length}</span>
                                         </div>
                                         <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
                                             {pendingCases.map((task, idx) => {
@@ -1710,18 +1846,18 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                             <p className="text-xs text-slate-500 truncate">{desc}</p>
                                                         </div>
                                                         <div className="shrink-0 flex items-center gap-1.5">
-                                                            {status && <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 font-medium whitespace-nowrap">{status}</span>}
+                                                            {status && <span className="px-1.5 py-0.5 text-xs rounded-full bg-canopy-tint text-canopy font-medium whitespace-nowrap">{status}</span>}
                                                             {priority && (
                                                                 <span className={`px-1.5 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${
-                                                                    priority === 'High' ? 'bg-red-100 text-red-700' :
-                                                                    priority === 'Medium' ? 'bg-amber-100 text-amber-700' :
+                                                                    priority === 'High' ? 'bg-danger-tint text-danger' :
+                                                                    priority === 'Medium' ? 'bg-harvest/15 text-harvest' :
                                                                     'bg-slate-100 text-slate-600'
                                                                 }`}>{priority}</span>
                                                             )}
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleDelegateClick(task)}
-                                                                className="flex items-center gap-1 px-2 py-1 bg-[#0A66C2] hover:bg-[#094d92] text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
+                                                                className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
                                                                 <ArrowRightLeft size={11} /> Delegate
                                                             </button>
                                                         </div>
@@ -1734,23 +1870,8 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                             )}
                         </div>}
 
-                    </form>
-                </div>
-
-                {/* Footer */}
-                <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-                    <button onClick={onClose}
-                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
-                        Cancel
-                    </button>
-                    <button type="submit" form="editProfileForm" disabled={loading || loadingForm || checkingInbox || checkingOfficeInbox || checkingDeptInbox || checkingLocationInbox || (isSuperAdmin && showPendingBlock) || showOfficeBlock || showDeptBlock || showLocationBlock}
-                        className="px-4 py-2 bg-[#0A66C2] text-white rounded-lg text-sm font-medium hover:bg-[#094d92] disabled:opacity-50 flex items-center gap-2 transition-colors">
-                        {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                        Save Changes
-                    </button>
-                </div>
-            </div>
-        </div>
+            </form>
+        </Modal>
     );
 };
 

@@ -1,29 +1,54 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'IBM Plex Sans', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  
-  /* Force light mode for enterprise clean look */
+
+  /* Force light mode for the enterprise "Field ledger" look */
   color-scheme: light;
-  background-color: #f8fafc; /* Slate-50 */
-  color: #0f172a; /* Slate-900 */
+  background-color: #F6F7F4; /* paper */
+  color: #1A2E1F; /* ink */
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  background-color: #F6F7F4; /* paper */
+  color: #1A2E1F; /* ink */
 }
 
-/* Custom scrollbar styles for modal panels */
+/* Tabular figures for identifiers / counts wherever mono is used */
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The "ledger spine" — a 3px canopy rule on the leading edge */
+.ledger-spine {
+  position: relative;
+}
+.ledger-spine::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: #14532D; /* canopy */
+  border-radius: 3px;
+}
+
+/* Custom scrollbar styles for modal / scroll panels */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 #f1f5f9;
+  scrollbar-color: #cbd5cb #EAEFE9;
 }
 
 .scrollbar-thin::-webkit-scrollbar {
@@ -32,15 +57,27 @@ body {
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #EAEFE9; /* canopy tint */
   border-radius: 4px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #c3ccc3;
   border-radius: 4px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #a7b3a7;
+}
+
+/* Quality floor: honour reduced-motion everywhere */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

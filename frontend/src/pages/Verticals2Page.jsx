@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../api/axios';
 import {
     Layers, Tag, Users, UserPlus, X, Loader2, Check,
-    CheckCircle2, AlertCircle, ChevronDown, Building2, MapPin,
+    CheckCircle2, AlertCircle, Building2, MapPin,
     UserCheck, UsersRound, Star, ClipboardList, ArrowRightLeft,
 } from 'lucide-react';
 import { RO_LOCATIONS, TE_LOCATIONS, getLocations, fetchDepartments } from '../data/nabardMetadata.js';
+import { PageHeader, Tabs, useToast } from '../components/ui';
+import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -38,14 +40,12 @@ function toVerticalHeadName(groupName) {
     if (normalized.startsWith('ecm_ho_')) {
         const rest = normalized.slice(7); // 'ecm_ho_'.length = 7
         const result = `ecm_ho_vertical_head_${rest}`;
-        console.log('[toVerticalHeadName] HO:', { groupName, rest, result });
         return result;
     }
 
     // RO/TE pattern: ecm_<location>_<dept>[_suffix]
     // Split and assume 2-letter location code (parts[1])
     const parts = normalized.split('_');
-    console.log('[toVerticalHeadName] RO/TE split:', { groupName, normalized, parts, length: parts.length });
 
     if (parts.length < 3) {
         // ecm_<location> with no dept — invalid
@@ -62,13 +62,6 @@ function toVerticalHeadName(groupName) {
     const rest = parts.slice(2).join('_');    // 'dept[_suffix]'
     const result = `${prefix}vertical_head_${rest}`;
 
-    console.log('[toVerticalHeadName] RO/TE result:', {
-        original: groupName,
-        normalized,
-        prefix,
-        rest,
-        result
-    });
     return result;
 }
 
@@ -80,24 +73,8 @@ const Label = ({ children, icon: Icon }) => (
     </label>
 );
 
-const Select = ({ value, onChange, disabled, placeholder, options = [], className = '' }) => (
-    <div className="relative">
-        <select
-            value={value}
-            onChange={e => onChange(e.target.value)}
-            disabled={disabled}
-            className={`w-full px-4 py-2.5 border rounded-xl text-sm appearance-none pr-10 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] cursor-pointer
-                ${disabled ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-white border-slate-200 hover:border-slate-300 text-slate-800'}
-                ${className}`}
-        >
-            <option value="">{placeholder}</option>
-            {options.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-        </select>
-        <ChevronDown size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-    </div>
-);
+// Cascading dropdown primitive — the app-standard hardened CustomSelect
+const Select = CustomSelect;
 
 const Card = ({ children, className = '' }) => (
     <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm p-5 ${className}`}>
@@ -111,28 +88,9 @@ const SectionTitle = ({ children }) => (
 
 const MemberTag = ({ type }) => (
     <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-        type === 'user' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+        type === 'user' ? 'bg-canopy-tint text-canopy' : 'bg-canopy-tint text-canopy'
     }`}>{type}</span>
 );
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-const Toast = ({ toast, onDismiss }) => {
-    useEffect(() => {
-        if (!toast) return;
-        const t = setTimeout(onDismiss, toast.type === 'success' ? 3000 : 5000);
-        return () => clearTimeout(t);
-    }, [toast, onDismiss]);
-    if (!toast) return null;
-    const styles = { success: 'bg-green-50 text-green-800 border-green-200', error: 'bg-red-50 text-red-800 border-red-200' };
-    const Icon = toast.type === 'success' ? CheckCircle2 : AlertCircle;
-    return (
-        <div className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 flex items-start gap-3 px-4 py-3 border rounded-xl shadow-lg max-w-sm ${styles[toast.type]}`}>
-            <Icon size={18} className="mt-0.5 shrink-0" />
-            <div className="flex-1 text-sm font-medium">{toast.message}</div>
-            <button onClick={onDismiss} className="shrink-0 opacity-60 hover:opacity-100"><X size={16} /></button>
-        </div>
-    );
-};
 
 // ─── Vertical Creation Tab ────────────────────────────────────────────────────
 const VerticalCreationTab = ({ setToast }) => {
@@ -191,7 +149,7 @@ const VerticalCreationTab = ({ setToast }) => {
             </div>
 
             <div>
-                <Label icon={Layers}>Department <span className="text-red-500">*</span></Label>
+                <Label icon={Layers}>Department <span className="text-danger">*</span></Label>
                 <Select
                     value={dept} onChange={v => { setDept(v); setSuffix(''); }}
                     placeholder="— Select department —"
@@ -201,17 +159,17 @@ const VerticalCreationTab = ({ setToast }) => {
 
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <Label icon={Tag}>Vertical Full Name <span className="text-red-500">*</span></Label>
+                    <Label icon={Tag}>Vertical Full Name <span className="text-danger">*</span></Label>
                     <input type="text" value={verticalFullName} onChange={e => setVerticalFullName(e.target.value)}
                         placeholder="e.g. Digital Initiatives and Technology"
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] bg-white" />
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-white" />
                 </div>
 
                 <div>
-                    <Label icon={Tag}>Vertical Shortcode <span className="text-red-500">*</span></Label>
+                    <Label icon={Tag}>Vertical Shortcode <span className="text-danger">*</span></Label>
                     <input type="text" value={verticalShortcode} onChange={e => setVerticalShortcode(e.target.value)}
                         placeholder="e.g. DIT"
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] bg-white" />
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-white" />
                 </div>
             </div>
 
@@ -230,7 +188,7 @@ const VerticalCreationTab = ({ setToast }) => {
             </div>
 
             <button onClick={handleCreate} disabled={!canCreate || creating}
-                className="w-full flex items-center justify-center gap-2 px-6 py-2.5 bg-[#0A66C2] hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                className="w-full flex items-center justify-center gap-2 px-6 py-2.5 bg-canopy hover:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                 {creating ? <><Loader2 size={15} className="animate-spin" /> Creating...</> : 'Create Vertical'}
             </button>
         </Card>
@@ -272,17 +230,17 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
     return (
         <div ref={containerRef} className="relative">
             <div className={`border rounded-xl bg-white transition-all ${
-                isOpen ? 'border-[#0A66C2] ring-2 ring-blue-500/20' : 'border-slate-200'
+                isOpen ? 'border-canopy ring-2 ring-canopy/20' : 'border-slate-200'
             } ${disabled ? 'bg-slate-100' : ''}`}>
                 <div className="p-2 flex flex-wrap gap-1 min-h-10">
                     {value.map(val => {
                         const opt = options.find(o => o.value === val);
                         return (
-                            <div key={val} className="flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium">
+                            <div key={val} className="flex items-center gap-1 px-2.5 py-1 bg-canopy-tint text-canopy rounded-lg text-xs font-medium">
                                 <span>{opt?.label.split('(')[0].trim() || val}</span>
                                 <button
                                     onClick={() => removeUser(val)}
-                                    className="text-blue-600 hover:text-blue-800 ml-0.5"
+                                    className="text-canopy hover:text-canopy-dark ml-0.5"
                                     disabled={disabled}
                                 >
                                     <X size={14} />
@@ -310,10 +268,10 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
                                 key={opt.value}
                                 onClick={() => toggleUser(opt.value)}
                                 className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 transition-colors flex items-center gap-2 border-b border-slate-100 last:border-b-0 ${
-                                    value.includes(opt.value) ? 'bg-blue-50 text-blue-700 font-medium' : 'text-slate-800'
+                                    value.includes(opt.value) ? 'bg-canopy-tint text-canopy font-medium' : 'text-slate-800'
                                 }`}
                             >
-                                <Check size={16} className={`flex-shrink-0 ${value.includes(opt.value) ? 'text-blue-600' : 'opacity-0'}`} />
+                                <Check size={16} className={`flex-shrink-0 ${value.includes(opt.value) ? 'text-canopy' : 'opacity-0'}`} />
                                 <span>{opt.label}</span>
                             </button>
                         ))
@@ -474,21 +432,17 @@ const AddMembersTab = ({ setToast }) => {
             ? `ecm_ho_${d.shortCode.toLowerCase()}`
             : `ecm_${roShortCode.toLowerCase()}_${d.shortCode.toLowerCase()}`;
 
-        console.log('handleDeptChange:', { v, officeType, deptShortCode: d.shortCode, roShortCode, prefix });
 
         setLoadingVerticals(true);
         try {
             const res = await api.get('/groups/by-prefix', { params: { prefix } });
-            console.log('API response for groups/by-prefix:', res.data);
             const all = res.data || [];
             const filtered = all.filter(g => !g.group_name.includes('vertical_head') && !g.group_name.includes('_grade_') && !g.group_name.includes('_cgm_sec'));
-            console.log('Filtered verticals:', filtered);
             setVerticals(filtered);
             // Auto-select if only one group exists
             if (filtered.length === 1) {
                 const singleGroupName = filtered[0].group_name;
                 setSelectedVertical(singleGroupName);
-                console.log('[handleDeptChange] Auto-selecting single vertical:', singleGroupName);
                 // Use updateVerticalInfo to calculate vhGroupName and fetch members
                 await updateVerticalInfo(singleGroupName);
             } else {
@@ -547,11 +501,6 @@ const AddMembersTab = ({ setToast }) => {
 
         // Calculate vertical head name
         const vhName = toVerticalHeadName(verticalGroupName);
-        console.log('[updateVerticalInfo] Calculated vhName:', {
-            verticalGroupName,
-            vhName,
-            vhNameLength: vhName ? vhName.length : 0
-        });
 
         if (!vhName) {
             console.error('[updateVerticalInfo] WARNING: toVerticalHeadName returned empty for:', {
@@ -573,11 +522,6 @@ const AddMembersTab = ({ setToast }) => {
                 vhName ? api.get(`/groups/${vhName}/members`) : Promise.resolve({ status: 'fulfilled', value: { data: { users: [] } } }),
             ]);
 
-            console.log('[updateVerticalInfo] API responses:', {
-                membersStatus: membersRes.status,
-                vhStatus: vhRes.status,
-                vhMembersStatus: vhMembersRes.status
-            });
 
             if (membersRes.status === 'fulfilled') {
                 setVerticalMembers({
@@ -591,7 +535,6 @@ const AddMembersTab = ({ setToast }) => {
                 const vhProps = vhRes.value.data.properties;
                 const displayName = vhProps?.group_display_name || '';
                 setVhCurrentDisplayName(displayName);
-                console.log('[updateVerticalInfo] VH exists:', { exists, displayName });
             } else if (vhRes.status === 'rejected') {
                 console.warn('[updateVerticalInfo] VH check failed:', vhRes.reason?.message);
             }
@@ -607,14 +550,12 @@ const AddMembersTab = ({ setToast }) => {
 
     // On vertical change (from dropdown selection)
     const handleVerticalChange = useCallback(async (v) => {
-        console.log('[handleVerticalChange] Start:', { v });
         setSelectedVertical(v);
         setVerticalMembers({ users: [], groups: [] });
         setVhGroupName(''); setVhExists(false); setVhMembers([]);
         setVhCurrentDisplayName('');
 
         if (!v) {
-            console.log('[handleVerticalChange] Empty selection, returning early');
             return;
         }
 
@@ -667,12 +608,6 @@ const AddMembersTab = ({ setToast }) => {
     };
 
     const handleMarkVerticalHead = async () => {
-        console.log('[handleMarkVerticalHead] Start:', {
-            selectedVertical,
-            selectedUsers,
-            vhGroupName,
-            vhExists
-        });
 
         if (!selectedVertical || selectedUsers.length === 0) {
             console.warn('[handleMarkVerticalHead] Missing required fields:', {
@@ -695,12 +630,6 @@ const AddMembersTab = ({ setToast }) => {
         setCreatingVH(true);
         try {
             const vhDisplayName = selectedVertical.replace(/_/g, '-').toUpperCase() + ` -${userDisplayName}`;
-            console.log('[handleMarkVerticalHead] Creating VH:', {
-                vhGroupName,
-                vhDisplayName,
-                firstUser,
-                userDisplayName
-            });
 
             // Try to create the group (it might already exist)
             try {
@@ -708,7 +637,6 @@ const AddMembersTab = ({ setToast }) => {
                     group_name: vhGroupName,
                     group_display_name: vhDisplayName
                 });
-                console.log('[handleMarkVerticalHead] Group created:', createRes.data);
             } catch (createErr) {
                 const msg = createErr.response?.data?.message || '';
                 console.warn('[handleMarkVerticalHead] Group creation error (checking if already exists):', {
@@ -756,7 +684,6 @@ const AddMembersTab = ({ setToast }) => {
             // 0. If group doesn't exist, create it first
             if (!vhExists) {
                 const vhDisplayName = selectedVertical.replace(/_/g, '-').toUpperCase() + ` -${newObjectName}`;
-                console.log('[handleModifyVerticalHead] Creating VH group first:', { vhGroupName, vhDisplayName });
                 await api.post('/groups', {
                     group_name: vhGroupName,
                     group_display_name: vhDisplayName
@@ -884,7 +811,7 @@ const AddMembersTab = ({ setToast }) => {
                                         options={users.map(u => ({ value: u.user_login_name, label: `${u.object_name} (${u.user_login_name})` }))}
                                     />
                                     {usersAlreadyInGroup.length > 0 && (
-                                        <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                                        <p className="text-xs text-harvest mt-2 flex items-center gap-1">
                                             <AlertCircle size={13} /> {usersAlreadyInGroup.join(', ')} already member(s)
                                         </p>
                                     )}
@@ -897,7 +824,7 @@ const AddMembersTab = ({ setToast }) => {
 
             {/* ── Step 2: Info panels (members + vertical head) ── */}
             {(selectedVertical || selectedUsers.length > 0 || (isROTE && selectedUser)) && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
 
                     {/* 1 — Department Members */}
                     {selectedVertical && (
@@ -928,8 +855,8 @@ const AddMembersTab = ({ setToast }) => {
                                 ? <div className="flex justify-center py-2"><Loader2 size={14} className="animate-spin text-slate-400" /></div>
                                 : <>
                                     <div className={`flex items-center gap-1.5 text-xs rounded-lg px-2.5 py-1.5 mb-2 ${vhExists
-                                        ? 'text-green-700 bg-green-50 border border-green-200'
-                                        : 'text-amber-700 bg-amber-50 border border-amber-200'
+                                        ? 'text-canopy bg-canopy-tint border border-canopy/20'
+                                        : 'text-harvest bg-harvest/10 border border-harvest/25'
                                     }`}>
                                         {vhExists ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
                                         {vhExists ? 'Exists' : 'Not yet created'}
@@ -949,25 +876,19 @@ const AddMembersTab = ({ setToast }) => {
                                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
                                             {vhMembers.length > 0 ? 'Modify Department Head' : 'Add Department Head'}
                                         </p>
-                                        <select
+                                        <Select
                                             value={modifyVHSelectedUser}
-                                            onChange={e => setModifyVHSelectedUser(e.target.value)}
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2]"
-                                        >
-                                            <option value="">— Select {vhMembers.length > 0 ? 'new' : ''} head —</option>
-                                            {verticalMembers.users.map(u => {
+                                            onChange={setModifyVHSelectedUser}
+                                            placeholder={`— Select ${vhMembers.length > 0 ? 'new ' : ''}head —`}
+                                            options={verticalMembers.users.map(u => {
                                                 const userObj = users.find(x => x.user_login_name === u.name);
-                                                return (
-                                                    <option key={u.name} value={u.name}>
-                                                        {userObj ? `${userObj.object_name} (${u.name})` : u.name}
-                                                    </option>
-                                                );
+                                                return { value: u.name, label: userObj ? `${userObj.object_name} (${u.name})` : u.name };
                                             })}
-                                        </select>
+                                        />
                                         <button
                                             onClick={handleModifyVerticalHead}
                                             disabled={!modifyVHSelectedUser || modifyingVH}
-                                            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-harvest hover:bg-harvest text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {modifyingVH
                                                 ? <><Loader2 size={12} className="animate-spin" /> {vhMembers.length > 0 ? 'Updating' : 'Adding'}…</>
@@ -991,7 +912,7 @@ const AddMembersTab = ({ setToast }) => {
                         {/* Add to Group (HO only) */}
                         {!isROTE && (
                         <button onClick={handleAddToGroup} disabled={!canAdd || adding}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-[#0A66C2] hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                             {adding
                                 ? <><Loader2 size={14} className="animate-spin" /> Adding…</>
                                 : <><UserPlus size={14} /> Add to Vertical</>}
@@ -1001,7 +922,7 @@ const AddMembersTab = ({ setToast }) => {
                         {/* Mark Department Head */}
                         {showMarkVHButton && (
                             <button onClick={handleMarkVerticalHead} disabled={creatingVH || vhExists}
-                                className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                className="flex items-center gap-2 px-5 py-2.5 bg-harvest hover:bg-harvest text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                                 {creatingVH
                                     ? <><Loader2 size={14} className="animate-spin" /> Creating…</>
                                     : <><Star size={14} /> Mark Department Head</>}
@@ -1514,9 +1435,9 @@ const RemoveMembersTab = ({ setToast }) => {
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
                     {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50">
                         <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm">
+                            <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
                                 <ArrowRightLeft size={17} className="text-white" />
                             </div>
                             <div>
@@ -1553,21 +1474,12 @@ const RemoveMembersTab = ({ setToast }) => {
                             ) : delegateUsers.length === 0 ? (
                                 <div className="text-xs text-slate-400 py-2">No users found for {isRoTe ? <><span className="font-semibold">{locLabel || roCode.toUpperCase()}</span> ({offType})</> : <>department <span className="font-semibold">{deptShortCode}</span></>}.</div>
                             ) : (
-                                <div className="relative">
-                                    <select
-                                        value={delegateSelectedUser}
-                                        onChange={e => setDelegateSelectedUser(e.target.value)}
-                                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2] bg-white appearance-none pr-8 cursor-pointer"
-                                    >
-                                        <option value="">— Select user —</option>
-                                        {delegateUsers.map(u => (
-                                            <option key={u.r_object_id || u.user_login_name} value={u.object_name}>
-                                                {u.object_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                </div>
+                                <Select
+                                    value={delegateSelectedUser}
+                                    onChange={setDelegateSelectedUser}
+                                    placeholder="— Select user —"
+                                    options={delegateUsers.map(u => ({ value: u.object_name, label: u.object_name }))}
+                                />
                             )}
                         </div>
                     </div>
@@ -1581,7 +1493,7 @@ const RemoveMembersTab = ({ setToast }) => {
                         <button
                             onClick={handleDelegateConfirm}
                             disabled={!delegateSelectedUser || !!delegatingCaseId}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-[#0A66C2] hover:bg-[#094d92] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-all">
+                            className="flex items-center gap-1.5 px-4 py-2 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-all">
                             {delegatingCaseId ? <><Loader2 size={12} className="animate-spin" /> Delegating…</> : <><ArrowRightLeft size={12} /> Delegate</>}
                         </button>
                     </div>
@@ -1597,7 +1509,7 @@ const RemoveMembersTab = ({ setToast }) => {
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden">
                     {/* Header */}
-                    <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50">
+                    <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50">
                         <h2 className="text-lg font-bold text-slate-900">Assign New Department Head</h2>
                         <p className="text-xs text-slate-500 mt-1">
                             {verticalHeadUser.name} is a department head. Assign a new head before removing.
@@ -1608,23 +1520,18 @@ const RemoveMembersTab = ({ setToast }) => {
                     <div className="px-6 py-5 space-y-4">
                         <div>
                             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-2">
-                                Select New Department Head <span className="text-red-500">*</span>
+                                Select New Department Head <span className="text-danger">*</span>
                             </label>
-                            <select
+                            <Select
                                 value={selectedNewHead}
-                                onChange={(e) => setSelectedNewHead(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2] bg-white appearance-none cursor-pointer">
-                                <option value="">— Select new head —</option>
-                                {availableHeads.map((user) => (
-                                    <option key={user.name} value={user.name}>
-                                        {user.name}
-                                    </option>
-                                ))}
-                            </select>
+                                onChange={setSelectedNewHead}
+                                placeholder="— Select new head —"
+                                options={availableHeads.map((user) => ({ value: user.name, label: user.name }))}
+                            />
                         </div>
 
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <p className="text-xs text-blue-700">
+                        <div className="p-3 bg-canopy-tint border border-canopy/20 rounded-lg">
+                            <p className="text-xs text-canopy">
                                 <strong>Note:</strong> The selected user will be assigned as the new department head before {verticalHeadUser.name} is removed from the department.
                             </p>
                         </div>
@@ -1645,7 +1552,7 @@ const RemoveMembersTab = ({ setToast }) => {
                         <button
                             onClick={handleConfirmNewHead}
                             disabled={!selectedNewHead || updatingHead}
-                            className="flex items-center gap-2 px-4 py-2 bg-[#0A66C2] hover:bg-[#094d92] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-all">
+                            className="flex items-center gap-2 px-4 py-2 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-all">
                             {updatingHead ? (
                                 <>
                                     <Loader2 size={14} className="animate-spin" />
@@ -1727,18 +1634,18 @@ const RemoveMembersTab = ({ setToast }) => {
                                 {allMembers.map(m => (
                                     <div key={`${m.type}-${m.name}`}>
                                         {/* Member row */}
-                                        <div className={`flex items-center justify-between px-4 py-2.5 transition-colors ${pendingRemove?.name === m.name ? 'bg-red-50/60' : ''}`}>
+                                        <div className={`flex items-center justify-between px-4 py-2.5 transition-colors ${pendingRemove?.name === m.name ? 'bg-danger-tint/60' : ''}`}>
                                             <div className="flex items-center gap-2.5">
                                                 <MemberTag type={m.type} />
                                                 <span className="text-sm text-slate-700 font-mono">{m.name}</span>
                                                 {m.type === 'user' && verticalHeadMembers.some(h => h.name === m.name) && (
-                                                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full whitespace-nowrap">
+                                                    <span className="px-2 py-0.5 bg-harvest/15 text-harvest text-xs font-semibold rounded-full whitespace-nowrap">
                                                         Vertical Head
                                                     </span>
                                                 )}
                                             </div>
                                             <button onClick={() => handleRemoveClickWithHeadCheck(m)}
-                                                className={`p-1.5 rounded-lg transition-colors ${pendingRemove?.name === m.name ? 'text-red-400 bg-red-100' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`}
+                                                className={`p-1.5 rounded-lg transition-colors ${pendingRemove?.name === m.name ? 'text-danger/70 bg-danger-tint' : 'text-slate-400 hover:text-danger hover:bg-danger-tint'}`}
                                                 title={pendingRemove?.name === m.name ? 'Cancel' : 'Remove'}>
                                                 <X size={14} />
                                             </button>
@@ -1746,7 +1653,7 @@ const RemoveMembersTab = ({ setToast }) => {
 
                                         {/* Inline inbox panel — shown only for the pending member */}
                                         {pendingRemove?.name === m.name && (
-                                            <div className="border-t border-red-100 bg-slate-50 px-4 py-4 space-y-3">
+                                            <div className="border-t border-danger-tint bg-slate-50 px-4 py-4 space-y-3">
                                                 <div className="flex items-center justify-between">
                                                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                                                         <ClipboardList size={11} /> Case Inbox — {m.name}
@@ -1768,14 +1675,14 @@ const RemoveMembersTab = ({ setToast }) => {
                                                     <>
                                                         {hasPendingCases ? (
                                                             <>
-                                                                <div className="flex items-start gap-2.5 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-                                                                    <AlertCircle size={15} className="mt-0.5 shrink-0 text-amber-500" />
+                                                                <div className="flex items-start gap-2.5 px-3 py-2.5 bg-harvest/10 border border-harvest/25 rounded-xl text-sm text-harvest">
+                                                                    <AlertCircle size={15} className="mt-0.5 shrink-0 text-harvest" />
                                                                     <span>Kindly delegate the pending cases to remove this user from the vertical.</span>
                                                                 </div>
                                                                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                                                                     <div className="px-3 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
                                                                         <span className="text-xs font-semibold text-slate-600">Pending Cases</span>
-                                                                        <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full font-medium">{inboxTotal}</span>
+                                                                        <span className="px-2 py-0.5 text-xs bg-harvest/15 text-harvest rounded-full font-medium">{inboxTotal}</span>
                                                                     </div>
                                                                     <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
                                                                         {inboxTasks.map((task, idx) => {
@@ -1791,17 +1698,17 @@ const RemoveMembersTab = ({ setToast }) => {
                                                                                     <p className="text-xs text-slate-500 truncate">{desc}</p>
                                                                                 </div>
                                                                                 <div className="shrink-0 flex items-center gap-1.5">
-                                                                                    {status && <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 font-medium whitespace-nowrap">{status}</span>}
+                                                                                    {status && <span className="px-1.5 py-0.5 text-xs rounded-full bg-canopy-tint text-canopy font-medium whitespace-nowrap">{status}</span>}
                                                                                     {priority && (
                                                                                         <span className={`px-1.5 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${
-                                                                                            priority === 'High' ? 'bg-red-100 text-red-700' :
-                                                                                            priority === 'Medium' ? 'bg-amber-100 text-amber-700' :
+                                                                                            priority === 'High' ? 'bg-danger-tint text-danger' :
+                                                                                            priority === 'Medium' ? 'bg-harvest/15 text-harvest' :
                                                                                             'bg-slate-100 text-slate-600'
                                                                                         }`}>{priority}</span>
                                                                                     )}
                                                                                     <button
                                                                                         onClick={() => handleDelegateClick(task)}
-                                                                                        className="flex items-center gap-1 px-2 py-1 bg-[#0A66C2] hover:bg-[#094d92] text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
+                                                                                        className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
                                                                                         <ArrowRightLeft size={11} /> Delegate
                                                                                     </button>
                                                                                 </div>
@@ -1812,7 +1719,7 @@ const RemoveMembersTab = ({ setToast }) => {
                                                                 </div>
                                                             </>
                                                         ) : (
-                                                            <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">
+                                                            <div className="flex items-center gap-2 text-sm text-canopy bg-canopy-tint border border-canopy/20 rounded-xl px-3 py-2.5">
                                                                 <CheckCircle2 size={14} className="shrink-0" />
                                                                 No pending cases. Safe to remove.
                                                             </div>
@@ -1825,7 +1732,7 @@ const RemoveMembersTab = ({ setToast }) => {
                                                         onClick={handleConfirmRemove}
                                                         disabled={hasPendingCases || removing || loadingInbox}
                                                         title={hasPendingCases ? 'Delegate pending cases first' : ''}
-                                                        className="flex items-center gap-1.5 px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                                                        className="flex items-center gap-1.5 px-4 py-2 bg-danger hover:bg-danger text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                                                         {removing ? <><Loader2 size={12} className="animate-spin" /> Removing…</> : 'Remove'}
                                                     </button>
                                                     <button
@@ -1848,58 +1755,31 @@ const RemoveMembersTab = ({ setToast }) => {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const Verticals2Page = () => {
-    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-    const adminRole  = storedUser.properties?.admin_role || storedUser.admin_role || null;
-    const isSuperAdmin = adminRole === 'Super Admin';
-
-    const [pageTab,  setPageTab]  = useState('members');
     const [innerTab, setInnerTab] = useState('add');
-    const [toast,    setToast]    = useState(null);
+    const globalToast = useToast();
+    const [toast, setToast] = useState(null);
+    useEffect(() => { if (toast) globalToast.show(toast); }, [toast, globalToast]);
 
-    const PAGE_TABS = [
-        { key: 'members',  label: 'Manage Members'    },
-    ];
     const INNER_TABS = [
         { key: 'add',    label: 'Add Members',    icon: UserPlus   },
         { key: 'remove', label: 'Remove Members', icon: UserCheck  },
     ];
 
     return (
-        <div className="p-6 max-w-5xl mx-auto">
-            <Toast toast={toast} onDismiss={() => setToast(null)} />
-
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-slate-900">RO/TE Department Head Assignment</h1>
-                <p className="text-sm text-slate-500 mt-1">Manage RO/TE Department and their members</p>
-            </div>
-
-            {/* Top-level tabs */}
-            <div className="flex gap-1 border-b border-slate-200 mb-6">
-                {PAGE_TABS.map(tab => (
-                    <button key={tab.key} onClick={() => setPageTab(tab.key)}
-                        className={`px-5 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 -mb-px ${
-                            pageTab === tab.key
-                                ? 'border-[#0A66C2] text-[#0A66C2] bg-blue-50/40'
-                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                        }`}>
-                        {tab.label}
-                    </button>
-                ))}
-            </div>
+        <div className="flex flex-1 flex-col">
+            <PageHeader
+                title="RO/TE Department Head Assignment"
+                icon={Layers}
+                description="Manage RO/TE Department and their members"
+            />
 
             {/* Inner tabs for Manage Members */}
-            <div className="flex gap-2 mb-5">
-                        {INNER_TABS.map(t => (
-                            <button key={t.key} onClick={() => setInnerTab(t.key)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                                    innerTab === t.key
-                                        ? 'bg-[#0A66C2] text-white shadow-sm'
-                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                }`}>
-                                <t.icon size={13} /> {t.label}
-                            </button>
-                        ))}
-                    </div>
+            <Tabs
+                className="mb-5"
+                value={innerTab}
+                onChange={setInnerTab}
+                tabs={INNER_TABS.map(t => ({ id: t.key, label: t.label, icon: t.icon }))}
+            />
             {innerTab === 'add'    && <AddMembersTab    setToast={setToast} />}
             {innerTab === 'remove' && <RemoveMembersTab setToast={setToast} />}
         </div>

@@ -4,21 +4,83 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
+        // Body / UI — technical, institutional, Devanagari-capable
+        sans: ['"IBM Plex Sans"', '"IBM Plex Sans Devanagari"', "system-ui", "sans-serif"],
+        // Display — warm organic serif, used only for mastheads / login / empty states
+        display: ['"Fraunces"', "Georgia", "serif"],
+        // Data — identifiers, codes, counts, DQL (tabular figures)
+        mono: ['"IBM Plex Mono"', "ui-monospace", "SFMono-Regular", "monospace"],
       },
       colors: {
-        brand: {
-          50: "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          300: "#93c5fd",
-          400: "#60a5fa",
-          500: "#3b82f6",
-          600: "#2563eb", // Primary tech blue
-          700: "#1d4ed8",
-          800: "#1e40af",
-          900: "#1e3a8a",
+        // "Field ledger" identity — grounded in NABARD (agriculture + institution)
+        canopy: {
+          DEFAULT: "#14532D", // primary — buttons, active nav, links, focus ring
+          dark: "#0E3D21", // primary hover / active
+          tint: "#EAEFE9", // active-nav bg, table row band, subtle fills
         },
+        harvest: "#B45309", // single warm accent — secondary CTA, warnings
+        ink: "#1A2E1F", // body text (warm near-black)
+        paper: "#F6F7F4", // app background
+        line: "#E2E5DE", // hairlines, borders, dividers
+        danger: {
+          DEFAULT: "#B42318", // destructive actions, errors
+          tint: "#FEF3F2",
+        },
+        info: {
+          DEFAULT: "#1E5F8C", // informational only, sparingly
+          tint: "#EFF6FB",
+        },
+        success: {
+          DEFAULT: "#14532D",
+          tint: "#EAEFE9",
+        },
+      },
+      fontSize: {
+        // fixed type scale
+        "display-lg": ["1.875rem", { lineHeight: "2.25rem", letterSpacing: "-0.01em" }],
+        display: ["1.5rem", { lineHeight: "1.9rem", letterSpacing: "-0.005em" }],
+        title: ["1.125rem", { lineHeight: "1.6rem" }],
+        body: ["0.875rem", { lineHeight: "1.35rem" }],
+        caption: ["0.75rem", { lineHeight: "1.1rem" }],
+      },
+      borderRadius: {
+        card: "12px",
+      },
+      boxShadow: {
+        card: "0 1px 2px 0 rgb(26 46 31 / 0.04), 0 1px 3px 0 rgb(26 46 31 / 0.06)",
+        pop: "0 8px 24px -6px rgb(26 46 31 / 0.16)",
+      },
+      screens: {
+        xs: "480px",
+      },
+      keyframes: {
+        "sheet-up": {
+          "0%": { transform: "translateY(100%)" },
+          "100%": { transform: "translateY(0)" },
+        },
+        "pop-in": {
+          "0%": { opacity: "0", transform: "scale(0.98)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+        "spine-grow": {
+          "0%": { transform: "scaleY(0)" },
+          "100%": { transform: "scaleY(1)" },
+        },
+        "toast-in": {
+          "0%": { opacity: "0", transform: "translateY(-8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-rise": {
+          "0%": { opacity: "0", transform: "translateY(6px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        "sheet-up": "sheet-up 0.2s ease-out",
+        "pop-in": "pop-in 0.2s ease-out",
+        "spine-grow": "spine-grow 0.12s ease-out",
+        "toast-in": "toast-in 0.15s ease-out",
+        "fade-rise": "fade-rise 0.18s ease-out",
       },
     },
   },

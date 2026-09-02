@@ -5,6 +5,7 @@ import {
     ChevronsLeft, Loader2, X, AlertCircle, Filter, History, Clock, Trash2, Copy, Check
 } from 'lucide-react';
 import useQueryHistory from '../hooks/useQueryHistory';
+import { PageHeader } from '../components/ui';
 
 const QueryPage = () => {
     const [allRows, setAllRows] = useState([]); // Store all fetched rows
@@ -240,17 +241,11 @@ const QueryPage = () => {
     const hasActiveFilters = Object.values(columnFilters).some(v => v && v.trim() !== '');
 
     return (
-        <div className="p-6 max-w-full mx-auto">
-            {/* Header */}
-            <div className="mb-4">
-                <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <Database size={20} className="text-[#0A66C2]" />
-                    Query
-                </h1>
-            </div>
+        <div className="flex flex-1 flex-col">
+            <PageHeader title="Query" icon={Database} description="Run raw DQL against the repository." />
 
             {/* Query Input */}
-            <form onSubmit={handleExecute} className="bg-white border border-slate-200 rounded-lg shadow-sm p-4 mb-4">
+            <form onSubmit={handleExecute} className="bg-white border border-line rounded-card shadow-card p-4 mb-4">
                 <div className="mb-3">
                     <label className="block text-sm font-medium text-slate-700 mb-1">DQL Query</label>
                     <div className="relative">
@@ -262,7 +257,7 @@ const QueryPage = () => {
                             onKeyDown={handleKeyDown}
                             placeholder="SELECT r_object_id, object_name FROM dm_document WHERE folder('/Temp')"
                             rows={3}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] resize-y"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy resize-y"
                         />
                         {query && (
                             <button
@@ -291,7 +286,7 @@ const QueryPage = () => {
                     <button
                         type="submit"
                         disabled={!query.trim() || loading}
-                        className="px-4 py-2 bg-[#0A66C2] text-white rounded-lg text-sm font-medium hover:bg-[#094d92] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                        className="px-4 py-2 bg-canopy text-white rounded-lg text-sm font-medium hover:bg-canopy-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                         title={`Execute query (${navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl'}+Enter)`}
                     >
                         {loading ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
@@ -310,7 +305,7 @@ const QueryPage = () => {
                             <History size={14} />
                             History
                             {history.length > 0 && (
-                                <span className="ml-1 px-1.5 py-0.5 bg-[#0A66C2] text-white text-xs rounded-full">
+                                <span className="ml-1 px-1.5 py-0.5 bg-canopy text-white text-xs rounded-full">
                                     {history.length}
                                 </span>
                             )}
@@ -334,7 +329,7 @@ const QueryPage = () => {
                                                     clearHistory();
                                                 }
                                             }}
-                                            className="text-xs text-red-600 hover:text-red-700 flex items-center gap-1"
+                                            className="text-xs text-danger hover:text-danger flex items-center gap-1"
                                         >
                                             <Trash2 size={12} />
                                             Clear All
@@ -380,7 +375,7 @@ const QueryPage = () => {
                                                     title="Copy query"
                                                 >
                                                     {copiedId === item.id ? (
-                                                        <Check size={14} className="text-green-600" />
+                                                        <Check size={14} className="text-canopy" />
                                                     ) : (
                                                         <Copy size={14} />
                                                     )}
@@ -427,7 +422,7 @@ const QueryPage = () => {
 
             {/* Error Display */}
             {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 text-red-700 text-sm">
+                <div className="mb-4 p-3 bg-danger-tint border border-danger/20 rounded-lg flex items-start gap-2 text-danger text-sm">
                     <AlertCircle size={16} className="mt-0.5 shrink-0" />
                     <span>{error}</span>
                 </div>
@@ -442,7 +437,7 @@ const QueryPage = () => {
                     </div>
                 ) : loading ? (
                     <div className="py-16 text-center text-slate-400">
-                        <Loader2 className="mx-auto h-8 w-8 text-[#0A66C2] animate-spin mb-2" />
+                        <Loader2 className="mx-auto h-8 w-8 text-canopy animate-spin mb-2" />
                         <p className="text-sm">Executing query...</p>
                     </div>
                 ) : allRows.length === 0 && !error ? (
@@ -456,10 +451,10 @@ const QueryPage = () => {
                         <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-sm flex-wrap gap-2">
                             <div className="flex items-center gap-3">
                                 <span className="text-slate-600">
-                                    <span className="font-semibold text-[#0A66C2]">{allRows.length}</span> total rows
+                                    <span className="font-semibold text-canopy">{allRows.length}</span> total rows
                                     {filteredRows.length < allRows.length && (
                                         <span className="ml-1">
-                                            (<span className="font-semibold text-amber-600">{filteredRows.length}</span> filtered)
+                                            (<span className="font-semibold text-harvest">{filteredRows.length}</span> filtered)
                                         </span>
                                     )}
                                 </span>
@@ -496,7 +491,7 @@ const QueryPage = () => {
                                                             value={columnFilters[col] || ''}
                                                             onChange={(e) => handleFilterChange(col, e.target.value)}
                                                             placeholder="Filter..."
-                                                            className="w-full pl-7 pr-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500/30 focus:border-[#0A66C2] bg-white"
+                                                            className="w-full pl-7 pr-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-canopy/30 focus:border-canopy bg-white"
                                                             onClick={(e) => e.stopPropagation()}
                                                         />
                                                     </div>

@@ -9,6 +9,8 @@ import {
 import { CaseInboxContent } from './CaseInbox2Page';
 import { DelegateContent, CaseDetailsModal, MovementRegisterModal } from './DelegatePage';
 import { getLocations, fetchDepartments } from '../data/nabardMetadata';
+import { PageHeader, Tabs } from '../components/ui';
+import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 const CasesPage = () => {
     const [activeTab, setActiveTab] = useState('cases');
@@ -348,10 +350,10 @@ const CasesPage = () => {
             s = (status || '').toString().toLowerCase();
         }
 
-        if (s === 'running' || s === 'active') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><PlayCircle size={12} /> Running</span>;
-        if (s === 'halted' || s === 'paused') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"><AlertTriangle size={12} /> Halted</span>;
-        if (s === 'failed') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"><AlertCircle size={12} /> Failed</span>;
-        if (s === 'finished' || s === 'completed') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><CheckCircle size={12} /> Finished</span>;
+        if (s === 'running' || s === 'active') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-canopy-tint text-canopy-dark"><PlayCircle size={12} /> Running</span>;
+        if (s === 'halted' || s === 'paused') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-harvest/15 text-harvest"><AlertTriangle size={12} /> Halted</span>;
+        if (s === 'failed') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-tint text-danger"><AlertCircle size={12} /> Failed</span>;
+        if (s === 'finished' || s === 'completed') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-canopy-tint text-canopy-dark"><CheckCircle size={12} /> Finished</span>;
         if (s === 'terminated') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800"><XCircle size={12} /> Terminated</span>;
         return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">{status || 'Unknown'}</span>;
     };
@@ -364,51 +366,20 @@ const CasesPage = () => {
         : null;
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between gap-4 mb-6">
-                <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                    <Briefcase className="text-[#0A66C2]" />
-                    Case Management
-                </h1>
-            </div>
+        <div className="flex flex-col">
+            <PageHeader title="Case Management" icon={Briefcase} description="Browse cases, inspect inbox tasks, and delegate work." />
 
             {/* Tabs */}
-            <div className="flex items-center gap-1 mb-6 border-b border-slate-200">
-                <button
-                    onClick={() => setActiveTab('cases')}
-                    className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all ${
-                        activeTab === 'cases'
-                            ? 'border-[#0A66C2] text-[#0A66C2]'
-                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                    }`}
-                >
-                    <Briefcase size={16} />
-                    Cases
-                </button>
-                <button
-                    onClick={() => setActiveTab('inbox')}
-                    className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all ${
-                        activeTab === 'inbox'
-                            ? 'border-[#0A66C2] text-[#0A66C2]'
-                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                    }`}
-                >
-                    <Inbox size={16} />
-                    Case Inbox
-                </button>
-                <button
-                    onClick={() => setActiveTab('delegate')}
-                    className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all ${
-                        activeTab === 'delegate'
-                            ? 'border-[#0A66C2] text-[#0A66C2]'
-                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                    }`}
-                >
-                    <ArrowRightLeft size={16} />
-                    Delegate Case
-                </button>
-            </div>
+            <Tabs
+                className="mb-6"
+                value={activeTab}
+                onChange={setActiveTab}
+                tabs={[
+                    { id: 'cases', label: 'Cases', icon: Briefcase },
+                    { id: 'inbox', label: 'Case Inbox', icon: Inbox },
+                    { id: 'delegate', label: 'Delegate Case', icon: ArrowRightLeft },
+                ]}
+            />
 
             {/* Case Inbox Tab */}
             {activeTab === 'inbox' && <CaseInboxContent />}
@@ -425,33 +396,29 @@ const CasesPage = () => {
                     {/* Office Type Filter */}
                     <div>
                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Office Type</label>
-                        <select
+                        <CustomSelect
                             value={filterOfficeType}
-                            onChange={(e) => handleFilterOfficeTypeChange(e.target.value)}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2]"
-                        >
-                            <option value="">All</option>
-                            <option value="HO">HO</option>
-                            <option value="RO">RO</option>
-                            <option value="TE">TE</option>
-                        </select>
+                            onChange={handleFilterOfficeTypeChange}
+                            placeholder="All"
+                            options={[
+                                { value: 'HO', label: 'HO' },
+                                { value: 'RO', label: 'RO' },
+                                { value: 'TE', label: 'TE' },
+                            ]}
+                        />
                     </div>
 
                     {/* Location Filter (RO/TE only) */}
                     {(filterOfficeType === 'RO' || filterOfficeType === 'TE') && (
                         <div>
                             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Location</label>
-                            <select
+                            <CustomSelect
                                 value={filterLocation}
-                                onChange={(e) => handleFilterLocationChange(e.target.value)}
+                                onChange={handleFilterLocationChange}
                                 disabled={!filterOfficeType}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] disabled:bg-slate-100 disabled:text-slate-400"
-                            >
-                                <option value="">Select location</option>
-                                {filterLocs.map(l => (
-                                    <option key={l.location} value={l.location}>{l.location}</option>
-                                ))}
-                            </select>
+                                placeholder="Select location"
+                                options={filterLocs.map(l => ({ value: l.location, label: l.location }))}
+                            />
                         </div>
                     )}
 
@@ -459,17 +426,13 @@ const CasesPage = () => {
                     {filterOfficeType && (filterOfficeType === 'HO' || filterLocation) && (
                         <div>
                             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Department</label>
-                            <select
+                            <CustomSelect
                                 value={filterDeptName}
-                                onChange={(e) => handleFilterDeptChange(e.target.value)}
+                                onChange={handleFilterDeptChange}
                                 disabled={!filterDeptOptions.length}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] disabled:bg-slate-100 disabled:text-slate-400"
-                            >
-                                <option value="">Select dept</option>
-                                {filterDeptOptions.map(d => (
-                                    <option key={d.shortCode} value={d.name}>{d.name} ({d.shortCode})</option>
-                                ))}
-                            </select>
+                                placeholder="Select dept"
+                                options={filterDeptOptions.map(d => ({ value: d.name, label: `${d.name} (${d.shortCode})` }))}
+                            />
                         </div>
                     )}
 
@@ -477,17 +440,13 @@ const CasesPage = () => {
                     {filterOfficeType === 'HO' && filterDeptName && (
                         <div>
                             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Vertical</label>
-                            <select
+                            <CustomSelect
                                 value={filterVertical}
-                                onChange={(e) => handleFilterVerticalChange(e.target.value)}
+                                onChange={handleFilterVerticalChange}
                                 disabled={loadingFilterVerts || !filterVerticals.length}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] disabled:bg-slate-100 disabled:text-slate-400"
-                            >
-                                <option value="">{loadingFilterVerts ? 'Loading...' : 'Select vertical'}</option>
-                                {filterVerticals.map(v => (
-                                    <option key={v.object_name} value={v.object_name}>{v.object_name}</option>
-                                ))}
-                            </select>
+                                placeholder={loadingFilterVerts ? 'Loading...' : 'Select vertical'}
+                                options={filterVerticals.map(v => ({ value: v.object_name, label: v.object_name }))}
+                            />
                         </div>
                     )}
 
@@ -498,7 +457,7 @@ const CasesPage = () => {
                             type="date"
                             value={filterFromDate}
                             onChange={(e) => setFilterFromDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2]"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy"
                         />
                     </div>
 
@@ -509,7 +468,7 @@ const CasesPage = () => {
                             type="date"
                             value={filterToDate}
                             onChange={(e) => setFilterToDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2]"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy"
                         />
                     </div>
 
@@ -540,7 +499,7 @@ const CasesPage = () => {
                             value={caseNumber}
                             onChange={(e) => setCaseNumber(e.target.value)}
                             placeholder="Search case number..."
-                            className="w-72 pl-9 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] shadow-sm transition-all"
+                            className="w-72 pl-9 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy shadow-sm transition-all"
                         />
                         {caseNumber && (
                             <button type="button" onClick={clearSearch} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
@@ -551,7 +510,7 @@ const CasesPage = () => {
                     <button
                         type="submit"
                         disabled={!caseNumber.trim() || loading}
-                        className="px-5 py-2.5 bg-[#0A66C2] text-white rounded-lg text-sm font-semibold hover:bg-[#094d92] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all"
+                        className="px-5 py-2.5 bg-canopy text-white rounded-lg text-sm font-semibold hover:bg-canopy-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all"
                     >
                         {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
                         Search
@@ -576,7 +535,7 @@ const CasesPage = () => {
                         {totalEstimate && !loading && (
                             <div className="px-6 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between text-sm backdrop-blur-sm">
                                 <span className="text-slate-600">
-                                    <span className="font-semibold text-[#0A66C2]">{totalEstimate}</span> {isDefaultLoad ? `recent cases` : `results found`}
+                                    <span className="font-semibold text-canopy">{totalEstimate}</span> {isDefaultLoad ? `recent cases` : `results found`}
                                 </span>
                                 {cases.length > 0 && <span className="text-slate-400 text-xs">Showing {rangeStart}-{rangeEnd}</span>}
                             </div>
@@ -613,7 +572,7 @@ const CasesPage = () => {
                                         </tr>
                                     ) : (
                                         cases.map((c, idx) => (
-                                            <tr key={c.r_object_id || idx} className="hover:bg-blue-50/30 transition-colors group">
+                                            <tr key={c.r_object_id || idx} className="hover:bg-canopy-tint/30 transition-colors group">
                                                 <td className="px-6 py-2.5 text-slate-400 font-mono text-xs">{(page - 1) * pageSize + idx + 1}</td>
                                                 <td className="px-6 py-2.5 font-medium text-slate-900">{c.object_name || '-'}</td>
                                                 <td className="px-6 py-2.5 text-slate-500 max-w-xs truncate" title={c.description}>{c.description || '-'}</td>
@@ -626,11 +585,11 @@ const CasesPage = () => {
                                                 <td className="px-6 py-2.5">
                                                     <div className="flex items-center justify-center gap-2">
                                                         <button onClick={() => setDetailCase(c)} title="Case Details"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-[#0A66C2] hover:bg-blue-50 transition-all">
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
                                                             <FileText size={15} />
                                                         </button>
                                                         <button onClick={() => setMovementCase(c)} title="Movement Register"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all">
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
                                                             <ClipboardList size={15} />
                                                         </button>
                                                     </div>
@@ -648,7 +607,7 @@ const CasesPage = () => {
                                 <select
                                     value={pageSize}
                                     onChange={(e) => { const newSize = Number(e.target.value); setPageSize(newSize); setPage(1); if (activeSearch) fetchCases(activeSearch, 1, newSize); }}
-                                    className="text-xs border border-slate-200 rounded px-2 py-1.5 bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                                    className="text-xs border border-slate-200 rounded px-2 py-1.5 bg-white focus:ring-1 focus:ring-canopy outline-none"
                                 >
                                     <option value={5}>5 per page</option>
                                     <option value={10}>10 per page</option>
@@ -677,7 +636,7 @@ const CasesPage = () => {
                         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
                             <div>
                                 <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                                    <Briefcase className="text-[#0A66C2]" size={24} />
+                                    <Briefcase className="text-canopy" size={24} />
                                     Workflow Details
                                 </h2>
                                 {selectedCase && (
@@ -698,13 +657,13 @@ const CasesPage = () => {
                         <div className="flex-1 overflow-hidden flex flex-col md:flex-row h-full">
                             {loadingWorkflow ? (
                                 <div className="flex-1 flex flex-col items-center justify-center">
-                                    <Loader2 size={48} className="animate-spin text-[#0A66C2] mb-4" />
+                                    <Loader2 size={48} className="animate-spin text-canopy mb-4" />
                                     <p className="text-slate-600 font-medium">Loading workflow topology...</p>
                                 </div>
                             ) : workflowData?.error ? (
                                 <div className="flex-1 flex flex-col items-center justify-center">
-                                    <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
-                                        <AlertTriangle size={40} className="text-red-500" />
+                                    <div className="w-20 h-20 bg-danger-tint rounded-full flex items-center justify-center mb-6">
+                                        <AlertTriangle size={40} className="text-danger" />
                                     </div>
                                     <p className="text-xl font-bold text-slate-900 mb-2">Failed to Load Workflows</p>
                                     <p className="text-slate-600">{workflowData.error}</p>
@@ -732,7 +691,7 @@ const CasesPage = () => {
                                                         onClick={() => setActiveWorkflowIndex(idx)}
                                                         className={`w-full text-left p-3 rounded-lg text-sm transition-all ${
                                                             activeWorkflowIndex === idx 
-                                                            ? 'bg-white shadow-sm ring-1 ring-slate-200 text-[#0A66C2] font-medium' 
+                                                            ? 'bg-white shadow-sm ring-1 ring-slate-200 text-canopy font-medium' 
                                                             : 'hover:bg-slate-200/50 text-slate-600'
                                                         }`}
                                                     >
@@ -793,7 +752,7 @@ const CasesPage = () => {
                                         {/* Activities / Work Items Table */}
                                         <div>
                                             <h4 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                                                <div className="w-1 h-6 bg-[#0A66C2] rounded-full"></div>
+                                                <div className="w-1 h-6 bg-canopy rounded-full"></div>
                                                 Activity History & Queue Items
                                             </h4>
                                             
@@ -824,7 +783,7 @@ const CasesPage = () => {
                                                                         <div className="flex items-center justify-end gap-2">
                                                                             <button
                                                                                 onClick={() => handleViewLogs(item)}
-                                                                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                                                className="p-1.5 text-slate-400 hover:text-canopy hover:bg-canopy-tint rounded transition-colors"
                                                                                 title="View Logs"
                                                                             >
                                                                                 <FileText size={16} />
@@ -834,7 +793,7 @@ const CasesPage = () => {
                                                                                 <button
                                                                                     onClick={() => handleRetryActivity(activeWorkflow.r_object_id, item.r_object_id)}
                                                                                     disabled={actionLoading === `retry-${item.r_object_id}`}
-                                                                                    className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                                                                                    className="p-1.5 text-slate-400 hover:text-canopy hover:bg-canopy-tint rounded transition-colors"
                                                                                     title="Retry Activity"
                                                                                 >
                                                                                     {actionLoading === `retry-${item.r_object_id}` ? (
@@ -884,13 +843,13 @@ const CasesPage = () => {
                             <p className="mb-2 text-slate-500"># System Log for WorkItem: {selectedLogItem.r_object_id}</p>
                             <p className="mb-2 text-slate-500"># Activity: {selectedLogItem.r_act_name}</p>
                             <div className="space-y-1">
-                                <span className="text-green-400">[INFO]</span> Activity started at {selectedLogItem.r_creation_date}<br/>
-                                <span className="text-blue-400">[DEBUG]</span> Performer assigned: {selectedLogItem.r_performer_name}<br/>
-                                <span className="text-green-400">[INFO]</span> Status changed to: {selectedLogItem.r_runtime_state}<br/>
+                                <span className="text-canopy/70">[INFO]</span> Activity started at {selectedLogItem.r_creation_date}<br/>
+                                <span className="text-canopy/70">[DEBUG]</span> Performer assigned: {selectedLogItem.r_performer_name}<br/>
+                                <span className="text-canopy/70">[INFO]</span> Status changed to: {selectedLogItem.r_runtime_state}<br/>
                                 {selectedLogItem.r_runtime_state === 'failed' && (
                                     <>
-                                        <span className="text-red-400">[ERROR]</span> Activity execution failed.<br/>
-                                        <span className="text-red-400">[ERROR]</span> Exception details not available in mock.<br/>
+                                        <span className="text-danger/70">[ERROR]</span> Activity execution failed.<br/>
+                                        <span className="text-danger/70">[ERROR]</span> Exception details not available in mock.<br/>
                                     </>
                                 )}
                                 <span className="text-slate-500">... End of log</span>

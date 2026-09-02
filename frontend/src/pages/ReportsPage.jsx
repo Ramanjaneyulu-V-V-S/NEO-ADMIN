@@ -8,7 +8,9 @@ import * as XLSX from 'xlsx';
 import axios from '../api/axios';
 import { getLocations, fetchDepartments } from '../data/nabardMetadata';
 import { CaseDetailsModal, MovementRegisterModal } from './DelegatePage';
+import { PageHeader, Tabs } from '../components/ui';
 import MultiSelectDropdown from '../components/MultiSelectDropdown';
+import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 // Error boundary class component
 class ErrorBoundary extends Component {
@@ -29,14 +31,14 @@ class ErrorBoundary extends Component {
         if (this.state.hasError) {
             return (
                 <div className="p-6">
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-6 flex items-start gap-3">
-                        <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
+                    <div className="bg-danger-tint border border-danger/20 rounded-lg p-6 flex items-start gap-3">
+                        <AlertCircle className="text-danger flex-shrink-0 mt-0.5" size={20} />
                         <div>
-                            <h3 className="text-red-900 font-semibold mb-2">An Error Occurred</h3>
-                            <p className="text-red-700 text-sm mb-3">{this.state.error?.message || 'Unknown error'}</p>
+                            <h3 className="text-danger font-semibold mb-2">An Error Occurred</h3>
+                            <p className="text-danger text-sm mb-3">{this.state.error?.message || 'Unknown error'}</p>
                             <button
                                 onClick={() => window.location.reload()}
-                                className="px-3 py-1.5 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700"
+                                className="px-3 py-1.5 bg-danger text-white rounded text-sm font-medium hover:bg-danger"
                             >
                                 Reload Page
                             </button>
@@ -88,9 +90,9 @@ const DigidakMovementRegisterModal = ({ digidakItem, onClose }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50 shrink-0">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm">
+                        <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
                             <ClipboardList size={17} className="text-white" />
                         </div>
                         <div>
@@ -106,10 +108,10 @@ const DigidakMovementRegisterModal = ({ digidakItem, onClose }) => {
 
                 <div className="overflow-y-auto flex-1 p-6">
                     <div className="flex items-center gap-2 mb-3">
-                        <ClipboardList size={14} className="text-[#0A66C2]" />
+                        <ClipboardList size={14} className="text-canopy" />
                         <h3 className="text-sm font-bold text-slate-800">Movement Register</h3>
                         {!loading && (
-                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                            <span className="px-2 py-0.5 bg-canopy-tint text-canopy text-xs font-semibold rounded-full">
                                 {movement.length}
                             </span>
                         )}
@@ -117,7 +119,7 @@ const DigidakMovementRegisterModal = ({ digidakItem, onClose }) => {
 
                     {loading ? (
                         <div className="flex items-center gap-2 py-12 justify-center text-slate-400">
-                            <div className="animate-spin text-[#0A66C2]" style={{width: '18px', height: '18px'}}>
+                            <div className="animate-spin text-canopy" style={{width: '18px', height: '18px'}}>
                                 ⟳
                             </div>
                             <span className="text-sm">Loading movement register…</span>
@@ -141,7 +143,7 @@ const DigidakMovementRegisterModal = ({ digidakItem, onClose }) => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {movement.map((rec, idx) => (
-                                        <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
+                                        <tr key={idx} className="hover:bg-canopy-tint/30 transition-colors">
                                             <td className="px-3 py-2 text-slate-400 font-mono">{idx + 1}</td>
                                             {movCols.map(col => (
                                                 <td key={col.key} className="px-3 py-2 text-slate-700 max-w-xs truncate"
@@ -1041,61 +1043,31 @@ const ReportsPage = () => {
         catch { return d; }
     };
 
-    const selectCls = 'w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white';
+    const selectCls = 'w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-canopy bg-white';
 
     return (
         <ErrorBoundary>
         <motion.div
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="p-6"
+            className="flex flex-col"
         >
-            {/* Header */}
-            <div className="mb-6 flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#0A66C2] rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
-                    <FileBarChart2 className="text-white" size={20} />
-                </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
-                    <p className="text-sm text-slate-500">Generate case reports with custom filters</p>
-                </div>
-            </div>
+            <PageHeader
+                title="Reports"
+                icon={FileBarChart2}
+                description="Generate case reports with custom filters"
+            />
 
-            {/* Tab Bar */}
-            <div className="border-b border-slate-200 mb-6 flex gap-1">
-                <button
-                    onClick={() => setActiveTab('cases')}
-                    className={`px-4 py-2 text-sm font-semibold transition-colors ${
-                        activeTab === 'cases'
-                            ? 'border-b-2 border-[#0A66C2] text-[#0A66C2]'
-                            : 'border-b-2 border-transparent text-slate-600 hover:text-slate-800'
-                    }`}
-                >
-                    Cases Report
-                </button>
-                <button
-                    onClick={() => setActiveTab('digidak')}
-                    className={`px-4 py-2 text-sm font-semibold transition-colors ${
-                        activeTab === 'digidak'
-                            ? 'border-b-2 border-[#0A66C2] text-[#0A66C2]'
-                            : 'border-b-2 border-transparent text-slate-600 hover:text-slate-800'
-                    }`}
-                >
-                    Digidak
-                </button>
-                {!isLocalAdmin && (
-                <button
-                    onClick={() => setActiveTab('rajbhasha')}
-                    className={`px-4 py-2 text-sm font-semibold transition-colors ${
-                        activeTab === 'rajbhasha'
-                            ? 'border-b-2 border-[#0A66C2] text-[#0A66C2]'
-                            : 'border-b-2 border-transparent text-slate-600 hover:text-slate-800'
-                    }`}
-                >
-                    Rajbhasha Report
-                </button>
-                )}
-            </div>
+            <Tabs
+                className="mb-6"
+                value={activeTab}
+                onChange={setActiveTab}
+                tabs={[
+                    { id: 'cases', label: 'Cases Report' },
+                    { id: 'digidak', label: 'Digidak' },
+                    ...(!isLocalAdmin ? [{ id: 'rajbhasha', label: 'Rajbhasha Report' }] : []),
+                ]}
+            />
 
             {/* Cases Report Section */}
             {activeTab === 'cases' && (
@@ -1111,22 +1083,22 @@ const ReportsPage = () => {
                     {/* Office Type */}
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">Office Type</label>
-                        <select value={officeType} onChange={e => handleOfficeTypeChange(e.target.value)} className={selectCls} disabled={isLocalAdmin}>
-                            <option value="">Select</option>
-                            <option value="HO">HO</option>
-                            <option value="RO">RO</option>
-                            <option value="TE">TE</option>
-                        </select>
+                        <CustomSelect value={officeType} onChange={handleOfficeTypeChange} disabled={isLocalAdmin}
+                            placeholder="Select"
+                            options={[
+                                { value: 'HO', label: 'HO' },
+                                { value: 'RO', label: 'RO' },
+                                { value: 'TE', label: 'TE' },
+                            ]} />
                     </div>
 
                     {/* Location — RO/TE only */}
                     {isRoTe && (
                         <div>
                             <label className="block text-xs font-medium text-slate-600 mb-1">Location</label>
-                            <select value={location} onChange={e => handleLocationChange(e.target.value)} className={selectCls} disabled={isLocalAdmin}>
-                                <option value="">Select Location</option>
-                                {locations.map(l => <option key={l.shortCode} value={l.location}>{l.location}</option>)}
-                            </select>
+                            <CustomSelect value={location} onChange={handleLocationChange} disabled={isLocalAdmin}
+                                placeholder="Select Location"
+                                options={locations.map(l => ({ value: l.location, label: l.location }))} />
                         </div>
                     )}
 
@@ -1134,10 +1106,9 @@ const ReportsPage = () => {
                     {officeType && filteredDepartments.length > 0 && (!isRoTe || location) && (
                         <div>
                             <label className="block text-xs font-medium text-slate-600 mb-1">Department</label>
-                            <select value={deptName} onChange={e => setDeptName(e.target.value)} className={selectCls}>
-                                <option value="">Select Department</option>
-                                {filteredDepartments.map(d => <option key={d.shortCode} value={d.name}>{d.name}</option>)}
-                            </select>
+                            <CustomSelect value={deptName} onChange={setDeptName}
+                                placeholder="Select Department"
+                                options={filteredDepartments.map(d => ({ value: d.name, label: d.name }))} />
                         </div>
                     )}
 
@@ -1196,7 +1167,7 @@ const ReportsPage = () => {
 
                 <div className="flex items-center gap-3">
                     <button onClick={handleApply} disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#0A66C2] text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                        className="flex items-center gap-2 px-4 py-2 bg-canopy text-white text-sm font-medium rounded-lg hover:bg-canopy-dark disabled:opacity-50 transition-colors">
                         <Search size={14} />
                         Apply Filters
                     </button>
@@ -1210,7 +1181,7 @@ const ReportsPage = () => {
                     {filtersApplied && cases.length > 0 && (
                         <div className="ml-auto">
                             <button onClick={exportToExcel} disabled={exporting}
-                                className="flex items-center gap-1.5 px-3 py-2 border border-emerald-200 text-emerald-700 bg-emerald-50 text-sm font-medium rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50">
+                                className="flex items-center gap-1.5 px-3 py-2 border border-canopy/20 text-canopy bg-canopy-tint text-sm font-medium rounded-lg hover:bg-canopy-tint transition-colors disabled:opacity-50">
                                 <Download size={13} />
                                 Export Excel
                             </button>
@@ -1225,20 +1196,20 @@ const ReportsPage = () => {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl border border-blue-200 shadow-sm p-4 mb-6"
+                    className="bg-gradient-to-r from-canopy-tint to-canopy-tint rounded-xl border border-canopy/20 shadow-sm p-4 mb-6"
                 >
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-[#0A66C2] flex items-center justify-center shadow-sm">
+                            <div className="w-10 h-10 rounded-lg bg-canopy flex items-center justify-center shadow-sm">
                                 <FileBarChart2 size={20} className="text-white" />
                             </div>
                             <div>
-                                <p className="text-xs font-medium text-blue-600">Total Records</p>
+                                <p className="text-xs font-medium text-canopy">Total Records</p>
                                 <p className="text-2xl font-bold text-slate-900">{casesTotalCount.toLocaleString()}</p>
                             </div>
                         </div>
                         {caseCountLoading && (
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#0A66C2]"></div>
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-canopy"></div>
                         )}
                     </div>
                 </motion.div>
@@ -1286,7 +1257,7 @@ const ReportsPage = () => {
                                         </tr>
                                     ) : (
                                         cases.map((c, idx) => (
-                                            <tr key={c.r_object_id || idx} className="hover:bg-blue-50/30 transition-colors group">
+                                            <tr key={c.r_object_id || idx} className="hover:bg-canopy-tint/30 transition-colors group">
                                                 <td className="px-4 py-2.5 text-slate-400 text-xs">
                                                     {(page - 1) * pageSize + idx + 1}
                                                 </td>
@@ -1302,7 +1273,7 @@ const ReportsPage = () => {
                                                 </td>
                                                 <td className="px-4 py-2.5">
                                                     {c.status ? (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-canopy-tint text-canopy">
                                                             {c.status}
                                                         </span>
                                                     ) : '-'}
@@ -1312,11 +1283,11 @@ const ReportsPage = () => {
                                                 <td className="px-4 py-2.5">
                                                     <div className="flex items-center justify-center gap-2">
                                                         <button onClick={() => setDetailCase(c)} title="Case Details"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-[#0A66C2] hover:bg-blue-50 transition-all">
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
                                                             <FileText size={15} />
                                                         </button>
                                                         <button onClick={() => setMovementCase(c)} title="Movement Register"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all">
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
                                                             <ClipboardList size={15} />
                                                         </button>
                                                     </div>
@@ -1334,7 +1305,7 @@ const ReportsPage = () => {
                                 <div className="flex items-center gap-2 text-sm text-slate-600">
                                     <span>Rows per page:</span>
                                     <select value={pageSize} onChange={e => handlePageSizeChange(Number(e.target.value))}
-                                        className="border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                        className="border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-canopy">
                                         {[5, 10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
                                     </select>
                                 </div>
@@ -1374,7 +1345,7 @@ const ReportsPage = () => {
                         onClick={() => setDigidakSubTab('inbox')}
                         className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
                             digidakSubTab === 'inbox'
-                                ? 'border-[#0A66C2] text-[#0A66C2]'
+                                ? 'border-canopy text-canopy'
                                 : 'border-transparent text-slate-600 hover:text-slate-800'
                         }`}
                     >
@@ -1384,7 +1355,7 @@ const ReportsPage = () => {
                         onClick={() => setDigidakSubTab('outbox')}
                         className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
                             digidakSubTab === 'outbox'
-                                ? 'border-[#0A66C2] text-[#0A66C2]'
+                                ? 'border-canopy text-canopy'
                                 : 'border-transparent text-slate-600 hover:text-slate-800'
                         }`}
                     >
@@ -1394,7 +1365,7 @@ const ReportsPage = () => {
                         onClick={() => setDigidakSubTab('draft')}
                         className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
                             digidakSubTab === 'draft'
-                                ? 'border-[#0A66C2] text-[#0A66C2]'
+                                ? 'border-canopy text-canopy'
                                 : 'border-transparent text-slate-600 hover:text-slate-800'
                         }`}
                     >
@@ -1414,22 +1385,22 @@ const ReportsPage = () => {
                     {/* Office Type */}
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">Office Type</label>
-                        <select value={digidakOfficeType} onChange={e => handleDigidakOfficeTypeChange(e.target.value)} className={selectCls} disabled={isLocalAdmin}>
-                            <option value="">Select</option>
-                            <option value="HO">HO</option>
-                            <option value="RO">RO</option>
-                            <option value="TE">TE</option>
-                        </select>
+                        <CustomSelect value={digidakOfficeType} onChange={handleDigidakOfficeTypeChange} disabled={isLocalAdmin}
+                            placeholder="Select"
+                            options={[
+                                { value: 'HO', label: 'HO' },
+                                { value: 'RO', label: 'RO' },
+                                { value: 'TE', label: 'TE' },
+                            ]} />
                     </div>
 
                     {/* Location — RO/TE only */}
                     {digidakIsRoTe && (
                         <div>
                             <label className="block text-xs font-medium text-slate-600 mb-1">Location</label>
-                            <select value={digidakLocation} onChange={e => handleDigidakLocationChange(e.target.value)} className={selectCls} disabled={isLocalAdmin}>
-                                <option value="">Select Location</option>
-                                {digidakLocations.map(l => <option key={l.shortCode} value={l.location}>{l.location}</option>)}
-                            </select>
+                            <CustomSelect value={digidakLocation} onChange={handleDigidakLocationChange} disabled={isLocalAdmin}
+                                placeholder="Select Location"
+                                options={digidakLocations.map(l => ({ value: l.location, label: l.location }))} />
                         </div>
                     )}
 
@@ -1437,16 +1408,11 @@ const ReportsPage = () => {
                     {digidakOfficeType && !digidakIsRoTe && (
                         <div>
                             <label className="block text-xs font-medium text-slate-600 mb-1">Department</label>
-                            <select value={digidakDeptName} onChange={e => setDigidakDeptName(e.target.value)} className={selectCls}>
-                                <option value="">Select Department</option>
-                                {filteredDigidakDepartments.length > 0 ? (
-                                    filteredDigidakDepartments.map(d => (
-                                        <option key={d.shortCode} value={d.name}>{d.name}</option>
-                                    ))
-                                ) : (
-                                    <option disabled>{digidakIsRoTe ? 'No departments available for this location' : 'No departments available'}</option>
-                                )}
-                            </select>
+                            <CustomSelect value={digidakDeptName} onChange={setDigidakDeptName}
+                                placeholder="Select Department"
+                                options={filteredDigidakDepartments.length > 0
+                                    ? filteredDigidakDepartments.map(d => ({ value: d.name, label: d.name }))
+                                    : [{ value: '', label: digidakIsRoTe ? 'No departments available for this location' : 'No departments available', disabled: true }]} />
                         </div>
                     )}
 
@@ -1454,10 +1420,9 @@ const ReportsPage = () => {
                     {digidakSubTab === 'inbox' && digidakOfficeType && (
                         <div>
                             <label className="block text-xs font-medium text-slate-600 mb-1">Username</label>
-                            <select value={digidakInboxUsername} onChange={e => setDigidakInboxUsername(e.target.value)} className={selectCls}>
-                                <option value="">Select Username</option>
-                                {(digidakInboxUsers || []).map(user => <option key={user} value={user}>{user}</option>)}
-                            </select>
+                            <CustomSelect value={digidakInboxUsername} onChange={setDigidakInboxUsername}
+                                placeholder="Select Username"
+                                options={(digidakInboxUsers || []).map(user => ({ value: user, label: user }))} />
                         </div>
                     )}
 
@@ -1613,7 +1578,7 @@ const ReportsPage = () => {
                         className={`flex items-center gap-1.5 px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors ${
                             !digidakOfficeType || (digidakSubTab !== 'inbox' && !digidakIsRoTe && !digidakDeptName) || (digidakSubTab !== 'inbox' && digidakIsRoTe && !digidakLocation)
                                 ? 'bg-slate-300 cursor-not-allowed'
-                                : 'bg-[#0A66C2] hover:bg-[#094d92]'
+                                : 'bg-canopy hover:bg-canopy-dark'
                         }`}>
                         <Search size={15} /> Apply Filters
                     </button>
@@ -1623,7 +1588,7 @@ const ReportsPage = () => {
                     </button>
                     {/* Error message — displayed next to buttons */}
                     {error && (
-                        <div className="text-red-600 text-sm flex items-center gap-1.5">
+                        <div className="text-danger text-sm flex items-center gap-1.5">
                             <AlertCircle size={16} />
                             {error}
                         </div>
@@ -1631,7 +1596,7 @@ const ReportsPage = () => {
                     {/* Export button — only visible after results are loaded */}
                     {filtersApplied && digidakResults.length > 0 && (
                         <button onClick={exportDigidakToExcel} disabled={exporting}
-                            className="flex items-center gap-1.5 px-3 py-2 border border-emerald-200 text-emerald-700 bg-emerald-50 text-sm font-medium rounded-lg hover:bg-emerald-100 transition-colors disabled:opacity-50 ml-auto">
+                            className="flex items-center gap-1.5 px-3 py-2 border border-canopy/20 text-canopy bg-canopy-tint text-sm font-medium rounded-lg hover:bg-canopy-tint transition-colors disabled:opacity-50 ml-auto">
                             <Download size={13} />
                             Export Excel
                         </button>
@@ -1645,20 +1610,20 @@ const ReportsPage = () => {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl border border-blue-200 shadow-sm p-4 mb-6"
+                    className="bg-gradient-to-r from-canopy-tint to-canopy-tint rounded-xl border border-canopy/20 shadow-sm p-4 mb-6"
                 >
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-[#0A66C2] flex items-center justify-center shadow-sm">
+                            <div className="w-10 h-10 rounded-lg bg-canopy flex items-center justify-center shadow-sm">
                                 <FileBarChart2 size={20} className="text-white" />
                             </div>
                             <div>
-                                <p className="text-xs font-medium text-blue-600">Total Records</p>
+                                <p className="text-xs font-medium text-canopy">Total Records</p>
                                 <p className="text-2xl font-bold text-slate-900">{digidakTotalCount.toLocaleString()}</p>
                             </div>
                         </div>
                         {countLoading && (
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#0A66C2]"></div>
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-canopy"></div>
                         )}
                     </div>
                 </motion.div>
@@ -1668,7 +1633,7 @@ const ReportsPage = () => {
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 {loading ? (
                     <div className="flex items-center justify-center py-12">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0A66C2]"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-canopy"></div>
                     </div>
                 ) : !filtersApplied ? (
                     <div className="px-6 py-12 text-center text-slate-400">
@@ -1710,7 +1675,7 @@ const ReportsPage = () => {
                                         </tr>
                                     ) : (
                                         digidakResults.map((item, idx) => (
-                                            <tr key={`${item.r_object_id}-${idx}`} className="hover:bg-blue-50/30 transition-colors">
+                                            <tr key={`${item.r_object_id}-${idx}`} className="hover:bg-canopy-tint/30 transition-colors">
                                                 <td className="px-4 py-2.5 text-slate-400 text-xs">{(page - 1) * pageSize + idx + 1}</td>
                                                 <td className="px-4 py-2.5 font-medium text-slate-900 font-mono">{item.uid_number || '-'}</td>
                                                 <td className="px-4 py-2.5 text-slate-600 max-w-[250px] truncate" title={item.letter_subject}>{item.letter_subject || '-'}</td>
@@ -1722,7 +1687,7 @@ const ReportsPage = () => {
                                                 <td className="px-4 py-2.5 text-slate-600 text-xs">{item.priority || '-'}</td>
                                                 <td className="px-4 py-2.5 text-slate-600 text-xs">{item.secrecy || '-'}</td>
                                                 <td className="px-4 py-2.5">
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-canopy-tint text-canopy">
                                                         {item.status || '-'}
                                                     </span>
                                                 </td>
@@ -1732,7 +1697,7 @@ const ReportsPage = () => {
                                                 {digidakSubTab !== 'inbox' && (
                                                     <td className="px-4 py-2.5 text-xs">
                                                         <span className={`px-2 py-0.5 rounded-full font-medium ${
-                                                            item.decision === 'Inward' ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'
+                                                            item.decision === 'Inward' ? 'bg-canopy-tint text-canopy' : 'bg-harvest/10 text-harvest'
                                                         }`}>
                                                             {item.decision || '-'}
                                                         </span>
@@ -1742,7 +1707,7 @@ const ReportsPage = () => {
                                                 <td className="px-4 py-2.5">
                                                     <div className="flex items-center justify-center">
                                                         <button onClick={() => setDigidakMovement(item)} title="Movement Register"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all">
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
                                                             <ClipboardList size={15} />
                                                         </button>
                                                     </div>
@@ -1760,7 +1725,7 @@ const ReportsPage = () => {
                                 <div className="flex items-center gap-2 text-sm text-slate-600">
                                     <span>Rows per page:</span>
                                     <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); fetchDigidakReport(1, Number(e.target.value)); }}
-                                        className="border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                        className="border border-slate-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-canopy">
                                         {[5, 10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
                                     </select>
                                 </div>
@@ -1804,22 +1769,22 @@ const ReportsPage = () => {
                     {/* Office Type */}
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">Office Type</label>
-                        <select value={rajbhashaOfficeType} onChange={e => handleRajbhashaOfficeTypeChange(e.target.value)} className={selectCls} disabled={isLocalAdmin}>
-                            <option value="">Select</option>
-                            <option value="HO">HO</option>
-                            <option value="RO">RO</option>
-                            <option value="TE">TE</option>
-                        </select>
+                        <CustomSelect value={rajbhashaOfficeType} onChange={handleRajbhashaOfficeTypeChange} disabled={isLocalAdmin}
+                            placeholder="Select"
+                            options={[
+                                { value: 'HO', label: 'HO' },
+                                { value: 'RO', label: 'RO' },
+                                { value: 'TE', label: 'TE' },
+                            ]} />
                     </div>
 
                     {/* Location — RO/TE only */}
                     {rajbhashaIsRoTe && (
                         <div>
                             <label className="block text-xs font-medium text-slate-600 mb-1">Location</label>
-                            <select value={rajbhashaLocation} onChange={e => handleRajbhashaLocationChange(e.target.value)} className={selectCls} disabled={isLocalAdmin}>
-                                <option value="">Select Location</option>
-                                {rajbhashaLocations.map(l => <option key={l.shortCode} value={l.location}>{l.location}</option>)}
-                            </select>
+                            <CustomSelect value={rajbhashaLocation} onChange={handleRajbhashaLocationChange} disabled={isLocalAdmin}
+                                placeholder="Select Location"
+                                options={rajbhashaLocations.map(l => ({ value: l.location, label: l.location }))} />
                         </div>
                     )}
 
@@ -1827,10 +1792,9 @@ const ReportsPage = () => {
                     {rajbhashaOfficeType && filteredRajbhashaDepartments.length > 0 && !rajbhashaIsRoTe && (
                         <div>
                             <label className="block text-xs font-medium text-slate-600 mb-1">Department</label>
-                            <select value={rajbhashaDeptName} onChange={e => setRajbhashaDeptName(e.target.value)} className={selectCls}>
-                                <option value="">Select Department</option>
-                                {filteredRajbhashaDepartments.map(d => <option key={d.shortCode} value={d.name}>{d.name}</option>)}
-                            </select>
+                            <CustomSelect value={rajbhashaDeptName} onChange={setRajbhashaDeptName}
+                                placeholder="Select Department"
+                                options={filteredRajbhashaDepartments.map(d => ({ value: d.name, label: d.name }))} />
                         </div>
                     )}
 
@@ -1849,7 +1813,7 @@ const ReportsPage = () => {
 
                 <div className="flex items-center gap-3">
                     <button onClick={handleRajbhashaApply} disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#0A66C2] text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                        className="flex items-center gap-2 px-4 py-2 bg-canopy text-white text-sm font-medium rounded-lg hover:bg-canopy-dark disabled:opacity-50 transition-colors">
                         <Search size={14} />
                         Apply Filters
                     </button>
@@ -1860,13 +1824,13 @@ const ReportsPage = () => {
                     </button>
                     {filtersApplied && rajbhashaReport && (
                         <button onClick={handleRajbhashaExport} disabled={exporting}
-                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors">
+                            className="flex items-center gap-2 px-4 py-2 bg-canopy text-white text-sm font-medium rounded-lg hover:bg-canopy disabled:opacity-50 transition-colors">
                             <Download size={14} />
                             Export
                         </button>
                     )}
                     {error && (
-                        <div className="text-red-600 text-sm flex items-center gap-1.5">
+                        <div className="text-danger text-sm flex items-center gap-1.5">
                             <AlertCircle size={16} />
                             {error}
                         </div>
@@ -1883,7 +1847,7 @@ const ReportsPage = () => {
                     </div>
                 ) : loading ? (
                     <div className="flex items-center justify-center py-12">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0A66C2]"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-canopy"></div>
                     </div>
                 ) : rajbhashaReport ? (
                     <div className="space-y-8">
@@ -1898,9 +1862,9 @@ const ReportsPage = () => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {rajbhashaReport.grid1?.rows && rajbhashaReport.grid1.rows.map((row, idx) => (
-                                        <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
+                                        <tr key={idx} className="hover:bg-canopy-tint/30 transition-colors">
                                             <td className="px-4 py-3 font-medium text-slate-900">{row.summary}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-[#0A66C2]">{row.total}</td>
+                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-canopy">{row.total}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -1921,12 +1885,12 @@ const ReportsPage = () => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {rajbhashaReport.grid2?.rows && rajbhashaReport.grid2.rows.map((row, idx) => (
-                                        <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
+                                        <tr key={idx} className="hover:bg-canopy-tint/30 transition-colors">
                                             <td className="px-4 py-3 font-medium text-slate-900">{row.summary}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-[#0A66C2]">{row.no_of_letters_english}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-orange-600">{row.replied_in_hindi}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-green-600">{row.replied_in_english}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-red-600">{row.not_replied_to}</td>
+                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-canopy">{row.no_of_letters_english}</td>
+                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-harvest">{row.replied_in_hindi}</td>
+                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-canopy">{row.replied_in_english}</td>
+                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-danger">{row.not_replied_to}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -1947,12 +1911,12 @@ const ReportsPage = () => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {rajbhashaReport.grid3?.rows && rajbhashaReport.grid3.rows.map((row, idx) => (
-                                        <tr key={idx} className={`${row.summary === 'Total' ? 'bg-slate-100 font-semibold' : 'hover:bg-blue-50/30'} transition-colors`}>
+                                        <tr key={idx} className={`${row.summary === 'Total' ? 'bg-slate-100 font-semibold' : 'hover:bg-canopy-tint/30'} transition-colors`}>
                                             <td className="px-4 py-3 font-medium text-slate-900">{row.summary}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-purple-600">{row.hindi_bilingual}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-amber-600">{row.english_only}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-blue-600">{row.total_letters_issued}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-indigo-600">{row.percentage}</td>
+                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-canopy">{row.hindi_bilingual}</td>
+                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-harvest">{row.english_only}</td>
+                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-canopy">{row.total_letters_issued}</td>
+                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-canopy">{row.percentage}</td>
                                         </tr>
                                     ))}
                                 </tbody>

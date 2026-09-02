@@ -51,7 +51,7 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
             <div ref={containerRef} className="relative">
                 <div
                     onClick={() => setIsOpen(!isOpen)}
-                    className="w-full border border-slate-200 rounded-lg bg-white p-2 cursor-pointer hover:border-slate-300 transition-colors flex items-center gap-2 min-h-10"
+                    className="w-full border border-line rounded-lg bg-white p-2 cursor-pointer hover:border-slate-300 transition-colors flex items-center gap-2 min-h-10"
                 >
                     {selectedValues.length === 0 ? (
                         <span className="text-slate-400 text-sm">{placeholder}</span>
@@ -60,12 +60,12 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
                             {selectedValues.map(value => (
                                 <span
                                     key={value}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-canopy-tint text-canopy rounded-full text-xs font-medium"
                                 >
                                     {value}
                                     <button
                                         onClick={(e) => handleRemoveTag(value, e)}
-                                        className="text-blue-600 hover:text-blue-800 p-0.5"
+                                        className="text-canopy hover:text-canopy-dark p-0.5"
                                     >
                                         <X size={14} />
                                     </button>
@@ -77,7 +77,7 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
                 </div>
 
                 {isOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg shadow-lg z-10">
                         <div className="p-3 border-b border-slate-100">
                             <div className="relative">
                                 <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -86,7 +86,7 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
                                     placeholder="Search..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                    className="w-full pl-8 pr-3 py-1.5 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy"
                                     onClick={(e) => e.stopPropagation()}
                                 />
                             </div>
@@ -96,7 +96,7 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
                             {options.length > 0 && (
                                 <>
                                     <label
-                                        className="flex items-center gap-2 px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-slate-100 font-semibold bg-slate-50"
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-canopy-tint cursor-pointer border-b border-slate-100 font-semibold bg-slate-50"
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         <input
@@ -104,11 +104,11 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
                                             checked={selectedValues.length === options.length && options.length > 0}
                                             indeterminate={selectedValues.length > 0 && selectedValues.length < options.length}
                                             onChange={handleSelectAll}
-                                            className="w-4 h-4 rounded cursor-pointer accent-blue-600"
+                                            className="w-4 h-4 rounded cursor-pointer accent-canopy"
                                         />
                                         <span className="text-sm text-slate-700 flex-1">Select All</span>
                                         {selectedValues.length === options.length && options.length > 0 && (
-                                            <span className="text-blue-600 text-sm">✓</span>
+                                            <span className="text-canopy text-sm">✓</span>
                                         )}
                                     </label>
                                 </>
@@ -132,11 +132,11 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
                                             type="checkbox"
                                             checked={selectedValues.includes(option)}
                                             onChange={() => handleSelect(option)}
-                                            className="w-4 h-4 rounded cursor-pointer accent-blue-600"
+                                            className="w-4 h-4 rounded cursor-pointer accent-canopy"
                                         />
                                         <span className="text-sm text-slate-700 flex-1">{option}</span>
                                         {selectedValues.includes(option) && (
-                                            <span className="text-blue-600 text-sm">✓</span>
+                                            <span className="text-canopy text-sm">✓</span>
                                         )}
                                     </label>
                                 ))

@@ -1,9 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { GitBranch, Users, Compass, Briefcase, UsersRound, Database, Network, ClipboardList, FolderCog, Building2, FileBarChart2 } from 'lucide-react';
+import { GitBranch, Users, Compass, Briefcase, Database, Network, FolderCog, Building2, FileBarChart2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../../api/axios';
+import { cn } from '../../utils/cn';
 
-const Sidebar = () => {
+const SECTIONS = ['Records', 'Configuration', 'Tools'];
+
+const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
     const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
     const adminRole = storedUser.properties?.admin_role || storedUser.admin_role || null;
     const username = storedUser.properties?.user_name || storedUser.user_name || null;
@@ -13,14 +16,11 @@ const Sidebar = () => {
     const [userOfficeType, setUserOfficeType] = useState(null);
     const [userDepartment, setUserDepartment] = useState(null);
 
-    console.log('Sidebar - username:', username, 'isLocalAdmin:', isLocalAdmin, 'adminRole:', adminRole);
-
     // Fetch office_type and department from cms_user_profile when component mounts
     useEffect(() => {
         if (isLocalAdmin && username) {
             api.get('/users/profile-context', { params: { username } })
                 .then(res => {
-                    console.log('[Sidebar] Profile context response:', res.data);
                     if (res.data?.office_type) {
                         setUserOfficeType(res.data.office_type);
                     }
@@ -40,12 +40,7 @@ const Sidebar = () => {
                     }
 
                     if (dept) {
-                        // Normalize to uppercase for comparison
-                        const normalizedDept = String(dept).toUpperCase();
-                        console.log('[Sidebar] Setting department to:', normalizedDept);
-                        setUserDepartment(normalizedDept);
-                    } else {
-                        console.log('[Sidebar] No department found in response. Available keys:', Object.keys(res.data || {}));
+                        setUserDepartment(String(dept).toUpperCase());
                     }
                 })
                 .catch(err => console.error('Failed to fetch profile context:', err));
@@ -53,36 +48,30 @@ const Sidebar = () => {
     }, [isLocalAdmin, username]);
 
     const allNavItems = [
-        { name: 'User Management',        path: '/dashboard/users',     icon: Users,        roles: null },
-        { name: 'NABARD Department Management',  path: '/dashboard/departments', icon: Building2,  roles: ['Super Admin'] },
-        { name: 'HO Vertical Management',    path: '/dashboard/verticals', icon: Network,      roles: ['Super Admin', 'Local Admin'], hideForLocalAdminIf: 'ROTE' },
-        { name: 'RO/TE Department Head Assignment',  path: '/dashboard/verticals2', icon: Network,     roles: ['Super Admin', 'Local Admin'], hideForLocalAdminIf: 'HO' },
-        { name: 'Metadata',     path: '/dashboard/metadata',  icon: FolderCog,    roles: null },
-        { name: 'SFS',          path: '/dashboard/sfs',       icon: FolderCog,    roles: null, showOnlyForHRMD: true },
-        { name: 'Cases',        path: '/dashboard/cases',     icon: Briefcase,    roles: null },
-        { name: 'Reports',      path: '/dashboard/reports',   icon: FileBarChart2, roles: null },
-        { name: 'Workflows',    path: '/dashboard/workflows', icon: GitBranch,    roles: null, hideForLocalAdmin: true },
-        { name: 'Query',        path: '/dashboard/query',     icon: Database,     roles: null, hideForLocalAdmin: true },
+        { name: 'User Management',        path: '/dashboard/users',     icon: Users,        roles: null, section: 'Records' },
+        { name: 'Cases',        path: '/dashboard/cases',     icon: Briefcase,    roles: null, section: 'Records' },
+        { name: 'Reports',      path: '/dashboard/reports',   icon: FileBarChart2, roles: null, section: 'Records' },
+        { name: 'Workflows',    path: '/dashboard/workflows', icon: GitBranch,    roles: null, section: 'Records', hideForLocalAdmin: true },
+        { name: 'NABARD Department Management',  path: '/dashboard/departments', icon: Building2,  roles: ['Super Admin'], section: 'Configuration' },
+        { name: 'HO Vertical Management',    path: '/dashboard/verticals', icon: Network,      roles: ['Super Admin', 'Local Admin'], section: 'Configuration', hideForLocalAdminIf: 'ROTE' },
+        { name: 'RO/TE Department Head Assignment',  path: '/dashboard/verticals2', icon: Network,     roles: ['Super Admin', 'Local Admin'], section: 'Configuration', hideForLocalAdminIf: 'HO' },
+        { name: 'Metadata',     path: '/dashboard/metadata',  icon: FolderCog,    roles: null, section: 'Configuration' },
+        { name: 'SFS',          path: '/dashboard/sfs',       icon: FolderCog,    roles: null, section: 'Configuration', showOnlyForHRMD: true },
+        { name: 'Query',        path: '/dashboard/query',     icon: Database,     roles: null, section: 'Tools', hideForLocalAdmin: true },
     ];
 
     const navItems = allNavItems.filter(item => {
         // Check if item is only for HRMD department Local Admin
         if (item.showOnlyForHRMD) {
-            console.log('[Sidebar] Checking SFS menu - isSuperAdmin:', isSuperAdmin, 'isLocalAdmin:', isLocalAdmin, 'userDepartment:', userDepartment);
             // Super Admin can always see it
             if (isSuperAdmin) {
-                console.log('[Sidebar] Super Admin - showing SFS');
                 return true;
             }
             // Local Admin can only see it if they're HRMD
             if (isLocalAdmin) {
-                const normalizedDept = String(userDepartment).toUpperCase();
-                const isHRMD = normalizedDept === 'HRMD';
-                console.log('[Sidebar] Local Admin HRMD check - userDepartment:', userDepartment, 'normalized:', normalizedDept, 'isHRMD:', isHRMD);
-                return isHRMD;
+                return String(userDepartment).toUpperCase() === 'HRMD';
             }
             // Regular users cannot see it
-            console.log('[Sidebar] Regular user - hiding SFS');
             return false;
         }
 
@@ -107,46 +96,70 @@ const Sidebar = () => {
     });
 
     return (
-        <aside className="w-64 bg-white border-r border-slate-200 flex flex-col h-screen fixed left-0 top-0 z-20 font-sans">
-            {/* Logo Section */}
-            <div className="p-6 mb-2">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#0A66C2] rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
-                        <Compass className="text-white" size={24} />
+        <>
+            {/* Mobile backdrop */}
+            {isOpen && (
+                <div
+                    className="fixed inset-0 z-30 bg-ink/40 lg:hidden"
+                    onClick={onClose}
+                    aria-hidden="true"
+                />
+            )}
+            <aside
+                className={cn(
+                    'fixed left-0 top-0 z-40 flex h-[100dvh] w-64 flex-col border-r border-line bg-white font-sans transition-transform duration-300 ease-in-out lg:translate-x-0',
+                    isOpen ? 'translate-x-0' : '-translate-x-full'
+                )}
+            >
+                {/* Wordmark */}
+                <div className="flex items-center gap-3 px-5 py-5">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-canopy shadow-card">
+                        <Compass className="text-white" size={22} />
                     </div>
-                    <div>
-                        <h1 className="text-lg font-bold text-slate-900 leading-tight">NEO Admin</h1>
+                    <div className="leading-tight">
+                        <p className="font-display text-title font-semibold text-ink">NEO Admin</p>
+                        <p className="font-mono text-[0.65rem] uppercase tracking-widest text-slate-400">NABARD</p>
                     </div>
                 </div>
-            </div>
 
-            {/* Main Navigation */}
-            <div className="flex-1 px-4 overflow-y-auto">
-                <div className="space-y-1">
-                    {navItems.map((item) => (
-                        <NavLink
-                            key={item.path}
-                            to={item.path}
-                            className={({ isActive }) =>
-                                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                                    isActive
-                                        ? 'bg-blue-50 text-[#0A66C2]'
-                                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                                }`
-                            }
-                        >
-                            {({ isActive }) => (
-                                <>
-                                    <item.icon size={18} className={isActive ? 'text-[#0A66C2]' : 'text-slate-500'} />
-                                    {item.name}
-                                </>
-                            )}
-                        </NavLink>
-                    ))}
-                </div>
-            </div>
-            
-        </aside>
+                {/* Navigation */}
+                <nav className="flex-1 space-y-5 overflow-y-auto px-3 pb-6 scrollbar-thin">
+                    {SECTIONS.map(section => {
+                        const items = navItems.filter(i => i.section === section);
+                        if (items.length === 0) return null;
+                        return (
+                            <div key={section} className="space-y-1">
+                                <p className="px-3 pb-1 font-mono text-[0.65rem] uppercase tracking-widest text-slate-400">
+                                    {section}
+                                </p>
+                                {items.map(item => (
+                                    <NavLink
+                                        key={item.path}
+                                        to={item.path}
+                                        onClick={onClose}
+                                        className={({ isActive }) =>
+                                            cn(
+                                                'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-body font-medium transition-colors',
+                                                isActive
+                                                    ? 'bg-canopy-tint text-canopy before:absolute before:-left-3 before:top-1 before:bottom-1 before:w-[3px] before:rounded-full before:bg-canopy'
+                                                    : 'text-slate-600 hover:bg-paper hover:text-ink'
+                                            )
+                                        }
+                                    >
+                                        {({ isActive }) => (
+                                            <>
+                                                <item.icon size={17} className={isActive ? 'text-canopy' : 'text-slate-400'} />
+                                                {item.name}
+                                            </>
+                                        )}
+                                    </NavLink>
+                                ))}
+                            </div>
+                        );
+                    })}
+                </nav>
+            </aside>
+        </>
     );
 };
 

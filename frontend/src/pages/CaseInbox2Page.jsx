@@ -3,22 +3,13 @@ import api from '../api/axios';
 import { getLocations, fetchDepartments } from '../data/nabardMetadata';
 import {
     Inbox, Loader2, X, User, Building2, MapPin, FolderOpen,
-    FileText, Info, ClipboardList, ChevronLeft, ChevronRight, ChevronsLeft, ChevronDown
+    FileText, Info, ClipboardList, ChevronLeft, ChevronRight, ChevronsLeft
 } from 'lucide-react';
+import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 const PAGE_SIZE = 20;
 
-const selectCls         = 'w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2] bg-white appearance-none cursor-pointer pr-8';
 const disabledSelectCls = 'w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-slate-100 text-slate-400 cursor-not-allowed appearance-none pr-8';
-
-const SelectWrapper = ({ children }) => (
-    <div className="relative">
-        {children}
-        <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-            <ChevronDown size={14} className="text-slate-400" />
-        </div>
-    </div>
-);
 
 const FieldLabel = ({ icon: Icon, label }) => (
     <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 mb-1">
@@ -43,9 +34,9 @@ const CaseDetailsModal = ({ caseItem, onClose }) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50 shrink-0">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm">
+                        <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
                             <FileText size={17} className="text-white" />
                         </div>
                         <div>
@@ -61,7 +52,7 @@ const CaseDetailsModal = ({ caseItem, onClose }) => {
 
                 <div className="overflow-y-auto flex-1 p-6">
                     <div className="flex items-center gap-2 mb-3">
-                        <Info size={14} className="text-[#0A66C2]" />
+                        <Info size={14} className="text-canopy" />
                         <h3 className="text-sm font-bold text-slate-800">Case Details</h3>
                     </div>
                     <div className="bg-slate-50 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 border border-slate-100">
@@ -124,9 +115,9 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50 shrink-0">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm">
+                        <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
                             <ClipboardList size={17} className="text-white" />
                         </div>
                         <div>
@@ -144,10 +135,10 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
 
                 <div className="overflow-y-auto flex-1 p-6">
                     <div className="flex items-center gap-2 mb-3">
-                        <ClipboardList size={14} className="text-[#0A66C2]" />
+                        <ClipboardList size={14} className="text-canopy" />
                         <h3 className="text-sm font-bold text-slate-800">Movement Register</h3>
                         {!loading && (
-                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                            <span className="px-2 py-0.5 bg-canopy-tint text-canopy text-xs font-semibold rounded-full">
                                 {movement.length}
                             </span>
                         )}
@@ -155,7 +146,7 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
 
                     {loading ? (
                         <div className="flex items-center gap-2 py-12 justify-center text-slate-400">
-                            <Loader2 size={18} className="animate-spin text-[#0A66C2]" />
+                            <Loader2 size={18} className="animate-spin text-canopy" />
                             <span className="text-sm">Loading movement register…</span>
                         </div>
                     ) : movement.length === 0 ? (
@@ -177,7 +168,7 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {movement.map((rec, idx) => (
-                                        <tr key={idx} className="hover:bg-blue-50/30 transition-colors">
+                                        <tr key={idx} className="hover:bg-canopy-tint/30 transition-colors">
                                             <td className="px-3 py-2 text-slate-400 font-mono">{idx + 1}</td>
                                             {movCols.map(col => (
                                                 <td key={col.key} className="px-3 py-2 text-slate-700 max-w-xs truncate"
@@ -407,7 +398,7 @@ const CaseInbox2Page = () => {
     const getCaseId       = (c) => p(c, 'id') || c.id || '';
 
     return (
-        <div className="max-w-7xl mx-auto h-full flex flex-col">
+        <div className="flex h-full flex-col">
             {detailCase   && <CaseDetailsModal     caseItem={detailCase}   onClose={() => setDetailCase(null)} />}
             {movementCase && <MovementRegisterModal caseItem={movementCase} onClose={() => setMovementCase(null)} />}
 
@@ -416,28 +407,28 @@ const CaseInbox2Page = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                         <FieldLabel icon={Building2} label="Office Type" />
-                        <SelectWrapper>
-                            <select value={officeType} onChange={e => handleOfficeTypeChange(e.target.value)}
-                                disabled={isLocalAdmin}
-                                className={isLocalAdmin ? disabledSelectCls : selectCls}>
-                                <option value="">— Select office type —</option>
-                                <option value="HO">HO — Head Office</option>
-                                <option value="RO">RO — Regional Office</option>
-                                <option value="TE">TE — Training Establishment</option>
-                            </select>
-                        </SelectWrapper>
+                        <CustomSelect
+                            value={officeType}
+                            onChange={handleOfficeTypeChange}
+                            disabled={isLocalAdmin}
+                            placeholder="— Select office type —"
+                            options={[
+                                { value: 'HO', label: 'HO — Head Office' },
+                                { value: 'RO', label: 'RO — Regional Office' },
+                                { value: 'TE', label: 'TE — Training Establishment' },
+                            ]}
+                        />
                     </div>
                     <div>
                         <FieldLabel icon={MapPin} label="Location" />
                         {isRoTe ? (
-                            <SelectWrapper>
-                                <select value={location} onChange={e => handleLocationChange(e.target.value)}
-                                    disabled={isLocalAdmin}
-                                    className={isLocalAdmin ? disabledSelectCls : selectCls}>
-                                    <option value="">— Select location —</option>
-                                    {locations.map(l => <option key={l.shortCode} value={l.location}>{l.location}</option>)}
-                                </select>
-                            </SelectWrapper>
+                            <CustomSelect
+                                value={location}
+                                onChange={handleLocationChange}
+                                disabled={isLocalAdmin}
+                                placeholder="— Select location —"
+                                options={locations.map(l => ({ value: l.location, label: l.location }))}
+                            />
                         ) : officeType === 'HO' ? (
                             <input readOnly value="Mumbai (Head Office)" className={disabledSelectCls} />
                         ) : (
@@ -446,32 +437,30 @@ const CaseInbox2Page = () => {
                     </div>
                     <div>
                         <FieldLabel icon={FolderOpen} label="Department" />
-                        <SelectWrapper>
-                            <select value={department?.shortCode || ''} onChange={e => handleDepartmentChange(e.target.value)}
-                                disabled={!officeType || (isRoTe && !location)}
-                                className={!officeType || (isRoTe && !location) ? disabledSelectCls : selectCls}>
-                                <option value="">{!officeType ? '— Select office first —' : (isRoTe && !location) ? '— Select location first —' : '— All departments —'}</option>
-                                {departments.map(d => <option key={d.shortCode} value={d.shortCode}>{d.name}</option>)}
-                            </select>
-                        </SelectWrapper>
+                        <CustomSelect
+                            value={department?.shortCode || ''}
+                            onChange={handleDepartmentChange}
+                            disabled={!officeType || (isRoTe && !location)}
+                            placeholder={!officeType ? '— Select office first —' : (isRoTe && !location) ? '— Select location first —' : '— All departments —'}
+                            options={departments.map(d => ({ value: d.shortCode, label: d.name }))}
+                        />
                     </div>
                     <div>
                         <FieldLabel icon={User} label="User Name" />
-                        <SelectWrapper>
-                            {/* Show filtered users if department selected, otherwise show all users */}
-                            {(() => {
-                                const displayUsers = department && isRoTe ? filteredUsers : users;
-                                const isEmpty = displayUsers.length === 0;
-                                return (
-                                    <select value={selectedUser || ''} onChange={e => handleSelectUser(e.target.value)}
-                                        disabled={loadingUsers || isEmpty}
-                                        className={loadingUsers || isEmpty ? disabledSelectCls : selectCls}>
-                                        <option value="">{loadingUsers ? 'Loading users…' : isEmpty ? '— No matching users —' : '— Select user —'}</option>
-                                        {displayUsers.map(u => <option key={u.r_object_id || u.user_login_name} value={u.object_name}>{u.object_name}</option>)}
-                                    </select>
-                                );
-                            })()}
-                        </SelectWrapper>
+                        {/* Show filtered users if department selected, otherwise show all users */}
+                        {(() => {
+                            const displayUsers = department && isRoTe ? filteredUsers : users;
+                            const isEmpty = displayUsers.length === 0;
+                            return (
+                                <CustomSelect
+                                    value={selectedUser || ''}
+                                    onChange={handleSelectUser}
+                                    disabled={loadingUsers || isEmpty}
+                                    placeholder={loadingUsers ? 'Loading users…' : isEmpty ? '— No matching users —' : '— Select user —'}
+                                    options={displayUsers.map(u => ({ value: u.object_name, label: u.object_name }))}
+                                />
+                            );
+                        })()}
                     </div>
                 </div>
             </div>
@@ -481,7 +470,7 @@ const CaseInbox2Page = () => {
 
                 {/* Panel header */}
                 <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-3">
-                    <ClipboardList size={15} className="text-[#0A66C2]" />
+                    <ClipboardList size={15} className="text-canopy" />
                     <span className="text-sm font-semibold text-slate-700">
                         {selectedUser ? `Inbox — ${selectedUser}` : 'Inbox Tasks'}
                     </span>
@@ -503,12 +492,12 @@ const CaseInbox2Page = () => {
 
                     {selectedUser && loadingCases && (
                         <div className="flex items-center justify-center h-full py-16">
-                            <Loader2 size={24} className="animate-spin text-[#0A66C2]" />
+                            <Loader2 size={24} className="animate-spin text-canopy" />
                         </div>
                     )}
 
                     {selectedUser && !loadingCases && error && (
-                        <div className="flex flex-col items-center justify-center h-full gap-2 text-red-500 py-16">
+                        <div className="flex flex-col items-center justify-center h-full gap-2 text-danger py-16">
                             <p className="text-sm">{error}</p>
                         </div>
                     )}
@@ -545,15 +534,15 @@ const CaseInbox2Page = () => {
                                         <td className="px-4 py-3 text-slate-600 text-xs">{getCaseDept(c)}</td>
                                         <td className="px-4 py-3 text-slate-600 text-xs">{getCaseHoRo(c)}</td>
                                         <td className="px-4 py-3">
-                                            <span className="px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 font-medium">
+                                            <span className="px-2 py-0.5 text-xs rounded-full bg-canopy-tint text-canopy font-medium">
                                                 {getCaseStatus(c)}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
                                             {getCasePriority(c) !== '—' ? (
                                                 <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                                                    getCasePriority(c) === 'High'   ? 'bg-red-100 text-red-700' :
-                                                    getCasePriority(c) === 'Medium' ? 'bg-amber-100 text-amber-700' :
+                                                    getCasePriority(c) === 'High'   ? 'bg-danger-tint text-danger' :
+                                                    getCasePriority(c) === 'Medium' ? 'bg-harvest/15 text-harvest' :
                                                     'bg-slate-100 text-slate-600'
                                                 }`}>{getCasePriority(c)}</span>
                                             ) : '—'}
@@ -563,14 +552,14 @@ const CaseInbox2Page = () => {
                                                 <button
                                                     onClick={() => setDetailCase(c)}
                                                     title="Case Details"
-                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#0A66C2] hover:bg-blue-50 transition-all"
+                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all"
                                                 >
                                                     <FileText size={15} />
                                                 </button>
                                                 <button
                                                     onClick={() => setMovementCase(c)}
                                                     title="Movement Register"
-                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all"
                                                 >
                                                     <ClipboardList size={15} />
                                                 </button>

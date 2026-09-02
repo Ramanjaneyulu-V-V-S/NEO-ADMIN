@@ -4,36 +4,19 @@ import { getLocations } from '../data/nabardMetadata.js';
 import {
     CheckCircle2, AlertCircle, X, Loader2, Plus, Hash, RefreshCw, Trash2, FileText
 } from 'lucide-react';
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-const Toast = ({ toast, onDismiss }) => {
-    useEffect(() => {
-        if (!toast) return;
-        const t = setTimeout(onDismiss, toast.type === 'success' ? 3000 : 5000);
-        return () => clearTimeout(t);
-    }, [toast, onDismiss]);
-    if (!toast) return null;
-    const styles = { success: 'bg-green-50 text-green-800 border-green-200', error: 'bg-red-50 text-red-800 border-red-200' };
-    const Icon = toast.type === 'success' ? CheckCircle2 : AlertCircle;
-    return (
-        <div className={`fixed top-5 right-5 z-50 flex items-start gap-3 px-4 py-3 border rounded-xl shadow-lg max-w-sm ${styles[toast.type]}`}>
-            <Icon size={18} className="mt-0.5 shrink-0" />
-            <div className="flex-1 text-sm font-medium">{toast.message}</div>
-            <button onClick={onDismiss}><X size={16} /></button>
-        </div>
-    );
-};
+import { PageHeader, Tabs, useToast } from '../components/ui';
+import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 const inputCls = (err) =>
-    `w-full px-4 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] ${
-        err ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white hover:border-slate-300'
+    `w-full px-4 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy ${
+        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
     }`;
 
 const selectCls = (err, disabled) => disabled
     ? 'w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-100 text-slate-400 cursor-not-allowed appearance-none pr-10'
-    : `w-full px-4 py-2.5 border rounded-xl text-sm appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] transition-all cursor-pointer ${
-        err ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white hover:border-slate-300'
+    : `w-full px-4 py-2.5 border rounded-xl text-sm appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy transition-all cursor-pointer ${
+        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
     }`;
 
 const ChevronDown = ({ disabled }) => (
@@ -48,13 +31,13 @@ const FieldLabel = ({ label, required }) => (
     <label className="block text-sm font-medium text-slate-700 mb-1.5">
         <span className="flex items-center gap-1.5">
             {label}
-            {required && <span className="text-red-400">*</span>}
+            {required && <span className="text-danger/70">*</span>}
         </span>
     </label>
 );
 
 const FieldError = ({ msg }) => msg
-    ? <p className="mt-1 text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12} />{msg}</p>
+    ? <p className="mt-1 text-xs text-danger flex items-center gap-1"><AlertCircle size={12} />{msg}</p>
     : null;
 
 // ─── Existing Document Types List ────────────────────────────────────────────
@@ -140,7 +123,7 @@ const DocumentTypeList = ({ refreshKey, onToast }) => {
                     <Hash size={14} className="text-slate-400" />
                     <span className="text-sm font-semibold text-slate-700">Existing Document Types</span>
                     {!loading && (
-                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full">
+                        <span className="px-2 py-0.5 bg-canopy-tint text-canopy text-xs font-semibold rounded-full">
                             {items.length}
                         </span>
                     )}
@@ -153,11 +136,11 @@ const DocumentTypeList = ({ refreshKey, onToast }) => {
 
             {loading ? (
                 <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                    <Loader2 size={18} className="animate-spin text-indigo-500" />
+                    <Loader2 size={18} className="animate-spin text-canopy" />
                     <span className="text-sm">Loading…</span>
                 </div>
             ) : error ? (
-                <div className="px-5 py-4 text-sm text-red-600 flex items-center gap-2">
+                <div className="px-5 py-4 text-sm text-danger flex items-center gap-2">
                     <AlertCircle size={15} /> {error}
                 </div>
             ) : items.length === 0 ? (
@@ -181,7 +164,7 @@ const DocumentTypeList = ({ refreshKey, onToast }) => {
                                 const isConfirming = confirmId === item.r_object_id;
                                 const isDeleting = deleting === item.r_object_id;
                                 const isEditing = editingId === item.r_object_id;
-                                const rowBg = isEditing ? 'bg-blue-50' : isConfirming ? 'bg-green-50' : 'hover:bg-indigo-50/30';
+                                const rowBg = isEditing ? 'bg-canopy-tint' : isConfirming ? 'bg-canopy-tint' : 'hover:bg-canopy-tint/30';
                                 return (
                                     <tr key={item.r_object_id || idx} className={`transition-colors ${rowBg}`}>
                                         <td className="px-4 py-2.5 text-slate-400 text-xs font-mono">{idx + 1}</td>
@@ -189,21 +172,21 @@ const DocumentTypeList = ({ refreshKey, onToast }) => {
                                             {isEditing ? (
                                                 <input value={editValues.document_type}
                                                     onChange={e => setEditValues(v => ({ ...v, document_type: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white" />
+                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white" />
                                             ) : (item.document_type || '—')}
                                         </td>
                                         <td className="px-4 py-2.5 text-slate-800 text-sm">
                                             {isEditing ? (
                                                 <input value={editValues.document_category}
                                                     onChange={e => setEditValues(v => ({ ...v, document_category: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white" />
+                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white" />
                                             ) : (item.document_category || '—')}
                                         </td>
                                         <td className="px-4 py-2.5 text-slate-800 text-sm">
                                             {isEditing ? (
                                                 <input value={editValues.serial_number}
                                                     onChange={e => setEditValues(v => ({ ...v, serial_number: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white" />
+                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white" />
                                             ) : (item.serial_number || '—')}
                                         </td>
                                         <td className="px-4 py-2.5 text-center">
@@ -211,7 +194,7 @@ const DocumentTypeList = ({ refreshKey, onToast }) => {
                                                 {isEditing ? (
                                                     <>
                                                         <button onClick={() => handleSave(item)} disabled={saving}
-                                                            className="p-1 rounded text-green-600 hover:bg-green-50 disabled:opacity-40 transition-colors"
+                                                            className="p-1 rounded text-canopy hover:bg-canopy-tint disabled:opacity-40 transition-colors"
                                                             title="Save">
                                                             {saving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                                                         </button>
@@ -224,7 +207,7 @@ const DocumentTypeList = ({ refreshKey, onToast }) => {
                                                 ) : isConfirming ? (
                                                     <>
                                                         <button onClick={() => handleDelete(item)} disabled={isDeleting}
-                                                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 disabled:opacity-40 transition-colors"
+                                                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-danger bg-danger-tint border border-danger/20 rounded hover:bg-danger-tint disabled:opacity-40 transition-colors"
                                                             title="Confirm delete">
                                                             {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                                                             Delete
@@ -238,7 +221,7 @@ const DocumentTypeList = ({ refreshKey, onToast }) => {
                                                 ) : (
                                                     <>
                                                         <button onClick={() => setConfirmId(item.r_object_id)}
-                                                            className="p-1 rounded text-red-500 hover:bg-red-50 transition-colors"
+                                                            className="p-1 rounded text-danger hover:bg-danger-tint transition-colors"
                                                             title="Delete">
                                                             <Trash2 size={16} />
                                                         </button>
@@ -330,8 +313,8 @@ const DocumentTypeTab = ({ onToast }) => {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
             {/* Left: creation form */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-slate-50 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm shrink-0">
+                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm shrink-0">
                         <FileText size={17} className="text-white" />
                     </div>
                     <div>
@@ -394,7 +377,7 @@ const DocumentTypeTab = ({ onToast }) => {
                             Reset
                         </button>
                         <button type="submit" disabled={submitting}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
+                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
                             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                             {submitting ? 'Creating…' : 'Create'}
                         </button>
@@ -491,7 +474,7 @@ const DocumentCategoryList = ({ refreshKey, onToast }) => {
                     <Hash size={14} className="text-slate-400" />
                     <span className="text-sm font-semibold text-slate-700">Existing Document Categories</span>
                     {!loading && (
-                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full">
+                        <span className="px-2 py-0.5 bg-canopy-tint text-canopy text-xs font-semibold rounded-full">
                             {items.length}
                         </span>
                     )}
@@ -504,11 +487,11 @@ const DocumentCategoryList = ({ refreshKey, onToast }) => {
 
             {loading ? (
                 <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                    <Loader2 size={18} className="animate-spin text-indigo-500" />
+                    <Loader2 size={18} className="animate-spin text-canopy" />
                     <span className="text-sm">Loading…</span>
                 </div>
             ) : error ? (
-                <div className="px-5 py-4 text-sm text-red-600 flex items-center gap-2">
+                <div className="px-5 py-4 text-sm text-danger flex items-center gap-2">
                     <AlertCircle size={15} /> {error}
                 </div>
             ) : items.length === 0 ? (
@@ -532,34 +515,32 @@ const DocumentCategoryList = ({ refreshKey, onToast }) => {
                                 const isConfirming = confirmId === item.r_object_id;
                                 const isDeleting = deleting === item.r_object_id;
                                 const isEditing = editingId === item.r_object_id;
-                                const rowBg = isEditing ? 'bg-blue-50' : isConfirming ? 'bg-green-50' : 'hover:bg-indigo-50/30';
+                                const rowBg = isEditing ? 'bg-canopy-tint' : isConfirming ? 'bg-canopy-tint' : 'hover:bg-canopy-tint/30';
                                 return (
                                     <tr key={item.r_object_id || idx} className={`transition-colors ${rowBg}`}>
                                         <td className="px-4 py-2.5 text-slate-400 text-xs font-mono">{idx + 1}</td>
                                         <td className="px-4 py-2.5 text-slate-800 text-sm">
                                             {isEditing ? (
-                                                <div className="relative">
-                                                    <select value={editValues.document_type}
-                                                        onChange={e => setEditValues(v => ({ ...v, document_type: e.target.value }))}
-                                                        className={selectCls(false, false)}>
-                                                        <option value="">— Select —</option>
-                                                    </select>
-                                                    <ChevronDown />
-                                                </div>
+                                                <CustomSelect
+                                                    value={editValues.document_type}
+                                                    onChange={val => setEditValues(v => ({ ...v, document_type: val }))}
+                                                    placeholder="— Select —"
+                                                    options={[]}
+                                                />
                                             ) : (item.document_type || '—')}
                                         </td>
                                         <td className="px-4 py-2.5 text-slate-800 text-sm">
                                             {isEditing ? (
                                                 <input value={editValues.document_category}
                                                     onChange={e => setEditValues(v => ({ ...v, document_category: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white" />
+                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white" />
                                             ) : (item.document_category || '—')}
                                         </td>
                                         <td className="px-4 py-2.5 text-slate-800 text-sm">
                                             {isEditing ? (
                                                 <input value={editValues.serial_number}
                                                     onChange={e => setEditValues(v => ({ ...v, serial_number: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white" />
+                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white" />
                                             ) : (item.serial_number || '—')}
                                         </td>
                                         <td className="px-4 py-2.5 text-center">
@@ -567,7 +548,7 @@ const DocumentCategoryList = ({ refreshKey, onToast }) => {
                                                 {isEditing ? (
                                                     <>
                                                         <button onClick={() => handleSave(item)} disabled={saving}
-                                                            className="p-1 rounded text-green-600 hover:bg-green-50 disabled:opacity-40 transition-colors"
+                                                            className="p-1 rounded text-canopy hover:bg-canopy-tint disabled:opacity-40 transition-colors"
                                                             title="Save">
                                                             {saving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                                                         </button>
@@ -580,7 +561,7 @@ const DocumentCategoryList = ({ refreshKey, onToast }) => {
                                                 ) : isConfirming ? (
                                                     <>
                                                         <button onClick={() => handleDelete(item)} disabled={isDeleting}
-                                                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 disabled:opacity-40 transition-colors"
+                                                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-danger bg-danger-tint border border-danger/20 rounded hover:bg-danger-tint disabled:opacity-40 transition-colors"
                                                             title="Confirm delete">
                                                             {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                                                             Delete
@@ -594,7 +575,7 @@ const DocumentCategoryList = ({ refreshKey, onToast }) => {
                                                 ) : (
                                                     <>
                                                         <button onClick={() => setConfirmId(item.r_object_id)}
-                                                            className="p-1 rounded text-red-500 hover:bg-red-50 transition-colors"
+                                                            className="p-1 rounded text-danger hover:bg-danger-tint transition-colors"
                                                             title="Delete">
                                                             <Trash2 size={16} />
                                                         </button>
@@ -695,8 +676,8 @@ const DocumentCategoryTab = ({ onToast }) => {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
             {/* Left: creation form */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-slate-50 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm shrink-0">
+                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm shrink-0">
                         <FileText size={17} className="text-white" />
                     </div>
                     <div>
@@ -711,20 +692,14 @@ const DocumentCategoryTab = ({ onToast }) => {
                     {/* Document Type Dropdown */}
                     <div>
                         <FieldLabel label="Document Type" required />
-                        <div className="relative">
-                            <select value={form.document_type}
-                                onChange={e => set('document_type', e.target.value)}
-                                disabled={loadingTypes}
-                                className={selectCls(errors.document_type, loadingTypes)}>
-                                <option value="">— Select document type —</option>
-                                {documentTypes.map(dt => (
-                                    <option key={dt.r_object_id} value={dt.document_type}>
-                                        {dt.document_type}
-                                    </option>
-                                ))}
-                            </select>
-                            <ChevronDown disabled={loadingTypes} />
-                        </div>
+                        <CustomSelect
+                            value={form.document_type}
+                            onChange={val => set('document_type', val)}
+                            disabled={loadingTypes}
+                            invalid={!!errors.document_type}
+                            placeholder="— Select document type —"
+                            options={documentTypes.map(dt => ({ value: dt.document_type, label: dt.document_type }))}
+                        />
                         <FieldError msg={errors.document_type} />
                     </div>
 
@@ -769,7 +744,7 @@ const DocumentCategoryTab = ({ onToast }) => {
                             Reset
                         </button>
                         <button type="submit" disabled={submitting}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
+                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
                             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                             {submitting ? 'Creating…' : 'Create'}
                         </button>
@@ -848,7 +823,6 @@ const SfsUserAccessTab = ({ onToast }) => {
     // Auto-fetch users for Local Admin when office type and location are populated
     useEffect(() => {
         if (isLocalAdmin && officeType && location && !users.length) {
-            console.log('[SFS] Auto-fetching users for Local Admin:', officeType, location);
             fetchUsersByOffice(officeType, location, role);
         }
     }, [isLocalAdmin, officeType, location]);
@@ -1009,7 +983,6 @@ const SfsUserAccessTab = ({ onToast }) => {
                 location: location || undefined,
                 locationShortCode: locationShortCode
             };
-            console.log('[SFS] Adding user to group with payload:', payload);
             const res = await api.post('/sfs/user-access/add-to-group', payload);
             onToast({ type: 'success', message: res.data?.message || 'User added successfully' });
 
@@ -1031,10 +1004,10 @@ const SfsUserAccessTab = ({ onToast }) => {
     // Access denied check
     if (!hasAccess) {
         return (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
-                <AlertCircle size={32} className="text-red-600 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-red-900 mb-2">Access Denied</h3>
-                <p className="text-red-700">You don't have permission to access SFS User Access. Only Super Admin and Local Admin users can access this feature.</p>
+            <div className="bg-danger-tint border border-danger/20 rounded-2xl p-8 text-center">
+                <AlertCircle size={32} className="text-danger mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-danger mb-2">Access Denied</h3>
+                <p className="text-danger">You don't have permission to access SFS User Access. Only Super Admin and Local Admin users can access this feature.</p>
             </div>
         );
     }
@@ -1048,36 +1021,32 @@ const SfsUserAccessTab = ({ onToast }) => {
                         {/* Office Type */}
                         <div>
                             <label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Office Type {isLocalAdmin && '(Locked)'}</label>
-                            <div className="relative">
-                                <select value={officeType} onChange={e => handleOfficeTypeChange(e.target.value)}
-                                    disabled={isLocalAdmin}
-                                    className={selectCls(false, isLocalAdmin)}>
-                                    <option value="">— Select —</option>
-                                    <option value="HO">HO — Head Office</option>
-                                    <option value="RO">RO — Regional Office</option>
-                                    <option value="TE">TE — Training Establishment</option>
-                                </select>
-                                <ChevronDown />
-                            </div>
+                            <CustomSelect
+                                value={officeType}
+                                onChange={handleOfficeTypeChange}
+                                disabled={isLocalAdmin}
+                                placeholder="— Select —"
+                                options={[
+                                    { value: 'HO', label: 'HO — Head Office' },
+                                    { value: 'RO', label: 'RO — Regional Office' },
+                                    { value: 'TE', label: 'TE — Training Establishment' },
+                                ]}
+                            />
                         </div>
 
                         {/* Location */}
                         <div>
                             <label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Location {isLocalAdmin && '(Locked)'}</label>
-                            <div className="relative">
-                                <select value={location} onChange={e => handleLocationChange(e.target.value)}
-                                    disabled={officeType === 'HO' || !officeType || isLocalAdmin}
-                                    className={selectCls(false, officeType === 'HO' || !officeType || isLocalAdmin)}>
-                                    <option value="">— Select —</option>
-                                    {locations.map(loc => {
-                                        const locStr = typeof loc === 'string' ? loc : loc.location;
-                                        return (
-                                            <option key={locStr} value={locStr}>{locStr}</option>
-                                        );
-                                    })}
-                                </select>
-                                <ChevronDown disabled={officeType === 'HO' || !officeType} />
-                            </div>
+                            <CustomSelect
+                                value={location}
+                                onChange={handleLocationChange}
+                                disabled={officeType === 'HO' || !officeType || isLocalAdmin}
+                                placeholder="— Select —"
+                                options={locations.map(loc => {
+                                    const locStr = typeof loc === 'string' ? loc : loc.location;
+                                    return { value: locStr, label: locStr };
+                                })}
+                            />
                         </div>
 
                         {/* Department */}
@@ -1094,17 +1063,13 @@ const SfsUserAccessTab = ({ onToast }) => {
                         {/* Role */}
                         <div>
                             <label className="block text-xs font-semibold text-slate-600 uppercase mb-2">Role</label>
-                            <div className="relative">
-                                <select value={role} onChange={e => handleRoleChange(e.target.value)}
-                                    disabled={!officeType}
-                                    className={selectCls(false, !officeType)}>
-                                    <option value="">— All Roles —</option>
-                                    {SFS_USER_ROLES.map(r => (
-                                        <option key={r} value={r}>{r}</option>
-                                    ))}
-                                </select>
-                                <ChevronDown disabled={!officeType} />
-                            </div>
+                            <CustomSelect
+                                value={role}
+                                onChange={handleRoleChange}
+                                disabled={!officeType}
+                                placeholder="— All Roles —"
+                                options={SFS_USER_ROLES.map(r => ({ value: r, label: r }))}
+                            />
                         </div>
                     </div>
 
@@ -1118,7 +1083,7 @@ const SfsUserAccessTab = ({ onToast }) => {
                                     placeholder="Search by name, login, designation..."
                                     value={searchQuery}
                                     onChange={e => handleSearch(e.target.value)}
-                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2]"
+                                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy"
                                 />
                             </div>
                             {displayedUsers.length > 0 && (
@@ -1137,7 +1102,7 @@ const SfsUserAccessTab = ({ onToast }) => {
                     </div>
                 ) : loading ? (
                     <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                        <Loader2 size={18} className="animate-spin text-indigo-500" />
+                        <Loader2 size={18} className="animate-spin text-canopy" />
                         <span className="text-sm">Loading…</span>
                     </div>
                 ) : displayedUsers.length === 0 ? (
@@ -1163,7 +1128,7 @@ const SfsUserAccessTab = ({ onToast }) => {
                                     const assignedRoles = userMem ? SFS_USER_ROLES.filter(r => userMem[r]) : [];
 
                                     return (
-                                        <tr key={user.r_object_id || idx} className="hover:bg-indigo-50/30">
+                                        <tr key={user.r_object_id || idx} className="hover:bg-canopy-tint/30">
                                             <td className="px-6 py-3 text-slate-400 text-xs font-mono">{idx + 1}</td>
                                             <td className="px-6 py-3 text-slate-900 font-medium">{user.user_name || '—'}</td>
                                             <td className="px-6 py-3 text-slate-600 text-sm">{user.user_login_name || '—'}</td>
@@ -1173,7 +1138,7 @@ const SfsUserAccessTab = ({ onToast }) => {
                                                     {userMem ? (
                                                         assignedRoles.length > 0 ? (
                                                             assignedRoles.map(r => (
-                                                                <span key={r} className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                                                                <span key={r} className="px-2 py-1 bg-canopy-tint text-canopy text-xs font-medium rounded">
                                                                     {r.substring(0, 15)}
                                                                 </span>
                                                             ))
@@ -1198,8 +1163,8 @@ const SfsUserAccessTab = ({ onToast }) => {
                                                                     disabled={addingUser === `${user.user_name}-${r}`}
                                                                     className={`px-3 py-1.5 text-white text-xs font-semibold rounded transition-all inline-flex items-center gap-1 ${
                                                                         isMember
-                                                                            ? 'bg-red-600 hover:bg-red-700'
-                                                                            : 'bg-blue-600 hover:bg-blue-700'
+                                                                            ? 'bg-danger hover:bg-danger'
+                                                                            : 'bg-canopy hover:bg-canopy-dark'
                                                                     } disabled:opacity-60`}>
                                                                     {addingUser === `${user.user_name}-${r}` ? (
                                                                         <Loader2 size={11} className="animate-spin" />
@@ -1234,39 +1199,21 @@ const SFS_TABS = [
 
 const SfsPage = () => {
     const [activeTab, setActiveTab] = useState('document_type');
-    const [toast, setToast] = useState(null);
+    const toast = useToast();
 
     return (
-        <div className="flex flex-col h-full bg-slate-50">
-            <Toast toast={toast} onDismiss={() => setToast(null)} />
+        <div className="flex flex-1 flex-col">
+            <PageHeader
+                title="SFS Configuration"
+                icon={FileText}
+                description="Manage SFS metadata objects."
+            />
+            <Tabs tabs={SFS_TABS} value={activeTab} onChange={setActiveTab} className="mb-5" />
 
-            {/* Page header */}
-            <div className="bg-white border-b border-slate-200 px-6 py-4">
-                <h1 className="text-lg font-bold text-slate-900">SFS Configuration</h1>
-                <p className="text-xs text-slate-500 mt-0.5">Manage SFS metadata objects</p>
-            </div>
-
-            {/* Tab bar */}
-            <div className="bg-white border-b border-slate-200 px-6">
-                <div className="flex gap-0">
-                    {SFS_TABS.map(t => (
-                        <button key={t.id} onClick={() => setActiveTab(t.id)}
-                            className={`flex items-center gap-2 px-4 py-3.5 text-sm font-medium border-b-2 transition-all ${
-                                activeTab === t.id
-                                    ? 'border-indigo-600 text-indigo-700'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                            }`}>
-                            {t.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-                {activeTab === 'document_type' && <DocumentTypeTab onToast={setToast} />}
-                {activeTab === 'document_category' && <DocumentCategoryTab onToast={setToast} />}
-                {activeTab === 'user_access' && <SfsUserAccessTab onToast={setToast} />}
+            <div className="flex-1">
+                {activeTab === 'document_type' && <DocumentTypeTab onToast={toast.show} />}
+                {activeTab === 'document_category' && <DocumentCategoryTab onToast={toast.show} />}
+                {activeTab === 'user_access' && <SfsUserAccessTab onToast={toast.show} />}
             </div>
         </div>
     );

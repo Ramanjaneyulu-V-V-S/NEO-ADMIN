@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import {
-    X, Users, UserPlus, Search, Trash2, Loader2, CheckCircle,
-    AlertCircle, UsersRound, User
+    Users, UserPlus, Search, Trash2, Loader2, UsersRound, User
 } from 'lucide-react';
+import { Modal, Button, useToast } from './ui';
 
 const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
     const [members, setMembers] = useState({ users: [], groups: [] });
@@ -13,8 +13,11 @@ const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
     const [searchResults, setSearchResults] = useState([]);
     const [searching, setSearching] = useState(false);
     const [processing, setProcessing] = useState(false);
-    const [notification, setNotification] = useState(null);
     const [confirmRemove, setConfirmRemove] = useState(null);
+    const toast = useToast();
+
+    const showNotification = (type, message) =>
+        type === 'success' ? toast.success(message) : toast.error(message);
 
     useEffect(() => {
         if (isOpen && groupName) {
@@ -113,267 +116,204 @@ const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
         }
     };
 
-    const showNotification = (type, message) => {
-        setNotification({ type, message });
-        setTimeout(() => setNotification(null), 3000);
-    };
-
     const isAlreadyMember = (name) => {
         return members.users.some(u => u.name === name) ||
                members.groups.some(g => g.name === name);
     };
 
-    if (!isOpen) return null;
+    const RemoveControl = ({ name, type }) =>
+        confirmRemove?.name === name && confirmRemove?.type === type ? (
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={() => handleRemoveMember(name, type)}
+                    disabled={processing}
+                    className="rounded bg-danger px-3 py-1 text-xs font-medium text-white hover:bg-danger/90 disabled:opacity-50"
+                >
+                    Confirm
+                </button>
+                <button
+                    onClick={() => setConfirmRemove(null)}
+                    className="rounded bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-300"
+                >
+                    Cancel
+                </button>
+            </div>
+        ) : (
+            <button
+                onClick={() => setConfirmRemove({ name, type })}
+                disabled={processing}
+                className="rounded p-1.5 text-danger transition-colors hover:bg-danger-tint disabled:opacity-50"
+                title={`Remove ${type}`}
+            >
+                <Trash2 size={14} />
+            </button>
+        );
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full h-[70vh] overflow-hidden flex flex-col">
-                {/* Header */}
-                <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-slate-50">
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                            <Users className="text-[#0A66C2]" size={24} />
-                            Manage Members
-                        </h2>
-                        <p className="text-sm text-slate-500 mt-1">Group: {groupName}</p>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
-                    >
-                        <X size={20} />
-                    </button>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            size="3xl"
+            title="Manage Members"
+            footer={<Button variant="secondary" onClick={onClose}>Close</Button>}
+        >
+            <p className="mb-4 text-caption text-slate-500">
+                Group: <span className="font-mono text-ink">{groupName}</span>
+            </p>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-0 md:divide-x md:divide-line">
+                {/* ── Current Members ── */}
+                <div className="md:pr-6">
+                    <h3 className="mb-4 flex items-center gap-2 text-title font-semibold text-ink">
+                        <Users size={18} className="text-canopy" />
+                        Current Members
+                    </h3>
+
+                    {loadingMembers ? (
+                        <div className="flex items-center justify-center py-12">
+                            <Loader2 className="animate-spin text-slate-400" size={32} />
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {/* Users */}
+                            <div>
+                                <h4 className="mb-2 flex items-center gap-2 text-caption font-semibold text-slate-700">
+                                    <User size={14} />
+                                    Users ({members.users.length})
+                                </h4>
+                                <div className="space-y-1">
+                                    {members.users.length === 0 ? (
+                                        <p className="text-caption italic text-slate-400">No users</p>
+                                    ) : (
+                                        members.users.map((user, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="flex items-center justify-between rounded-lg bg-paper p-3 transition-colors hover:bg-slate-100"
+                                            >
+                                                <span className="text-body font-medium text-ink">{user.name}</span>
+                                                <RemoveControl name={user.name} type="user" />
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Groups */}
+                            <div>
+                                <h4 className="mb-2 flex items-center gap-2 text-caption font-semibold text-slate-700">
+                                    <UsersRound size={14} />
+                                    Nested Groups ({members.groups.length})
+                                </h4>
+                                <div className="space-y-1">
+                                    {members.groups.length === 0 ? (
+                                        <p className="text-caption italic text-slate-400">No nested groups</p>
+                                    ) : (
+                                        members.groups.map((group, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="flex items-center justify-between rounded-lg bg-canopy-tint p-3 transition-colors hover:bg-canopy-tint/70"
+                                            >
+                                                <span className="text-body font-medium text-ink">{group.name}</span>
+                                                <RemoveControl name={group.name} type="group" />
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Notification Toast */}
-                {notification && (
-                    <div className={`mx-6 mt-4 px-4 py-3 rounded-lg flex items-center gap-2 ${
-                        notification.type === 'success'
-                            ? 'bg-green-50 text-green-800 border border-green-200'
-                            : 'bg-red-50 text-red-800 border border-red-200'
-                    }`}>
-                        {notification.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                        <span className="text-sm font-medium">{notification.message}</span>
+                {/* ── Add Members ── */}
+                <div className="md:pl-6">
+                    <h3 className="mb-4 flex items-center gap-2 text-title font-semibold text-ink">
+                        <UserPlus size={18} className="text-canopy" />
+                        Add Members
+                    </h3>
+
+                    {/* Search Type Toggle */}
+                    <div className="mb-4 flex gap-2">
+                        {[
+                            { id: 'user', label: 'Users', Icon: User },
+                            { id: 'group', label: 'Groups', Icon: UsersRound },
+                        ].map((t) => (
+                            <button
+                                key={t.id}
+                                onClick={() => { setSearchType(t.id); setSearchResults([]); }}
+                                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-body font-medium transition-colors ${
+                                    searchType === t.id
+                                        ? 'bg-canopy text-white'
+                                        : 'bg-white text-slate-700 ring-1 ring-line hover:bg-slate-50'
+                                }`}
+                            >
+                                <t.Icon size={14} />
+                                {t.label}
+                            </button>
+                        ))}
                     </div>
-                )}
 
-                {/* Content */}
-                <div className="flex-1 overflow-hidden grid grid-cols-2 divide-x divide-slate-200 min-h-0">
-                    {/* Left Panel - Current Members */}
-                    <div className="p-6 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
-                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Current Members</h3>
-
-                        {loadingMembers ? (
-                            <div className="flex items-center justify-center py-12">
-                                <Loader2 className="animate-spin text-slate-400" size={32} />
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {/* Users */}
-                                <div>
-                                    <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                                        <User size={14} />
-                                        Users ({members.users.length})
-                                    </h4>
-                                    <div className="space-y-1">
-                                        {members.users.length === 0 ? (
-                                            <p className="text-sm text-slate-400 italic">No users</p>
-                                        ) : (
-                                            members.users.map((user, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
-                                                >
-                                                    <span className="text-sm font-medium text-slate-900">{user.name}</span>
-                                                    {confirmRemove?.name === user.name && confirmRemove?.type === 'user' ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <button
-                                                                onClick={() => handleRemoveMember(user.name, 'user')}
-                                                                disabled={processing}
-                                                                className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
-                                                            >
-                                                                Confirm
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setConfirmRemove(null)}
-                                                                className="px-3 py-1 bg-slate-300 text-slate-700 text-xs rounded hover:bg-slate-400"
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => setConfirmRemove({ name: user.name, type: 'user' })}
-                                                            disabled={processing}
-                                                            className="p-1.5 hover:bg-red-100 rounded text-red-600 transition-colors disabled:opacity-50"
-                                                            title="Remove user"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Groups */}
-                                <div>
-                                    <h4 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                                        <UsersRound size={14} />
-                                        Nested Groups ({members.groups.length})
-                                    </h4>
-                                    <div className="space-y-1">
-                                        {members.groups.length === 0 ? (
-                                            <p className="text-sm text-slate-400 italic">No nested groups</p>
-                                        ) : (
-                                            members.groups.map((group, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className="flex items-center justify-between p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                                                >
-                                                    <span className="text-sm font-medium text-slate-900">{group.name}</span>
-                                                    {confirmRemove?.name === group.name && confirmRemove?.type === 'group' ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <button
-                                                                onClick={() => handleRemoveMember(group.name, 'group')}
-                                                                disabled={processing}
-                                                                className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
-                                                            >
-                                                                Confirm
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setConfirmRemove(null)}
-                                                                className="px-3 py-1 bg-slate-300 text-slate-700 text-xs rounded hover:bg-slate-400"
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => setConfirmRemove({ name: group.name, type: 'group' })}
-                                                            disabled={processing}
-                                                            className="p-1.5 hover:bg-red-100 rounded text-red-600 transition-colors disabled:opacity-50"
-                                                            title="Remove group"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
+                    {/* Search Input */}
+                    <div className="relative mb-4">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder={`Search for ${searchType}s...`}
+                            className="w-full rounded-lg border border-line bg-white py-2.5 pl-10 pr-4 text-body focus:border-canopy focus:outline-none focus:ring-2 focus:ring-canopy/20"
+                        />
+                        {searching && (
+                            <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />
                         )}
                     </div>
 
-                    {/* Right Panel - Add Members */}
-                    <div className="p-6 overflow-y-auto bg-slate-50 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
-                        <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                            <UserPlus size={20} />
-                            Add Members
-                        </h3>
-
-                        {/* Search Type Toggle */}
-                        <div className="flex gap-2 mb-4">
-                            <button
-                                onClick={() => { setSearchType('user'); setSearchResults([]); }}
-                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-                                    searchType === 'user'
-                                        ? 'bg-[#0A66C2] text-white'
-                                        : 'bg-white text-slate-700 hover:bg-slate-100'
-                                }`}
-                            >
-                                <User size={14} className="inline mr-1" />
-                                Users
-                            </button>
-                            <button
-                                onClick={() => { setSearchType('group'); setSearchResults([]); }}
-                                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-                                    searchType === 'group'
-                                        ? 'bg-[#0A66C2] text-white'
-                                        : 'bg-white text-slate-700 hover:bg-slate-100'
-                                }`}
-                            >
-                                <UsersRound size={14} className="inline mr-1" />
-                                Groups
-                            </button>
-                        </div>
-
-                        {/* Search Input */}
-                        <div className="relative mb-4">
-                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder={`Search for ${searchType}s...`}
-                                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] bg-white"
-                            />
-                            {searching && (
-                                <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 animate-spin" />
-                            )}
-                        </div>
-
-                        {/* Search Results */}
-                        <div className="space-y-1 min-h-[200px]">
-                            {searchResults.length === 0 && searchQuery ? (
-                                <p className="text-sm text-slate-400 text-center py-8 italic">
-                                    No {searchType}s found
-                                </p>
-                            ) : searchResults.length === 0 ? (
-                                <p className="text-sm text-slate-400 text-center py-8 italic">
-                                    Start typing to search for {searchType}s
-                                </p>
-                            ) : (
-                                searchResults.map((result, idx) => {
-                                    const alreadyMember = isAlreadyMember(result.name);
-                                    return (
-                                        <div
-                                            key={idx}
-                                            className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
-                                                alreadyMember
-                                                    ? 'bg-slate-200 opacity-60'
-                                                    : 'bg-white hover:bg-slate-100'
-                                            }`}
-                                        >
-                                            <div>
-                                                <span className="text-sm font-medium text-slate-900">{result.name}</span>
-                                                {result.fullName && (
-                                                    <span className="text-xs text-slate-500 ml-2">({result.fullName})</span>
-                                                )}
-                                            </div>
-                                            {alreadyMember ? (
-                                                <span className="text-xs text-slate-500 font-medium">Already member</span>
-                                            ) : (
-                                                <button
-                                                    onClick={() => handleAddMember(result.name, result.type, result.src)}
-                                                    disabled={processing}
-                                                    className="px-3 py-1.5 bg-[#0A66C2] text-white text-xs rounded-lg hover:bg-[#094d92] disabled:opacity-50 transition-colors font-medium"
-                                                >
-                                                    Add
-                                                </button>
+                    {/* Search Results */}
+                    <div className="min-h-[200px] space-y-1">
+                        {searchResults.length === 0 && searchQuery ? (
+                            <p className="py-8 text-center text-body italic text-slate-400">
+                                No {searchType}s found
+                            </p>
+                        ) : searchResults.length === 0 ? (
+                            <p className="py-8 text-center text-body italic text-slate-400">
+                                Start typing to search for {searchType}s
+                            </p>
+                        ) : (
+                            searchResults.map((result, idx) => {
+                                const alreadyMember = isAlreadyMember(result.name);
+                                return (
+                                    <div
+                                        key={idx}
+                                        className={`flex items-center justify-between rounded-lg p-3 transition-colors ${
+                                            alreadyMember
+                                                ? 'bg-slate-100 opacity-60'
+                                                : 'bg-white ring-1 ring-line hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <div>
+                                            <span className="text-body font-medium text-ink">{result.name}</span>
+                                            {result.fullName && (
+                                                <span className="ml-2 text-caption text-slate-500">({result.fullName})</span>
                                             )}
                                         </div>
-                                    );
-                                })
-                            )}
-                        </div>
+                                        {alreadyMember ? (
+                                            <span className="text-caption font-medium text-slate-500">Already member</span>
+                                        ) : (
+                                            <button
+                                                onClick={() => handleAddMember(result.name, result.type, result.src)}
+                                                disabled={processing}
+                                                className="rounded-lg bg-canopy px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-canopy-dark disabled:opacity-50"
+                                            >
+                                                Add
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
                 </div>
-
-                {/* Footer */}
-                <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end">
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2.5 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium"
-                    >
-                        Close
-                    </button>
-                </div>
             </div>
-        </div>
+        </Modal>
     );
 };
 
