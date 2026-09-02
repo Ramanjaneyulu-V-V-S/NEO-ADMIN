@@ -44,6 +44,21 @@ Thumbs.db
 *.tmp
 *.bak
 *.backup
+*.sweepbak
+
+# Build / run output (not source)
+build_output.txt
+backend/backend.out
+backend/*.out
+
+# Rotated / archived log files
+*.log.*
+backend/Reports Queries/*.gz
+
+# Claude Code — local, per-developer settings only
+# (.claude/settings.json and .claude/launch.json can be committed if the team
+#  wants to share them; settings.local.json is always machine-local.)
+.claude/settings.local.json
 
 # Session notes (private)
 SESSION_NOTES.md

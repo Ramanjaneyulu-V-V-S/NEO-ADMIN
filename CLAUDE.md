@@ -42,7 +42,7 @@ npm run preview    # Preview production build
 
 ```
 React (Vite, port 5173)
-    ↓ axios → http://localhost:8080/api
+    ↓ axios (baseURL /neoadminBackend/api, dev-proxied to http://localhost:8080)
 Spring Boot Controllers
     ↓
 Service Layer (business logic)
@@ -66,13 +66,14 @@ Key Documentum object types: `cms_case_folder`, `dm_process`, `dm_user`, `dm_gro
 
 ### Frontend (`frontend/src/`)
 
-- **Pages**: Login, Cases, Workflows, Groups, Users, Query — routed under `/dashboard/*`
-- **Layout**: `MainLayout` wraps protected routes with `Sidebar` + `Topbar`
-- **API layer**: `api/axios.js` — axios instance pointing to `localhost:8080/api`
-- **Auth**: User object stored in localStorage after login; MainLayout guards protected routes
-- **Hooks**: `useQueryHistory` for DQL query history persistence
+- **Pages** (`frontend/src/pages/`): ~16 pages — Login, Users, Cases, Reports, Workflows, Groups, Inbox, NABARD Department Management, HO Vertical Management, RO/TE Department Head Assignment, Metadata, SFS, Query (+ redirect stubs) — routed under `/dashboard/*`
+- **Layout**: `MainLayout` wraps protected routes with a drawer `Sidebar` (Records / Configuration / Tools sections, role-gated) + a slim `Topbar` (breadcrumb + profile dropdown)
+- **Design system**: "Field ledger" — semantic Tailwind tokens + a shared primitive library in `frontend/src/components/ui/` (barrel `index.js`). See `frontend/src/components/ui/README.md` and `techdocs/frontend-architecture.md`
+- **API layer**: `api/axios.js` — axios instance, `baseURL: "/neoadminBackend/api"`, dev-proxied to `http://localhost:8080` (strips `/neoadminBackend`) in `vite.config.js`; request interceptor attaches a `Bearer` token from `localStorage` when present
+- **Auth**: OTDS login → `token` + `user` persisted in `localStorage`; `MainLayout` guards protected routes and gates on `admin_role` (`Super Admin` / `Local Admin`)
+- **Hooks**: `useQueryHistory` (DQL history), `useIdleTimeout` (idle warning + auto sign-out), `usePrefersReducedMotion`
 
-Routes: `/login` (public) → `/dashboard/cases` (default after login)
+Router: `<Router basename="/neoadmin/">`; Vite `base: '/neoadmin/'`. `/login` (public) → `/dashboard/users` (default after login)
 
 ### Services Layer (`services/dctm-rest/`)
 
@@ -120,12 +121,9 @@ The `services/dctm-rest/` folder contains the **Documentum REST Services** WAR (
 
 Detailed architecture docs are in `techdocs/`:
 - [`techdocs/backend-architecture.md`](techdocs/backend-architecture.md) — Backend: all API endpoints, service layer, auth flows, OTDS/email integration, Mermaid sequence diagrams
-- [`techdocs/frontend-architecture.md`](techdocs/frontend-architecture.md) — Frontend: all pages/components, routing, role-based nav, state management, API call reference
-
-- [`techdocs/case-type-metadata.md`](techdocs/case-type-metadata.md) — Case Type metadata: full-stack implementation, DQL queries, Documentum storage, API endpoints
+- [`techdocs/frontend-architecture.md`](techdocs/frontend-architecture.md) — Frontend: stack, `/neoadmin/` routing, the "Field ledger" design system, `components/ui/` primitive library, the drawer shell + role-based nav, per-page catalog, API call reference
 - [`techdocs/designpatterns.md`](techdocs/designpatterns.md) — Module separation (CMS vs Digidak), endpoint conventions, metadata implementation patterns
-
-HTML versions with interactive sidebar navigation: `techdocs/backend-architecture.html`, `techdocs/frontend-architecture.html`
+- [`techdocs/OTDS_Authentication.md`](techdocs/OTDS_Authentication.md) — OTDS SSO authentication details
 
 ## Critical Constraints
 
@@ -143,12 +141,13 @@ HTML versions with interactive sidebar navigation: `techdocs/backend-architectur
 
 ### Frontend
 - Functional components, PascalCase filenames
-- Tailwind CSS for all styling (custom brand blue: `#0A66C2`)
-- Framer Motion for animations (150ms hover, 300ms modal, 500ms page)
-- Modals: max 70vh height, fixed header/footer, scrollable content with `scrollbar-thin`
+- Tailwind CSS via semantic "Field ledger" tokens only — `canopy` (#14532D) primary, `paper` / `ink` / `line` neutrals, `harvest` accent, `danger` / `info` for status; no hard-coded hex. Fonts: Fraunces (display, mastheads only), IBM Plex Sans (body), IBM Plex Mono (identifiers / counts / dates / DQL). See `frontend/src/components/ui/README.md`
+- Animation via CSS keyframe tokens + Framer Motion: `sheet-up` / `pop-in` 0.2s, `fade-rise` 0.18s, `toast-in` 0.15s, `spine-grow` 0.12s; all motion respects `prefers-reduced-motion`
+- Modals: use the shared `Modal` primitive — centred dialog (`max-h-[85dvh]`) on desktop, full-height bottom sheet on phones; sticky header/footer, `scrollbar-thin` body, Esc / backdrop close
+- Build UI from the `components/ui/` primitives (`PageHeader`, `DataTable`, `Pagination`, `Button`, `Input`, `CustomSelect`, `FormGrid`, `Card`, `Badge`, `Tabs`, `EmptyState`, `Modal`, `useToast`) rather than re-implementing them inline
 
 ### Metadata Pattern (follow the Case Type implementation)
-When adding new metadata types, follow the **Case Type** pattern (`techdocs/case-type-metadata.md`):
+When adding new metadata types, follow the **Case Type** pattern (see `techdocs/designpatterns.md`):
 1. **Documentum:** Store entries as `dm_folder` objects under `/ECM CONFIG/<Metadata Name>/`
 2. **Backend Service (`MetadataService`):** Add `list<Name>()` (DQL `SELECT r_object_id, object_name FROM dm_folder WHERE FOLDER('/ECM CONFIG/<Name>')`) and `create<Name>(String objectName)` (resolve parent folder via `resolveFolderInfo()`, POST new folder inheriting ACL)
 3. **Backend Controller (`MetadataController`):** Add `GET /api/metadata/<name>s` and `POST /api/metadata/<name>s` endpoints
@@ -156,6 +155,7 @@ When adding new metadata types, follow the **Case Type** pattern (`techdocs/case
 
 ### UI/UX (from Agents.md)
 - Skeleton loaders for initial data, spinners for actions
-- Toast notifications: top-center/right, 3s success / 5s error auto-dismiss
+- Toast notifications via the app-wide `useToast()` / `ToastProvider` (mounted once in `MainLayout`) — `toast.success/error/info(msg)`; 3s success / 5s error auto-dismiss
 - Server-side pagination for datasets > 50 items
 - Inline two-step confirmation for destructive actions (no `window.confirm()`)
+- Every view must be usable at 375px: `DataTable` reflows rows to "folio cards" below `md`, forms collapse to a single column, modals become bottom sheets
