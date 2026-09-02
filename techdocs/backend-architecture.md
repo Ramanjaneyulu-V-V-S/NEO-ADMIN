@@ -22,7 +22,7 @@
 | ECM integration | Documentum REST Services — HTTP/JSON, DQL, `application/vnd.emc.documentum+json` |
 | Auth model | HTTP Basic Auth forwarded to Documentum **+ OTDS SSO** (bearer token issued by OTDS, profile resolved server-side); service-account **login-ticket cache** for privileged ops |
 | Config model | **3 Spring profiles** — `uat` (default), `prod`, `azure` — selected by `spring.profiles.active` |
-| Logging | SLF4J via Lombok `@Slf4j`; `log4j2-spring.xml` + a rolling file appender (`Reports Queries/rajbhasha.log`, 10 MB / 10 history) |
+| Logging | SLF4J via Lombok `@Slf4j`; **stock Spring Boot Logback** (no `spring-boot-starter-log4j2` on the classpath). Console + a rolling file appender configured entirely by `logging.*` keys in the profile properties — file `${NEOADMIN_LOG_DIR:Reports Queries}/rajbhasha.log`, 10 MB / 10 history / 100 MB cap. `log4j2-spring.xml` is present but **inert** (Log4j2 is not the active logging system) |
 
 The surface has roughly doubled since the first draft of this document: **16 controllers,
 17 services, 8 `@Configuration` classes**, two DTOs, and two entry-point classes.
@@ -105,7 +105,7 @@ backend/
    application-uat.properties              # UAT repo/OTDS/mail/tasklist/process endpoints
    application-prod.properties             # PROD endpoints (real credentials — do not copy)
    application-azure.properties            # Azure endpoints
-   log4j2-spring.xml                       # logging config
+   log4j2-spring.xml                       # INERT — Log4j2 not on classpath; logging is Logback via logging.* keys
   java/com/example/backend/
    BackendApplication.java                 # @SpringBootApplication
    ServletInitializer.java                 # SpringBootServletInitializer (external Tomcat)
@@ -168,6 +168,7 @@ backend/
 |---|---|---|
 | `otds.token-api-url` | `AuthController.getAuthConfig` | returned to the frontend as `otdsTokenApiUrl` so the SPA knows which OTDS token endpoint to hit for the active environment |
 | `spring.mail.*` | Spring Boot mail auto-config | SMTP host / port / credentials / STARTTLS |
+| `NEOADMIN_LOG_DIR` | `logging.file.name` placeholder default | log directory; defaults to the relative `Reports Queries` — set to an absolute path in deployment (see §13 Logging) |
 
 ### 5.4 Shared app settings (`application.properties`)
 
@@ -641,7 +642,25 @@ errorResult.put("error", "Failed to search cases: " + e.getMessage());
 
 `@Slf4j` everywhere. `log.info` for milestones, `log.warn` for recoverable issues (e.g.
 Basic-Auth fallback), `log.error` for failures with the exception message (and often the
-stack trace). File output rolls to `Reports Queries/rajbhasha.log` (10 MB, 10 history).
+stack trace).
+
+Logging is **stock Spring Boot Logback** — there is no `logback-spring.xml`, and the
+`log4j2-spring.xml` in `resources/` is inert (`spring-boot-starter-log4j2` / `log4j-core` are
+not on the classpath). Everything is driven by `logging.*` keys in the profile properties
+(`application-{uat,prod,azure}.properties`):
+
+| Key | Value | Effect |
+|---|---|---|
+| `logging.level.root` | `INFO` | root level (the Rajbhasha service/controller are pinned to `INFO` too) |
+| `logging.file.name` | `${NEOADMIN_LOG_DIR:Reports Queries}/rajbhasha.log` | file appender path — **relative by default**, so it resolves against the server process CWD (`$CATALINA_HOME/bin` under an external Tomcat). Set `NEOADMIN_LOG_DIR` to an absolute path in deployment. |
+| `logging.logback.rollingpolicy.max-file-size` | `10MB` | roll trigger (also rolls daily) |
+| `logging.logback.rollingpolicy.max-history` | `10` | archives kept, gzip-compressed (`rajbhasha.log.<date>.<i>.gz`) |
+| `logging.logback.rollingpolicy.total-size-cap` | `100MB` | hard ceiling on the archive set |
+| `logging.pattern.{file,console}` | `%d{…} [%thread] %-5level %logger{36} - %msg%n` | line format |
+
+The console appender is always on, so under an external Tomcat every line also lands in
+`catalina.out` (or `tomcat-stdout.<date>.log` for a Windows service install). Despite the
+filename, `rajbhasha.log` holds the **entire** root log, not just Rajbhasha reporting.
 
 ---
 
