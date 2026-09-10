@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Program Files/Apache Software Foundation/Tomcat 10.1/webapps/ROOT//**)",
+      "Read(//c/Program Files/Apache Software Foundation/Tomcat 10.1/logs/**)",
+      "Bash(cmd /c \"C:\\\\\\\\Program Files\\\\\\\\Apache Software Foundation\\\\\\\\Tomcat 10.1\\\\\\\\bin\\\\\\\\shutdown.bat\")",
+      "Bash(cmd /c \"C:\\\\\\\\Program Files\\\\\\\\Apache Software Foundation\\\\\\\\Tomcat 10.1\\\\\\\\bin\\\\\\\\startup.bat\")",
+      "Read(//c/Program Files/Apache Software Foundation/Tomcat 10.1/webapps/neoadmin/**)",
+      "Bash(rm -rf \"/c/Program Files/Apache Software Foundation/Tomcat 10.1/webapps/neoadmin\"/*)",
+      "Bash(cp -r /d/NBSupportApp/frontend/dist/* \"/c/Program Files/Apache Software Foundation/Tomcat 10.1/webapps/neoadmin/\")",
+      "Read(//d d:/**)"
+    ]
+  }
+}

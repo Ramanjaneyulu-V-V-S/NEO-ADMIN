@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../components/ui';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
+import { formatDateTime, formatDate } from '../utils/datetime';
 
 /* ────────────────────────────── helpers ────────────────────────────── */
 
@@ -50,7 +51,7 @@ const isPausedState = (state) => {
     return false;
 };
 
-const fmt = (dateStr) => dateStr ? new Date(dateStr).toLocaleString() : '-';
+const fmt = (dateStr) => formatDateTime(dateStr, '-');
 
 const getSuggestedSolution = (errorLog) => {
     if (!errorLog) return null;
@@ -367,7 +368,7 @@ const WorkflowsPage = () => {
                                 value={directIdInput}
                                 onChange={e => setDirectIdInput(e.target.value)}
                                 placeholder="Workflow object ID"
-                                className="w-full pl-7 pr-6 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-slate-50 transition-all"
+                                className="w-full pl-7 pr-6 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-slate-50 transition-colors"
                             />
                             {directIdInput && (
                                 <button
@@ -404,7 +405,7 @@ const WorkflowsPage = () => {
                                 value={caseNumberInput}
                                 onChange={e => setCaseNumberInput(e.target.value)}
                                 placeholder="e.g. NB-DDSI-ACV-2026-27-001939"
-                                className="w-full pl-7 pr-6 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-slate-50 transition-all"
+                                className="w-full pl-7 pr-6 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-slate-50 transition-colors"
                             />
                             {caseNumberInput && (
                                 <button
@@ -445,7 +446,7 @@ const WorkflowsPage = () => {
                                             <button
                                                 key={wf.r_object_id || i}
                                                 onClick={() => handleSelectCaseWorkflow(wf)}
-                                                className={`w-full text-left px-2.5 py-2 rounded-lg border transition-all text-[10px] ${isActive
+                                                className={`w-full text-left px-2.5 py-2 rounded-lg border transition-colors text-[10px] ${isActive
                                                     ? 'bg-canopy-tint border-canopy/20'
                                                     : 'bg-white border-slate-100 hover:border-canopy/20 hover:bg-canopy-tint/50'
                                                     }`}
@@ -508,7 +509,7 @@ const WorkflowsPage = () => {
                                     <button
                                         key={wf.r_object_id || idx}
                                         onClick={() => handleSelectFromList(wf)}
-                                        className={`w-full text-left p-3 rounded-lg transition-all group border ${isSelected
+                                        className={`w-full text-left p-3 rounded-lg transition-colors group border ${isSelected
                                             ? 'bg-canopy/5 border-canopy/30 shadow-sm'
                                             : 'bg-white border-transparent hover:border-slate-200 hover:bg-slate-50'
                                             }`}
@@ -539,7 +540,7 @@ const WorkflowsPage = () => {
                                                 <>
                                                     <span>·</span>
                                                     <Calendar size={10} />
-                                                    <span>{new Date(wf.r_start_date).toLocaleDateString()}</span>
+                                                    <span>{formatDate(wf.r_start_date)}</span>
                                                 </>
                                             )}
                                         </div>
@@ -740,7 +741,7 @@ const WorkflowsPage = () => {
                                 <button
                                     key={id}
                                     onClick={() => setActiveTab(id)}
-                                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === id
+                                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === id
                                         ? error ? 'bg-harvest text-white shadow-sm' : 'bg-canopy text-white shadow-sm'
                                         : error ? 'text-harvest hover:bg-harvest/10 border border-harvest/25 animate-pulse' : 'text-slate-600 hover:bg-slate-100'
                                         }`}
@@ -769,9 +770,9 @@ const WorkflowsPage = () => {
                                     </h3>
                                     <span className="text-xs text-slate-400">{queueItems.length} items</span>
                                 </div>
-                                <div className="overflow-x-auto">
+                                <div className="overflow-auto scrollbar-thin max-h-[70vh]">
                                     <table className="w-full text-sm text-left">
-                                        <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                        <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 z-10 shadow-sm">
                                             <tr>
                                                 <th className="px-4 py-3">Task Name</th>
                                                 <th className="px-4 py-3">State</th>

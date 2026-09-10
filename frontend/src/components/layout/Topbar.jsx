@@ -1,7 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { LogOut, ChevronDown, Menu } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '../../utils/cn';
+import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
+
+const EASE_SMOOTH = [0.32, 0.72, 0, 1];
 
 const CRUMBS = {
     users: 'User Management',
@@ -22,6 +26,7 @@ const Topbar = ({ onMenuClick = () => {} }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const reduceMotion = usePrefersReducedMotion();
     const dropdownRef = useRef(null);
     const [user] = useState(() => {
         try {
@@ -86,8 +91,15 @@ const Topbar = ({ onMenuClick = () => {} }) => {
                     />
                 </button>
 
+                <AnimatePresence>
                 {isProfileOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-72 overflow-hidden rounded-card border border-line bg-white text-body shadow-pop animate-fade-rise">
+                    <motion.div
+                        initial={reduceMotion ? false : { opacity: 0, y: -4 }}
+                        animate={reduceMotion ? false : { opacity: 1, y: 0 }}
+                        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                        transition={{ duration: 0.15, ease: EASE_SMOOTH }}
+                        className="absolute right-0 top-full mt-2 w-72 overflow-hidden rounded-card border border-line bg-white text-body shadow-pop"
+                    >
                         <div className="border-b border-line bg-paper/60 p-4">
                             <p className="font-medium text-ink">{userName}</p>
                             <p className="mt-0.5 break-all text-caption text-slate-500">{userEmail}</p>
@@ -112,8 +124,9 @@ const Topbar = ({ onMenuClick = () => {} }) => {
                                 Sign out
                             </button>
                         </div>
-                    </div>
+                    </motion.div>
                 )}
+                </AnimatePresence>
             </div>
         </header>
     );

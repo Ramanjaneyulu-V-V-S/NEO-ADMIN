@@ -111,6 +111,10 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
     const [checkingRetiredInbox,   setCheckingRetiredInbox]   = useState(false);
     const [retiredPendingCases,    setRetiredPendingCases]    = useState([]);
     const [showRetiredBlock,       setShowRetiredBlock]       = useState(false);
+    // Drives the toggle directly so it flips the instant it's clicked, before the
+    // async inbox check resolves and independent of the office_type value (which
+    // only becomes 'RETIRED' once applyRetiredFields runs).
+    const [isRetiring,             setIsRetiring]             = useState(false);
 
     // Delegate modal state
     const [delegateTask,         setDelegateTask]         = useState(null);
@@ -134,6 +138,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
         setShowLocationBlock(false);
         setRetiredPendingCases([]);
         setShowRetiredBlock(false);
+        setIsRetiring(false);
         setDelegateTask(null);
         setDesignationChanged(false);
         setGradeChanged(false);
@@ -251,6 +256,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
             is_active:                   profile.is_active              ?? false,
         };
         setForm(finalForm);
+        setIsRetiring(officeType === 'RETIRED');
         setError(null);
         setErrors({});
         setPendingCases([]);
@@ -314,18 +320,22 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
 
     const restoreFromRetired = () => {
         const orig = originalGroupInfoRef.current;
-        set('office_type', orig.officeType || 'HO');
-        set('location', orig.location || '');
-        set('ro_short_code', orig.roShortCode || '');
-        set('department_name', orig.departmentName || '');
-        set('department_short_code', orig.deptShortCode || '');
-        set('department_short_code_multi', orig.deptCodes || []);
+        // A user already retired in the DB has no pre-retirement office identity to
+        // restore — clear the fields so the admin re-selects them.
+        const wasAlreadyRetired = orig.officeType === 'RETIRED';
+        set('office_type', wasAlreadyRetired ? '' : (orig.officeType || 'HO'));
+        set('location', wasAlreadyRetired ? '' : (orig.location || ''));
+        set('ro_short_code', wasAlreadyRetired ? '' : (orig.roShortCode || ''));
+        set('department_name', wasAlreadyRetired ? '' : (orig.departmentName || ''));
+        set('department_short_code', wasAlreadyRetired ? '' : (orig.deptShortCode || ''));
+        set('department_short_code_multi', wasAlreadyRetired ? [] : (orig.deptCodes || []));
         set('is_active', true);
     };
 
     const handleRetiredChange = async (checked) => {
         setShowRetiredBlock(false);
         setRetiredPendingCases([]);
+        setIsRetiring(checked); // reflect the click immediately, before the inbox check
 
         if (!checked) {
             restoreFromRetired();
@@ -797,15 +807,20 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
         if (showDeptBlock) return;    // block save if department changed with pending cases
         if (showLocationBlock) return; // block save if location changed with pending cases
         if (showRetiredBlock) return;  // block save while retiring with pending cases
-        const v = {};
-        if (!form.designation?.trim())        v.designation        = 'Designation is required';
-        if (!form.uin?.trim())                v.uin                = 'UIN is required';
-        if (!form.user_email_address?.trim()) v.user_email_address = 'Email is required';
-        if (!form.hindi_user_name?.trim())    v.hindi_user_name    = 'Hindi Name is required';
-        if (!form.hindi_designation?.trim())  v.hindi_designation  = 'Hindi Designation is required';
         const isDDMUser = form.department_name === 'DDM' && ['RO', 'TE'].includes(form.office_type);
-        if (isDDMUser && !form.department_short_code?.trim()) v.department_short_code = 'District is required';
-        if (Object.keys(v).length > 0) { setErrors(v); return; }
+        // Retiring overwrites the office identity with 'RETIRED' and deactivates the
+        // account — the profile-field checks don't apply and would only block a
+        // retirement over an already-incomplete profile.
+        if (!isRetiring) {
+            const v = {};
+            if (!form.designation?.trim())        v.designation        = 'Designation is required';
+            if (!form.uin?.trim())                v.uin                = 'UIN is required';
+            if (!form.user_email_address?.trim()) v.user_email_address = 'Email is required';
+            if (!form.hindi_user_name?.trim())    v.hindi_user_name    = 'Hindi Name is required';
+            if (!form.hindi_designation?.trim())  v.hindi_designation  = 'Hindi Designation is required';
+            if (isDDMUser && !form.department_short_code?.trim()) v.department_short_code = 'District is required';
+            if (Object.keys(v).length > 0) { setErrors(v); return; }
+        }
         setErrors({});
         setLoading(true);
         setError(null);
@@ -813,8 +828,18 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
             // ── Retiring the user ────────────────────────────────────────────────
             // Persist the RETIRED office identity, then drop every group the user is
             // in. This bypasses the standard DDM/CGM/Digidak group reconciliation.
-            if (form.office_type === 'RETIRED') {
-                await api.patch(`/users/profiles/${user.r_object_id}`, { ...form, department_short_code_multi: [] });
+            if (isRetiring || form.office_type === 'RETIRED') {
+                const retiredPayload = {
+                    ...form,
+                    office_type: 'RETIRED',
+                    location: 'RETIRED',
+                    ro_short_code: 'RETIRED',
+                    department_name: 'RETIRED',
+                    department_short_code: 'retired',
+                    department_short_code_multi: [],
+                    is_active: false,
+                };
+                await api.patch(`/users/profiles/${user.r_object_id}`, retiredPayload);
                 const loginName = user.user_login_name;
                 if (loginName) {
                     try {
@@ -992,16 +1017,25 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                 const removedDepts = oldDeptCodesLower.filter(d => !newDeptCodesLower.includes(d));
                 const addedDepts = newDeptCodesLower.filter(d => !oldDeptCodesLower.includes(d));
 
+                // A location (RO/TE short code) or office-type change re-scopes every
+                // region-prefixed group, so the department diff alone is not enough:
+                // the user must fully vacate the old region's ecm_* groups and join the
+                // new region's. When only departments changed at the same location, keep
+                // the narrow per-department behaviour.
+                const oldRoCodeLower = (old.roShortCode || '').toLowerCase();
+                const scopeChanged =
+                    old.officeType !== form.office_type ||
+                    (['RO', 'TE'].includes(form.office_type) && oldRoCodeLower !== newRoShortCode);
 
                 // Only remove groups for departments that were actually removed
                 for (const g of oldGroups) {
                     const deptMatch = g.match(/ecm_ho_([a-z]+)/) || g.match(/ecm_([a-z]+)_([a-z]+)/);
-                    let shouldRemove = false;
+                    let shouldRemove = scopeChanged;
 
-                    if (form.office_type === 'HO' && deptMatch) {
+                    if (!shouldRemove && form.office_type === 'HO' && deptMatch) {
                         const dept = deptMatch[1];
                         shouldRemove = removedDepts.includes(dept);
-                    } else if (['RO', 'TE'].includes(form.office_type) && deptMatch) {
+                    } else if (!shouldRemove && ['RO', 'TE'].includes(form.office_type) && deptMatch) {
                         const dept = deptMatch[2];
                         shouldRemove = removedDepts.includes(dept);
                     }
@@ -1016,12 +1050,12 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                 // Only add groups for departments that were actually added
                 for (const g of newGroups) {
                     const deptMatch = g.match(/ecm_ho_([a-z]+)/) || g.match(/ecm_([a-z]+)_([a-z]+)/);
-                    let shouldAdd = false;
+                    let shouldAdd = scopeChanged;
 
-                    if (form.office_type === 'HO' && deptMatch) {
+                    if (!shouldAdd && form.office_type === 'HO' && deptMatch) {
                         const dept = deptMatch[1];
                         shouldAdd = addedDepts.includes(dept);
-                    } else if (['RO', 'TE'].includes(form.office_type) && deptMatch) {
+                    } else if (!shouldAdd && ['RO', 'TE'].includes(form.office_type) && deptMatch) {
                         const dept = deptMatch[2];
                         shouldAdd = addedDepts.includes(dept);
                     }
@@ -1168,7 +1202,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                             </div>
                         </div>
                         <button onClick={() => setDelegateTask(null)}
-                            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
+                            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
                             <X size={18} />
                         </button>
                     </div>
@@ -1214,7 +1248,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                         <button
                             onClick={handleDelegateConfirm}
                             disabled={!delegateSelectedUser || !!delegatingCaseId}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-all">
+                            className="flex items-center gap-1.5 px-4 py-2 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors">
                             {delegatingCaseId ? <><Loader2 size={12} className="animate-spin" /> Delegating…</> : <><ArrowRightLeft size={12} /> Delegate</>}
                         </button>
                     </div>
@@ -1460,7 +1494,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                                         <input
                                                                             type="checkbox"
                                                                             checked={(form.department_short_code_multi || []).length === depts.length && depts.length > 0}
-                                                                            indeterminate={(form.department_short_code_multi || []).length > 0 && (form.department_short_code_multi || []).length < depts.length}
+                                                                            ref={el => { if (el) el.indeterminate = (form.department_short_code_multi || []).length > 0 && (form.department_short_code_multi || []).length < depts.length; }}
                                                                             onChange={() => {
                                                                                 const currentCodes = form.department_short_code_multi || [];
                                                                                 const allSelected = currentCodes.length === depts.length;
@@ -1537,7 +1571,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                                 <input
                                                                     type="checkbox"
                                                                     checked={(form.department_short_code_multi || []).length === deptOptions.length && deptOptions.length > 0}
-                                                                    indeterminate={(form.department_short_code_multi || []).length > 0 && (form.department_short_code_multi || []).length < deptOptions.length}
+                                                                    ref={el => { if (el) el.indeterminate = (form.department_short_code_multi || []).length > 0 && (form.department_short_code_multi || []).length < deptOptions.length; }}
                                                                     onChange={handleHODepartmentSelectAll}
                                                                     className="rounded accent-canopy"
                                                                 />
@@ -1621,7 +1655,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                         <button
                                                             type="button"
                                                             onClick={() => handleDelegateClick(task)}
-                                                            className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
+                                                            className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap">
                                                             <ArrowRightLeft size={11} /> Delegate
                                                         </button>
                                                     </div>
@@ -1669,7 +1703,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                         <button
                                                             type="button"
                                                             onClick={() => handleDelegateClick(task)}
-                                                            className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
+                                                            className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap">
                                                             <ArrowRightLeft size={11} /> Delegate
                                                         </button>
                                                     </div>
@@ -1717,7 +1751,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                         <button
                                                             type="button"
                                                             onClick={() => handleDelegateClick(task)}
-                                                            className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
+                                                            className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap">
                                                             <ArrowRightLeft size={11} /> Delegate
                                                         </button>
                                                     </div>
@@ -1739,10 +1773,10 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                     </div>
                                     <label className="relative inline-flex items-center cursor-pointer shrink-0">
                                         <input type="checkbox" className="sr-only peer"
-                                            checked={form.office_type === 'RETIRED'}
+                                            checked={isRetiring}
                                             onChange={e => handleRetiredChange(e.target.checked)}
                                             disabled={checkingRetiredInbox} />
-                                        <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-canopy/20 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-canopy peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
+                                        <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-canopy/20 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-transform peer-checked:bg-canopy peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
                                     </label>
                                 </div>
 
@@ -1787,7 +1821,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => handleDelegateClick(task)}
-                                                                    className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
+                                                                    className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap">
                                                                     <ArrowRightLeft size={11} /> Delegate
                                                                 </button>
                                                             </div>
@@ -1857,7 +1891,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleDelegateClick(task)}
-                                                                className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
+                                                                className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap">
                                                                 <ArrowRightLeft size={11} /> Delegate
                                                             </button>
                                                         </div>

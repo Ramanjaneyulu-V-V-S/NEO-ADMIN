@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../components/ui';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
+import { formatDateTime } from '../utils/datetime';
 
 const disabledSelectCls = 'w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-slate-100 text-slate-400 cursor-not-allowed appearance-none pr-8';
 
@@ -44,7 +45,7 @@ const CaseDetailsModal = ({ caseItem, onClose }) => {
                         </div>
                     </div>
                     <button onClick={onClose}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
+                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
                         <X size={18} />
                     </button>
                 </div>
@@ -67,7 +68,7 @@ const CaseDetailsModal = ({ caseItem, onClose }) => {
                         <DetailRow label="File No"        value={caseItem.file_number} />
                         <DetailRow label="Case Type"      value={caseItem.types} />
                         <DetailRow label="Created By"     value={caseItem.r_creator_name} />
-                        <DetailRow label="Created Date"   value={caseItem.r_creation_date} />
+                        <DetailRow label="Created Date"   value={formatDateTime(caseItem.r_creation_date)} />
                         <DetailRow label="Language"       value={caseItem.language_type} />
                         <DetailRow label="Object ID"      value={caseItem.r_object_id} />
                     </div>
@@ -100,9 +101,9 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
         { key: 'performer',      label: 'Performer' },
         { key: 'decision',       label: 'Decision' },
         { key: 'assigned_user',  label: 'Assigned User' },
-        { key: 'completion_date',label: 'Completion Date' },
-        { key: 'r_creation_date',label: 'R Creation Date' },
-        { key: 'r_modify_date',  label: 'R Modify Date' },
+        { key: 'completion_date',label: 'Completion Date', render: formatDateTime },
+        { key: 'r_creation_date',label: 'R Creation Date', render: formatDateTime },
+        { key: 'r_modify_date',  label: 'R Modify Date',   render: formatDateTime },
         { key: 'acl_domain',     label: 'Acl Domain' },
         { key: 'acl_name',       label: 'Acl Name' },
         { key: 'owner_name',     label: 'Owner Name' },
@@ -123,7 +124,7 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
                         </div>
                     </div>
                     <button onClick={onClose}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
+                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
                         <X size={18} />
                     </button>
                 </div>
@@ -149,9 +150,9 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
                             No movement register records found for this case.
                         </div>
                     ) : (
-                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                        <div className="overflow-auto scrollbar-thin border border-slate-200 rounded-xl max-h-[55vh]">
                             <table className="w-full text-xs text-left">
-                                <thead className="bg-slate-50 border-b border-slate-200">
+                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                     <tr>
                                         <th className="px-3 py-2.5 font-semibold text-slate-600 w-8">#</th>
                                         {movCols.map(col => (
@@ -168,7 +169,7 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
                                             {movCols.map(col => (
                                                 <td key={col.key} className="px-3 py-2 text-slate-700 max-w-xs truncate"
                                                     title={String(rec[col.key] ?? '')}>
-                                                    {rec[col.key] ?? '—'}
+                                                    {col.render ? col.render(rec[col.key]) : (rec[col.key] ?? '—')}
                                                 </td>
                                             ))}
                                         </tr>
@@ -475,7 +476,7 @@ const DelegatePage = () => {
                         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                             placeholder="Search by case number…"
-                            className="w-64 pl-9 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy shadow-sm transition-all" />
+                            className="w-64 pl-9 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy shadow-sm transition-colors" />
                         {searchQuery && (
                             <button type="button" onClick={clearSearch} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
                                 <X size={14} />
@@ -483,7 +484,7 @@ const DelegatePage = () => {
                         )}
                     </div>
                     <button type="submit" disabled={!searchQuery.trim() || loadingCases}
-                        className="px-5 py-2.5 bg-canopy text-white rounded-lg text-sm font-semibold hover:bg-canopy-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all">
+                        className="px-5 py-2.5 bg-canopy text-white rounded-lg text-sm font-semibold hover:bg-canopy-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-colors">
                         {loadingCases ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
                         Search
                     </button>
@@ -507,9 +508,9 @@ const DelegatePage = () => {
                     </div>
                 )}
 
-                <div className="overflow-x-auto">
+                <div className="overflow-auto scrollbar-thin max-h-[70vh]">
                     <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200">
+                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th className="px-5 py-3 font-semibold text-slate-700 w-14">#</th>
                                 <th className="px-5 py-3 font-semibold text-slate-700">Case Number</th>
@@ -554,18 +555,18 @@ const DelegatePage = () => {
                                                 <div className="flex items-center justify-center gap-2">
                                                     {/* Case Details */}
                                                     <button onClick={() => setDetailCase(c)} title="Case Details"
-                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors">
                                                         <FileText size={15} />
                                                     </button>
                                                     {/* Movement Register */}
                                                     <button onClick={() => setMovementCase(c)} title="Movement Register"
-                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
+                                                        className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors">
                                                         <ClipboardList size={15} />
                                                     </button>
                                                     {/* Delegate */}
                                                     <button onClick={() => handleDelegate(c)}
                                                         disabled={!selectedUser || isDelegating || !!delegating}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg shadow-sm transition-all">
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg shadow-sm transition-colors">
                                                         {isDelegating ? <><Loader2 size={12} className="animate-spin" /> Delegating…</> : <><ArrowRightLeft size={12} /> Delegate</>}
                                                     </button>
                                                 </div>

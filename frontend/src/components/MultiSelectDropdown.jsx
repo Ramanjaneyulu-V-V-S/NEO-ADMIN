@@ -77,7 +77,7 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
                 </div>
 
                 {isOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg shadow-lg z-10">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg shadow-lg z-10 animate-panel-in">
                         <div className="p-3 border-b border-slate-100">
                             <div className="relative">
                                 <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -102,7 +102,7 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
                                         <input
                                             type="checkbox"
                                             checked={selectedValues.length === options.length && options.length > 0}
-                                            indeterminate={selectedValues.length > 0 && selectedValues.length < options.length}
+                                            ref={el => { if (el) el.indeterminate = selectedValues.length > 0 && selectedValues.length < options.length; }}
                                             onChange={handleSelectAll}
                                             className="w-4 h-4 rounded cursor-pointer accent-canopy"
                                         />

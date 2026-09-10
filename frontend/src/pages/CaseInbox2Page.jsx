@@ -6,6 +6,7 @@ import {
     FileText, Info, ClipboardList, ChevronLeft, ChevronRight, ChevronsLeft
 } from 'lucide-react';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
+import { formatDateTime } from '../utils/datetime';
 
 const PAGE_SIZE = 20;
 
@@ -45,7 +46,7 @@ const CaseDetailsModal = ({ caseItem, onClose }) => {
                         </div>
                     </div>
                     <button onClick={onClose}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
+                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
                         <X size={18} />
                     </button>
                 </div>
@@ -104,9 +105,9 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
         { key: 'performer',      label: 'Performer' },
         { key: 'decision',       label: 'Decision' },
         { key: 'assigned_user',  label: 'Assigned User' },
-        { key: 'completion_date',label: 'Completion Date' },
-        { key: 'r_creation_date',label: 'R Creation Date' },
-        { key: 'r_modify_date',  label: 'R Modify Date' },
+        { key: 'completion_date',label: 'Completion Date', render: formatDateTime },
+        { key: 'r_creation_date',label: 'R Creation Date', render: formatDateTime },
+        { key: 'r_modify_date',  label: 'R Modify Date',   render: formatDateTime },
         { key: 'acl_domain',     label: 'Acl Domain' },
         { key: 'acl_name',       label: 'Acl Name' },
         { key: 'owner_name',     label: 'Owner Name' },
@@ -128,7 +129,7 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
                         </div>
                     </div>
                     <button onClick={onClose}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
+                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
                         <X size={18} />
                     </button>
                 </div>
@@ -154,9 +155,9 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
                             No movement register records found for this case.
                         </div>
                     ) : (
-                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                        <div className="overflow-auto scrollbar-thin border border-slate-200 rounded-xl max-h-[55vh]">
                             <table className="w-full text-xs text-left">
-                                <thead className="bg-slate-50 border-b border-slate-200">
+                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                     <tr>
                                         <th className="px-3 py-2.5 font-semibold text-slate-600 w-8">#</th>
                                         {movCols.map(col => (
@@ -173,7 +174,7 @@ const MovementRegisterModal = ({ caseItem, onClose }) => {
                                             {movCols.map(col => (
                                                 <td key={col.key} className="px-3 py-2 text-slate-700 max-w-xs truncate"
                                                     title={String(rec[col.key] ?? '')}>
-                                                    {rec[col.key] ?? '—'}
+                                                    {col.render ? col.render(rec[col.key]) : (rec[col.key] ?? '—')}
                                                 </td>
                                             ))}
                                         </tr>
@@ -552,14 +553,14 @@ const CaseInbox2Page = () => {
                                                 <button
                                                     onClick={() => setDetailCase(c)}
                                                     title="Case Details"
-                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all"
+                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors"
                                                 >
                                                     <FileText size={15} />
                                                 </button>
                                                 <button
                                                     onClick={() => setMovementCase(c)}
                                                     title="Movement Register"
-                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all"
+                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors"
                                                 >
                                                     <ClipboardList size={15} />
                                                 </button>

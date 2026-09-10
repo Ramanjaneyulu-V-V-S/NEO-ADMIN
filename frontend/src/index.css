@@ -18,11 +18,41 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  /* Smooth programmatic scrolling app-wide (scrollIntoView, #anchor jumps,
+     hand-rolled window.scrollTo). Neutralised by the reduced-motion block below. */
+  scroll-behavior: smooth;
+  /* Keep anchored scrolls clear of the fixed h-14 (3.5rem) topbar */
+  scroll-padding-top: 3.5rem;
+
+  /* Consistent thin, tokenized scrollbar for every scroll container that
+     doesn't opt into .scrollbar-thin */
+  scrollbar-width: thin;
+  scrollbar-color: #c3ccc3 #EAEFE9; /* thumb / track — matches .scrollbar-thin */
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #c3ccc3;
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a7b3a7;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
   background-color: #F6F7F4; /* paper */
   color: #1A2E1F; /* ink */
+  /* Stop the whole window rubber-banding past the app shell */
+  overscroll-behavior-y: none;
 }
 
 /* Tabular figures for identifiers / counts wherever mono is used */
@@ -49,6 +79,10 @@ body {
 .scrollbar-thin {
   scrollbar-width: thin;
   scrollbar-color: #cbd5cb #EAEFE9;
+  /* Keep scroll gestures inside the panel; momentum + smooth on touch */
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
 
 .scrollbar-thin::-webkit-scrollbar {

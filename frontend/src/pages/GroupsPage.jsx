@@ -3,6 +3,7 @@ import axios from '../api/axios';
 import { Search, X, Users, UsersRound, Settings } from 'lucide-react';
 import ManageMembersModal from '../components/ManageMembersModal';
 import { PageHeader, DataTable, Pagination, Button, Input, Card } from '../components/ui';
+import { formatDate } from '../utils/datetime';
 
 const GroupsPage = () => {
     const [groups, setGroups] = useState([]);
@@ -157,7 +158,7 @@ const GroupsPage = () => {
             key: 'r_creation_date',
             header: 'Created',
             mono: true,
-            render: (g) => (g.r_creation_date ? new Date(g.r_creation_date).toLocaleDateString() : '—'),
+            render: (g) => formatDate(g.r_creation_date),
         },
         {
             key: 'actions',
@@ -232,6 +233,7 @@ const GroupsPage = () => {
                             : 'There are no groups to show.',
                     }}
                     className="px-1"
+                    stickyHeader
                 />
 
                 {groups.length > 0 && (

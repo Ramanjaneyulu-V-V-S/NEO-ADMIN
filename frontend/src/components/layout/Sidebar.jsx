@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { GitBranch, Users, Compass, Briefcase, Database, Network, FolderCog, Building2, FileBarChart2 } from 'lucide-react';
+import { GitBranch, Users, Briefcase, Database, Network, FolderCog, Building2, FileBarChart2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../../api/axios';
 import { cn } from '../../utils/cn';
+import nabardLogo from '../../assets/nabard-logo.svg';
 
 const SECTIONS = ['Records', 'Configuration', 'Tools'];
 
@@ -107,15 +108,13 @@ const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
             )}
             <aside
                 className={cn(
-                    'fixed left-0 top-0 z-40 flex h-[100dvh] w-64 flex-col border-r border-line bg-white font-sans transition-transform duration-300 ease-in-out lg:translate-x-0',
+                    'fixed left-0 top-0 z-40 flex h-[100dvh] w-64 flex-col border-r border-line bg-white font-sans transition-transform duration-300 ease-smooth lg:translate-x-0',
                     isOpen ? 'translate-x-0' : '-translate-x-full'
                 )}
             >
                 {/* Wordmark */}
                 <div className="flex items-center gap-3 px-5 py-5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-canopy shadow-card">
-                        <Compass className="text-white" size={22} />
-                    </div>
+                    <img src={nabardLogo} alt="NABARD" className="h-10 w-10 shrink-0" />
                     <div className="leading-tight">
                         <p className="font-display text-title font-semibold text-ink">NEO Admin</p>
                         <p className="font-mono text-[0.65rem] uppercase tracking-widest text-slate-400">NABARD</p>

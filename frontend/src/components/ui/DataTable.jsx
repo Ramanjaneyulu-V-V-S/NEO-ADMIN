@@ -23,6 +23,8 @@ import { EmptyState } from './EmptyState';
  * sort: { key, dir } | null,  onSortChange(next),
  * empty: { icon, title, description, action },
  * onRowClick?(row)
+ * stickyHeader?: boolean,     // pin <thead> while the table body scrolls
+ * maxHeight?: string,         // scroll-area cap when stickyHeader (default '70vh')
  */
 export function DataTable({
     columns,
@@ -35,6 +37,8 @@ export function DataTable({
     empty,
     onRowClick,
     className = '',
+    stickyHeader = false,
+    maxHeight = '70vh',
 }) {
     const alignCls = (a) => (a === 'right' ? 'text-right' : a === 'center' ? 'text-center' : 'text-left');
 
@@ -62,9 +66,20 @@ export function DataTable({
     return (
         <div className={className}>
             {/* ---- desktop / tablet: table ---- */}
-            <div className="hidden overflow-x-auto scrollbar-thin md:block">
+            <div
+                className={cn(
+                    'hidden overflow-x-auto scrollbar-thin md:block',
+                    stickyHeader && 'overflow-y-auto'
+                )}
+                style={stickyHeader ? { maxHeight } : undefined}
+            >
                 <table className="w-full text-left text-body">
-                    <thead className="border-b border-line bg-paper">
+                    <thead
+                        className={cn(
+                            'border-b border-line bg-paper',
+                            stickyHeader && 'sticky top-0 z-10 shadow-sm'
+                        )}
+                    >
                         <tr>
                             {columns.map((col) => (
                                 <th

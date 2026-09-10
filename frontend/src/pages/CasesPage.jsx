@@ -4,12 +4,15 @@ import {
     Search, ChevronLeft, ChevronRight, Briefcase,
     ChevronsLeft, Loader2, X, Eye, RefreshCw,
     FileText, CheckCircle, AlertCircle, PlayCircle, Clock,
-    AlertTriangle, Inbox, ArrowRightLeft, ClipboardList
+    AlertTriangle, Inbox, ArrowRightLeft, ClipboardList, Download
 } from 'lucide-react';
 import { CaseInboxContent } from './CaseInbox2Page';
 import { DelegateContent, CaseDetailsModal, MovementRegisterModal } from './DelegatePage';
 import { getLocations, fetchDepartments } from '../data/nabardMetadata';
-import { PageHeader, Tabs } from '../components/ui';
+import { PageHeader, Tabs, useToast } from '../components/ui';
+import { formatDateTime } from '../utils/datetime';
+import { downloadXlsx, downloadRosterXlsx, mapWithConcurrency } from '../utils/userExport';
+import { recordExport } from '../utils/audit';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 const CasesPage = () => {
@@ -42,6 +45,10 @@ const CasesPage = () => {
     // Case Details & Movement Register modals
     const [detailCase, setDetailCase] = useState(null);
     const [movementCase, setMovementCase] = useState(null);
+
+    // Cases export — null when idle, 'plain' | 'movement' while running
+    const [exporting, setExporting] = useState(null);
+    const toast = useToast();
 
     // ─── Local Admin role & profile context ──────────────────────────────────────
     const storedUser    = JSON.parse(localStorage.getItem('user') || '{}');
@@ -173,43 +180,57 @@ const CasesPage = () => {
         setFilterDeptOptions([]);
     }, []);
 
-    const fetchCases = useCallback(async (searchTerm, pageNum, size = pageSize) => {
+    // Shared /cases/search query params — used by the list fetch and the exports.
+    const buildCaseSearchParams = useCallback((searchTerm, pageNum, size) => {
+        const params = { page: pageNum, size };
+        if (searchTerm && searchTerm.trim() !== '') params.caseNumber = searchTerm.trim();
+
+        // Local Admin filters
+        if (isLocalAdmin) {
+            if (officeType) params.hoRo = officeType;
+            if (officeType === 'HO') {
+                if (localAdminDeptNames) params.deptNames = localAdminDeptNames;
+            } else if (locationShortCode) {
+                params.roShortCode = locationShortCode;
+            }
+        }
+
+        // Case filters
+        if (filterOfficeType) params.hoRo = filterOfficeType;
+        if (filterDeptShortCode) params.departmentShortCode = filterDeptShortCode.toLowerCase();
+        if (filterLocationShortCode) params.roShortCode = filterLocationShortCode;
+        if (filterVertical) params.functions = filterVertical;
+        if (filterFromDate) params.fromDate = filterFromDate;
+        if (filterToDate) params.toDate = filterToDate;
+
+        return params;
+    }, [isLocalAdmin, officeType, locationShortCode, localAdminDeptNames, filterOfficeType, filterDeptShortCode, filterLocationShortCode, filterVertical, filterFromDate, filterToDate]);
+
+    // withCount=false on plain page navigation — the filter set (and therefore the
+    // total) hasn't changed, so we skip the extra COUNT(*) and keep the shown count.
+    const fetchCases = useCallback(async (searchTerm, pageNum, size = pageSize, withCount = true) => {
         setLoading(true);
         setHasSearched(true);
 
         try {
-            const params = {
-                page: pageNum,
-                size: size
-            };
-            if (searchTerm && searchTerm.trim() !== '') params.caseNumber = searchTerm.trim();
-
-            // Local Admin filters
-            if (isLocalAdmin) {
-                if (officeType) params.hoRo = officeType;
-                if (officeType === 'HO') {
-                    if (localAdminDeptNames) params.deptNames = localAdminDeptNames;
-                } else if (locationShortCode) {
-                    params.roShortCode = locationShortCode;
-                }
-            }
-
-            // Case filters
-            if (filterOfficeType) params.hoRo = filterOfficeType;
-            if (filterDeptShortCode) params.departmentShortCode = filterDeptShortCode.toLowerCase();
-            if (filterLocationShortCode) params.roShortCode = filterLocationShortCode;
-            if (filterVertical) params.functions = filterVertical;
-            if (filterFromDate) params.fromDate = filterFromDate;
-            if (filterToDate) params.toDate = filterToDate;
+            const params = buildCaseSearchParams(searchTerm, pageNum, size);
+            if (!withCount) params.withCount = false;
 
             const response = await axios.get('/cases/search', { params });
 
             const data = response.data;
             setCases(data.cases || []);
             setHasNextPage(data.hasNext || false);
-            const currentCount = (data.cases || []).length;
-            const minTotal = (pageNum - 1) * pageSize + currentCount;
-            setTotalEstimate(data.hasNext ? `${minTotal}+` : minTotal.toString());
+            if (typeof data.total === 'number') {
+                // Exact count for the current filter set (from the backend COUNT(*)).
+                setTotalEstimate(String(data.total));
+            } else if (withCount) {
+                // Fallback: running "N+" estimate when the exact count isn't available.
+                const currentCount = (data.cases || []).length;
+                const minTotal = (pageNum - 1) * pageSize + currentCount;
+                setTotalEstimate(data.hasNext ? `${minTotal}+` : minTotal.toString());
+            }
+            // withCount === false → keep the exact count already on screen
         } catch (error) {
             console.error("Error fetching cases", error);
             setCases([]);
@@ -218,7 +239,7 @@ const CasesPage = () => {
         } finally {
             setLoading(false);
         }
-    }, [pageSize, isLocalAdmin, officeType, locationShortCode, localAdminDeptNames, filterOfficeType, filterLocation, filterDeptShortCode, filterLocationShortCode, filterVertical, filterFromDate, filterToDate]);
+    }, [pageSize, buildCaseSearchParams]);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -265,7 +286,7 @@ const CasesPage = () => {
 
     const handlePageChange = (newPage) => {
         setPage(newPage);
-        fetchCases(activeSearch, newPage);
+        fetchCases(activeSearch, newPage, pageSize, false);
     };
 
     const clearSearch = () => {
@@ -274,6 +295,209 @@ const CasesPage = () => {
         setIsDefaultLoad(true);
         setPage(1);
         fetchCases('', 1);
+    };
+
+    // ─── Cases export (xlsx) ─────────────────────────────────────────────────────
+    const EXPORT_PAGE_SIZE = 200;
+    const EXPORT_MAX_PAGES = 500; // runaway guard only → up to 100k cases
+
+    // Pages through every case matching the current filters (not just the visible page).
+    const fetchAllCasesForExport = async () => {
+        const all = [];
+        for (let p = 1; p <= EXPORT_MAX_PAGES; p++) {
+            const params = buildCaseSearchParams(activeSearch, p, EXPORT_PAGE_SIZE);
+            const { data } = await axios.get('/cases/search', { params });
+            const batch = data.cases || [];
+            all.push(...batch);
+            if (!data.hasNext || batch.length === 0) break;
+        }
+        return all;
+    };
+
+    const CASE_COLS = [
+        { header: '#', key: 'idx', width: 6 },
+        { header: 'Case Number', key: 'caseNumber', width: 34 },
+        { header: 'Subject', key: 'subject', width: 50 },
+        { header: 'Department', key: 'department', width: 22 },
+        { header: 'Created Date', key: 'createdDate', width: 22 },
+        { header: 'Created By', key: 'createdBy', width: 22 },
+        { header: 'Case Status', key: 'caseStatus', width: 18 },
+    ];
+
+    const caseBaseRow = (c, i) => ({
+        idx: i + 1,
+        caseNumber: c.object_name ?? '',
+        subject: c.description ?? '',
+        department: c.department_name ?? '',
+        createdDate: formatDateTime(c.r_creation_date, ''),
+        createdBy: c.r_creator_name ?? '',
+        caseStatus: c.status ?? '',
+    });
+
+    // With an HO office-type filter active, split the workbook into one sheet per
+    // department instead of a single combined sheet.
+    const isHOExport = () => officeType === 'HO' || filterOfficeType === 'HO';
+
+    // Case position lists keyed by department, preserving fetch order.
+    const groupCaseIndexesByDept = (list) => {
+        const map = new Map();
+        list.forEach((c, i) => {
+            const key = c.department_name || 'Unknown';
+            if (!map.has(key)) map.set(key, []);
+            map.get(key).push(i);
+        });
+        return map;
+    };
+
+    // Excel tab names: <= 31 chars, none of  : \ / ? * [ ] , and unique per workbook.
+    const toSheetName = (name, used) => {
+        const base = (name || 'Unknown').replace(/[:\\/?*[\]]/g, ' ').trim().slice(0, 31) || 'Unknown';
+        let candidate = base;
+        let k = 2;
+        while (used.has(candidate.toLowerCase())) {
+            const suffix = ` (${k++})`;
+            candidate = base.slice(0, 31 - suffix.length) + suffix;
+        }
+        used.add(candidate.toLowerCase());
+        return candidate;
+    };
+
+    const exportCases = async () => {
+        setExporting('plain');
+        try {
+            const rows = await fetchAllCasesForExport();
+            if (!rows.length) { toast.error('No cases to export.'); return; }
+
+            const splitByDept = isHOExport();
+            let sheets;
+            if (splitByDept) {
+                const used = new Set();
+                sheets = [...groupCaseIndexesByDept(rows).entries()].map(([dept, idxs]) => ({
+                    name: toSheetName(dept, used),
+                    columns: CASE_COLS,
+                    rows: idxs.map((gi, i) => caseBaseRow(rows[gi], i)),
+                }));
+            } else {
+                sheets = [{ name: 'Cases', columns: CASE_COLS, rows: rows.map(caseBaseRow) }];
+            }
+
+            await downloadXlsx(sheets, `cases_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            recordExport({
+                action: 'Export Cases', targetType: 'report', count: rows.length,
+                detail: splitByDept ? `XLSX · ${sheets.length} department sheets` : 'XLSX',
+            });
+            toast.success(`Exported ${rows.length} case${rows.length === 1 ? '' : 's'}.`);
+        } catch (err) {
+            console.error('Cases export failed', err);
+            toast.error('Export failed. Please try again.');
+        } finally {
+            setExporting(null);
+        }
+    };
+
+    const MOVEMENT_COLS = [
+        { header: 'Entry Object Name', key: 'm_object_name', width: 20 },
+        { header: 'Performer', key: 'm_performer', width: 22 },
+        { header: 'Decision', key: 'm_decision', width: 16 },
+        { header: 'Assigned User', key: 'm_assigned_user', width: 22 },
+        { header: 'Completion Date', key: 'm_completion_date', width: 22 },
+    ];
+
+    // Movement Register entries come back newest-first; walk them in the order
+    // they actually happened so each case starts with its "Initiated" entry.
+    const sortMovementChronological = (entries) =>
+        [...entries].sort((a, b) => {
+            const ta = new Date(a.r_creation_date || a.received_date || a.completion_date || 0).getTime();
+            const tb = new Date(b.r_creation_date || b.received_date || b.completion_date || 0).getTime();
+            return ta - tb;
+        });
+
+    const exportCasesWithMovement = async () => {
+        setExporting('movement');
+        try {
+            const cases = await fetchAllCasesForExport();
+            if (!cases.length) { toast.error('No cases to export.'); return; }
+
+            const movements = await mapWithConcurrency(cases, 5, async (c) => {
+                if (!c.r_object_id) return [];
+                const { data } = await axios.get(`/delegate/cases/${c.r_object_id}/movement`, {
+                    params: { isValidEntry: true },
+                });
+                return Array.isArray(data) ? data : [];
+            });
+
+            const EMPTY_KEY = CASE_COLS.map(() => '');
+            const EMPTY_TRAIL = MOVEMENT_COLS.map(() => '');
+            let n = 0;
+
+            // Build the flat, merge-ready row list for one department's (or all) cases.
+            const buildRosterRows = (idxs) => {
+                const rows = [];
+                idxs.forEach((gi, localIdx) => {
+                    const b = caseBaseRow(cases[gi], localIdx);
+                    // Identical across every movement row of a case → the export helper
+                    // merges these leading cells into one block per case.
+                    const keyVals = [
+                        String(b.idx), b.caseNumber, b.subject, b.department,
+                        b.createdDate, b.createdBy, b.caseStatus,
+                    ];
+                    const entries = sortMovementChronological(movements[gi] || []);
+                    if (entries.length === 0) {
+                        rows.push({ keyVals, trailing: EMPTY_TRAIL });
+                    } else {
+                        entries.forEach((m) => {
+                            n++;
+                            rows.push({
+                                keyVals,
+                                trailing: [
+                                    m.object_name ?? '',
+                                    m.performer ?? '',
+                                    m.decision ?? '',
+                                    m.assigned_user ?? '',
+                                    formatDateTime(m.completion_date, ''),
+                                ],
+                            });
+                        });
+                    }
+                    // Blank spacer row between cases so the merged blocks read as separate.
+                    if (localIdx < idxs.length - 1) rows.push({ keyVals: EMPTY_KEY, trailing: EMPTY_TRAIL });
+                });
+                return rows;
+            };
+
+            const groupColumns = CASE_COLS.map(({ header, width }) => ({ header, width }));
+            const trailingColumns = MOVEMENT_COLS.map(({ header, width }) => ({ header, width }));
+
+            const splitByDept = isHOExport();
+            let sheets;
+            if (splitByDept) {
+                const used = new Set();
+                sheets = [...groupCaseIndexesByDept(cases).entries()].map(([dept, idxs]) => ({
+                    name: toSheetName(dept, used), groupColumns, trailingColumns,
+                    rows: buildRosterRows(idxs),
+                }));
+            } else {
+                sheets = [{
+                    name: 'Cases + Movement', groupColumns, trailingColumns,
+                    rows: buildRosterRows(cases.map((_, i) => i)),
+                }];
+            }
+
+            await downloadRosterXlsx(sheets, `cases_movement_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            recordExport({
+                action: 'Export Cases + Movement Register', targetType: 'report',
+                count: cases.length,
+                detail: splitByDept
+                    ? `XLSX · ${sheets.length} department sheets · ${n} movement entries`
+                    : `XLSX · ${n} movement entries`,
+            });
+            toast.success(`Exported ${cases.length} case${cases.length === 1 ? '' : 's'} with movement register.`);
+        } catch (err) {
+            console.error('Cases + movement export failed', err);
+            toast.error('Export failed. Please try again.');
+        } finally {
+            setExporting(null);
+        }
     };
 
     const loadWorkflowData = async (caseItem) => {
@@ -360,6 +584,11 @@ const CasesPage = () => {
 
     const rangeStart = cases.length > 0 ? (page - 1) * pageSize + 1 : 0;
     const rangeEnd = (page - 1) * pageSize + cases.length;
+
+    const isSingle = totalEstimate === '1';
+    const resultLabel = isDefaultLoad
+        ? `recent case${isSingle ? '' : 's'}`
+        : `result${isSingle ? '' : 's'} found`;
 
     const activeWorkflow = workflowData?.workflows && workflowData.workflows.length > 0 
         ? workflowData.workflows[activeWorkflowIndex] 
@@ -477,7 +706,7 @@ const CasesPage = () => {
                         <div className="flex items-end">
                             <button
                                 onClick={handleClearFilters}
-                                className="w-full px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 flex items-center justify-center gap-1 transition-all"
+                                className="w-full px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 flex items-center justify-center gap-1 transition-colors"
                             >
                                 <X size={14} />
                                 Clear
@@ -487,10 +716,32 @@ const CasesPage = () => {
                 </div>
             </div>
 
-            {/* Search */}
-            <div className="flex items-center justify-end gap-4 mb-6">
+            {/* Search + export */}
+            <div className="flex flex-wrap items-center justify-end gap-4 mb-6">
+                {hasSearched && cases.length > 0 && (
+                    <div className="mr-auto flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={exportCases}
+                            disabled={!!exporting}
+                            className="flex items-center gap-1.5 px-3 py-2 border border-canopy/20 text-canopy bg-canopy-tint text-sm font-medium rounded-lg hover:bg-canopy-tint/70 transition-colors disabled:opacity-50"
+                        >
+                            {exporting === 'plain' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                            Export Cases
+                        </button>
+                        <button
+                            type="button"
+                            onClick={exportCasesWithMovement}
+                            disabled={!!exporting}
+                            className="flex items-center gap-1.5 px-3 py-2 border border-canopy/20 text-canopy bg-canopy-tint text-sm font-medium rounded-lg hover:bg-canopy-tint/70 transition-colors disabled:opacity-50"
+                        >
+                            {exporting === 'movement' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                            Export with Movement Register
+                        </button>
+                    </div>
+                )}
                 <div>
-                
+
                 <form onSubmit={handleSearch} className="flex items-center gap-2">
                     <div className="relative">
                         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -499,7 +750,7 @@ const CasesPage = () => {
                             value={caseNumber}
                             onChange={(e) => setCaseNumber(e.target.value)}
                             placeholder="Search case number..."
-                            className="w-72 pl-9 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy shadow-sm transition-all"
+                            className="w-72 pl-9 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy shadow-sm transition-colors"
                         />
                         {caseNumber && (
                             <button type="button" onClick={clearSearch} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
@@ -510,7 +761,7 @@ const CasesPage = () => {
                     <button
                         type="submit"
                         disabled={!caseNumber.trim() || loading}
-                        className="px-5 py-2.5 bg-canopy text-white rounded-lg text-sm font-semibold hover:bg-canopy-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-all"
+                        className="px-5 py-2.5 bg-canopy text-white rounded-lg text-sm font-semibold hover:bg-canopy-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-colors"
                     >
                         {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
                         Search
@@ -535,15 +786,15 @@ const CasesPage = () => {
                         {totalEstimate && !loading && (
                             <div className="px-6 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between text-sm backdrop-blur-sm">
                                 <span className="text-slate-600">
-                                    <span className="font-semibold text-canopy">{totalEstimate}</span> {isDefaultLoad ? `recent cases` : `results found`}
+                                    <span className="font-semibold text-canopy">{totalEstimate}</span> {resultLabel}
                                 </span>
                                 {cases.length > 0 && <span className="text-slate-400 text-xs">Showing {rangeStart}-{rangeEnd}</span>}
                             </div>
                         )}
 
-                        <div className="overflow-x-auto">
+                        <div className="overflow-auto scrollbar-thin max-h-[70vh]">
                             <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200">
+                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                     <tr>
                                         <th className="px-6 py-3 font-semibold text-slate-700 w-16">#</th>
                                         <th className="px-6 py-3 font-semibold text-slate-700">Case Number</th>
@@ -585,11 +836,11 @@ const CasesPage = () => {
                                                 <td className="px-6 py-2.5">
                                                     <div className="flex items-center justify-center gap-2">
                                                         <button onClick={() => setDetailCase(c)} title="Case Details"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors">
                                                             <FileText size={15} />
                                                         </button>
                                                         <button onClick={() => setMovementCase(c)} title="Movement Register"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors">
                                                             <ClipboardList size={15} />
                                                         </button>
                                                     </div>
@@ -689,7 +940,7 @@ const CasesPage = () => {
                                                     <button
                                                         key={idx}
                                                         onClick={() => setActiveWorkflowIndex(idx)}
-                                                        className={`w-full text-left p-3 rounded-lg text-sm transition-all ${
+                                                        className={`w-full text-left p-3 rounded-lg text-sm transition-colors ${
                                                             activeWorkflowIndex === idx 
                                                             ? 'bg-white shadow-sm ring-1 ring-slate-200 text-canopy font-medium' 
                                                             : 'hover:bg-slate-200/50 text-slate-600'
@@ -719,7 +970,7 @@ const CasesPage = () => {
                                                     </div>
                                                     <div className="flex items-center gap-1.5">
                                                         <Clock size={16} className="text-slate-400" />
-                                                        Started: <span>{activeWorkflow.r_start_date ? new Date(activeWorkflow.r_start_date).toLocaleString() : 'N/A'}</span>
+                                                        Started: <span>{formatDateTime(activeWorkflow.r_start_date, 'N/A')}</span>
                                                     </div>
                                                     <div className="flex items-center gap-1.5">
                                                         <Eye size={16} className="text-slate-400" />
@@ -737,7 +988,7 @@ const CasesPage = () => {
                                                 <button
                                                     onClick={() => handleRestartWorkflow(activeWorkflow.r_object_id)}
                                                     disabled={actionLoading === `restart-${activeWorkflow.r_object_id}`}
-                                                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-lg shadow-sm transition-all"
+                                                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-lg shadow-sm transition-colors"
                                                 >
                                                     {actionLoading === `restart-${activeWorkflow.r_object_id}` ? (
                                                         <Loader2 size={16} className="animate-spin" />
@@ -756,9 +1007,9 @@ const CasesPage = () => {
                                                 Activity History & Queue Items
                                             </h4>
                                             
-                                            <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                            <div className="border border-slate-200 rounded-lg overflow-auto scrollbar-thin max-h-[60vh]">
                                                 <table className="w-full text-left text-sm">
-                                                    <thead className="bg-slate-50 border-b border-slate-200">
+                                                    <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                                         <tr>
                                                             <th className="px-4 py-3 font-semibold text-slate-700 w-16 text-center">Seq</th>
                                                             <th className="px-4 py-3 font-semibold text-slate-700">Activity Name</th>
@@ -777,7 +1028,7 @@ const CasesPage = () => {
                                                                     <td className="px-4 py-3 text-slate-600">{item.r_performer_name || '-'}</td>
                                                                     <td className="px-4 py-3">{getStatusBadge(item.r_runtime_state || item.a_wi_status)}</td>
                                                                     <td className="px-4 py-3 text-slate-600 text-xs">
-                                                                        {item.r_creation_date ? new Date(item.r_creation_date).toLocaleString() : '-'}
+                                                                        {formatDateTime(item.r_creation_date, '-')}
                                                                     </td>
                                                                     <td className="px-4 py-3 text-right">
                                                                         <div className="flex items-center justify-end gap-2">
@@ -843,7 +1094,7 @@ const CasesPage = () => {
                             <p className="mb-2 text-slate-500"># System Log for WorkItem: {selectedLogItem.r_object_id}</p>
                             <p className="mb-2 text-slate-500"># Activity: {selectedLogItem.r_act_name}</p>
                             <div className="space-y-1">
-                                <span className="text-canopy/70">[INFO]</span> Activity started at {selectedLogItem.r_creation_date}<br/>
+                                <span className="text-canopy/70">[INFO]</span> Activity started at {formatDateTime(selectedLogItem.r_creation_date)}<br/>
                                 <span className="text-canopy/70">[DEBUG]</span> Performer assigned: {selectedLogItem.r_performer_name}<br/>
                                 <span className="text-canopy/70">[INFO]</span> Status changed to: {selectedLogItem.r_runtime_state}<br/>
                                 {selectedLogItem.r_runtime_state === 'failed' && (

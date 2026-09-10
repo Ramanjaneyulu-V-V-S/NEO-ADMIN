@@ -134,6 +134,30 @@ export async function downloadRosterXlsx(sheets, filename) {
     triggerDownload(blob, filename);
 }
 
+// ─── Generic result-grid export (column list + array of row objects) ──────────
+
+/** CSV from a flat `{ columns: string[], rows: Object[] }` result set. */
+export function downloadGridCsv(columns, rows, filename) {
+    const body = rows.map((row) => columns.map((col) => row[col] ?? ''));
+    downloadCsv(columns, body, filename);
+}
+
+/** Single-sheet XLSX from a flat `{ columns: string[], rows: Object[] }` result set. */
+export function downloadGridXlsx(columns, rows, filename, sheetName = 'Results') {
+    return downloadXlsx(
+        [{
+            name: sheetName.slice(0, 31) || 'Results',
+            columns: columns.map((col) => ({ header: col, key: col, width: Math.min(60, Math.max(12, col.length + 2)) })),
+            rows: rows.map((row) => {
+                const out = {};
+                for (const col of columns) out[col] = row[col] ?? '';
+                return out;
+            }),
+        }],
+        filename,
+    );
+}
+
 /**
  * Runs `fn` over `items` with at most `limit` in flight at once.
  * Failures are swallowed to `null` so one bad request doesn't abort the batch.

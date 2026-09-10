@@ -1,50 +1,70 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const useIdleTimeout = (warningTime = 30000, logoutTime = 60000) => {
+/**
+ * Auto sign-out after a period of no user interaction.
+ *
+ * Any of `mousedown / keydown / scroll / touchstart / click` before the warning
+ * appears pushes the idle timer back (throttled to once per second). Once the
+ * "Session Inactive" warning is showing, only an explicit "Continue Session"
+ * click dismisses it — stray activity no longer auto-dismisses it.
+ *
+ * @param {number} warningTime  ms the countdown warning is visible before logout
+ * @param {number} logoutTime   ms of inactivity before the session ends
+ */
+const useIdleTimeout = (warningTime = 30000, logoutTime = 1800000) => {
   const navigate = useNavigate();
   const [showWarning, setShowWarning] = useState(false);
   const [remainingTime, setRemainingTime] = useState(0);
 
   const idleTimerRef = useRef(null);
-  const warningTimerRef = useRef(null);
   const countdownTimerRef = useRef(null);
-  const isIdleRef = useRef(false);
+  const showWarningRef = useRef(false);
+  const lastActivityRef = useRef(0);
+
+  const clearTimers = () => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    idleTimerRef.current = null;
+    countdownTimerRef.current = null;
+  };
 
   const handleLogout = () => {
+    clearTimers();
     localStorage.removeItem('user');
     navigate('/login', { replace: true });
   };
 
+  const startCountdown = () => {
+    showWarningRef.current = true;
+    setShowWarning(true);
+
+    let left = warningTime;
+    setRemainingTime(left);
+
+    countdownTimerRef.current = setInterval(() => {
+      left -= 1000;
+      if (left <= 0) {
+        setRemainingTime(0);
+        handleLogout();
+        return;
+      }
+      setRemainingTime(left);
+    }, 1000);
+  };
+
   const resetIdleTimer = () => {
-    if (showWarning) return;
-
+    if (showWarningRef.current) return;
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-
-    isIdleRef.current = false;
-
-    idleTimerRef.current = setTimeout(() => {
-      isIdleRef.current = true;
-      setShowWarning(true);
-      setRemainingTime(warningTime);
-
-      countdownTimerRef.current = setInterval(() => {
-        setRemainingTime(prev => {
-          if (prev <= 1000) {
-            clearInterval(countdownTimerRef.current);
-            handleLogout();
-            return 0;
-          }
-          return prev - 1000;
-        });
-      }, 1000);
-    }, logoutTime - warningTime);
+    idleTimerRef.current = setTimeout(startCountdown, Math.max(0, logoutTime - warningTime));
   };
 
   const handleContinue = () => {
-    setShowWarning(false);
     if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    countdownTimerRef.current = null;
+    showWarningRef.current = false;
+    setShowWarning(false);
+    lastActivityRef.current = Date.now();
     resetIdleTimer();
   };
 
@@ -52,24 +72,22 @@ const useIdleTimeout = (warningTime = 30000, logoutTime = 60000) => {
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
 
     const handleActivity = () => {
-      if (!isIdleRef.current) return;
-      handleContinue();
+      // While the warning is up, require an explicit "Continue Session" click.
+      if (showWarningRef.current) return;
+      const now = Date.now();
+      if (now - lastActivityRef.current < 1000) return;
+      lastActivityRef.current = now;
+      resetIdleTimer();
     };
 
-    events.forEach(event => {
-      document.addEventListener(event, handleActivity);
-    });
-
+    events.forEach(event => document.addEventListener(event, handleActivity, { passive: true }));
     resetIdleTimer();
 
     return () => {
-      events.forEach(event => {
-        document.removeEventListener(event, handleActivity);
-      });
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+      events.forEach(event => document.removeEventListener(event, handleActivity));
+      clearTimers();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return { showWarning, remainingTime, handleContinue };

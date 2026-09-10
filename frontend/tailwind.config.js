@@ -74,13 +74,33 @@ export default {
           "0%": { opacity: "0", transform: "translateY(6px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        // Dropdown / popover panels — small fade + rise, plus a matching exit
+        "panel-in": {
+          "0%": { opacity: "0", transform: "translateY(-4px) scale(0.98)" },
+          "100%": { opacity: "1", transform: "none" },
+        },
+        "panel-out": {
+          "0%": { opacity: "1", transform: "none" },
+          "100%": { opacity: "0", transform: "translateY(-4px) scale(0.98)" },
+        },
+      },
+      transitionTimingFunction: {
+        // One calm ease-out shared by every transition / animation in the app
+        DEFAULT: "cubic-bezier(0.32, 0.72, 0, 1)",
+        smooth: "cubic-bezier(0.32, 0.72, 0, 1)",
+      },
+      transitionDuration: {
+        // Slightly longer than Tailwind's 150ms default — calmer hover / colour fades
+        DEFAULT: "200ms",
       },
       animation: {
-        "sheet-up": "sheet-up 0.2s ease-out",
-        "pop-in": "pop-in 0.2s ease-out",
-        "spine-grow": "spine-grow 0.12s ease-out",
-        "toast-in": "toast-in 0.15s ease-out",
-        "fade-rise": "fade-rise 0.18s ease-out",
+        "sheet-up": "sheet-up 0.3s cubic-bezier(0.32, 0.72, 0, 1)",
+        "pop-in": "pop-in 0.2s cubic-bezier(0.32, 0.72, 0, 1)",
+        "spine-grow": "spine-grow 0.14s cubic-bezier(0.32, 0.72, 0, 1)",
+        "toast-in": "toast-in 0.18s cubic-bezier(0.32, 0.72, 0, 1)",
+        "fade-rise": "fade-rise 0.22s cubic-bezier(0.32, 0.72, 0, 1)",
+        "panel-in": "panel-in 0.15s cubic-bezier(0.32, 0.72, 0, 1)",
+        "panel-out": "panel-out 0.12s cubic-bezier(0.32, 0.72, 0, 1)",
       },
     },
   },

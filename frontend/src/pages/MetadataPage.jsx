@@ -6,18 +6,19 @@ import {
 } from 'lucide-react';
 import { getLocations, fetchDepartments } from '../data/nabardMetadata.js';
 import { downloadCsv, downloadXlsx } from '../utils/userExport.js';
+import { recordExport } from '../utils/audit.js';
 import { PageHeader, Tabs, useToast } from '../components/ui';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 const inputCls = (err) =>
-    `w-full px-4 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy ${
+    `w-full px-4 py-2.5 border rounded-xl text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy ${
         err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
     }`;
 
 const selectCls = (err, disabled) => disabled
     ? 'w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-100 text-slate-400 cursor-not-allowed appearance-none pr-10'
-    : `w-full px-4 py-2.5 border rounded-xl text-sm appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy transition-all cursor-pointer ${
+    : `w-full px-4 py-2.5 border rounded-xl text-sm appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy transition-colors cursor-pointer ${
         err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
     }`;
 
@@ -269,6 +270,13 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                 await downloadXlsx([{ name: 'File Numbers', columns, rows }], `${base}.xlsx`);
             }
             onToast({ type: 'success', message: `Exported ${filteredItems.length} file number${filteredItems.length !== 1 ? 's' : ''}.` });
+            recordExport({
+                action: 'Export file numbers',
+                target: `${roShortCode ? roShortCode + '/' : ''}${deptShortCode || hoRo}`,
+                targetType: 'metadata',
+                count: filteredItems.length,
+                detail: format.toUpperCase(),
+            });
         } catch (err) {
             onToast({ type: 'error', message: err.message || 'Export failed' });
         } finally {
@@ -294,20 +302,20 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                     {!loading && !error && items.length > 0 && (
                         <>
                             <button onClick={() => handleExport('xlsx')} disabled={exporting || filteredItems.length === 0}
-                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-canopy border border-canopy/30 hover:bg-canopy-tint transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-canopy border border-canopy/30 hover:bg-canopy-tint transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                 title={isFiltered ? 'Export filtered file numbers (XLSX)' : 'Export all file numbers (XLSX)'}>
                                 {exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                                 Export{isFiltered ? ` (${filteredItems.length})` : ''}
                             </button>
                             <button onClick={() => handleExport('csv')} disabled={exporting || filteredItems.length === 0}
-                                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 border border-slate-200 hover:bg-slate-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 border border-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                 title="Export as CSV">
                                 CSV
                             </button>
                         </>
                     )}
                     <button onClick={loadList} disabled={loading}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-all disabled:opacity-40">
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-40">
                         <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>
@@ -371,9 +379,9 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                     No file numbers match your filters
                 </div>
             ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-auto scrollbar-thin max-h-[70vh]">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200">
+                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 w-8">#</th>
                                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">File Number</th>
@@ -530,14 +538,14 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                         <button
                             onClick={() => setCurrentPage(1)}
                             disabled={currentPage === 1}
-                            className="p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            className="p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             title="First page">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         </button>
                         <button
                             onClick={() => setCurrentPage(c => Math.max(1, c - 1))}
                             disabled={currentPage === 1}
-                            className="p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            className="p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             title="Previous page">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 12H5" /></svg>
                         </button>
@@ -553,14 +561,14 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                         <button
                             onClick={() => setCurrentPage(c => Math.min(totalPages, c + 1))}
                             disabled={currentPage === totalPages}
-                            className="p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            className="p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             title="Next page">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" /></svg>
                         </button>
                         <button
                             onClick={() => setCurrentPage(totalPages)}
                             disabled={currentPage === totalPages}
-                            className="p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            className="p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             title="Last page">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </button>
@@ -823,7 +831,7 @@ const FileNumberTab = ({ onToast }) => {
                             onChange={e => set('description', e.target.value)}
                             placeholder="e.g. Jammu & Kashmir - State Master File (SMF)"
                             rows={3}
-                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy hover:border-slate-300 bg-white resize-none transition-all" />
+                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy hover:border-slate-300 bg-white resize-none transition-colors" />
                     </div>
 
                     {/* DQL preview */}
@@ -847,11 +855,11 @@ const FileNumberTab = ({ onToast }) => {
                         <button type="button"
                             onClick={() => { setForm(EMPTY_FN); setErrors({}); setChecking(false); }}
                             disabled={submitting || checking}
-                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-all disabled:opacity-40">
+                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-colors disabled:opacity-40">
                             Reset
                         </button>
                         <button type="submit" disabled={submitting || checking}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
+                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
                             {submitting ? <Loader2 size={15} className="animate-spin" /> : checking ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                             {submitting ? 'Creating…' : checking ? 'Validating…' : 'Create File Number'}
                         </button>
@@ -945,7 +953,7 @@ const CaseTypeTab = ({ onToast }) => {
                 <button
                     onClick={handleCreate}
                     disabled={!caseType.trim() || submitting}
-                    className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                    className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
                         caseType.trim() && !submitting
                             ? 'bg-canopy text-white hover:bg-canopy-dark shadow-md shadow-canopy/20'
                             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
@@ -1050,7 +1058,7 @@ const HindiCommentsTab = ({ onToast }) => {
                 <button
                     onClick={handleCreate}
                     disabled={!comment.trim() || submitting}
-                    className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                    className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
                         comment.trim() && !submitting
                             ? 'bg-canopy text-white hover:bg-canopy-dark shadow-md shadow-canopy/20'
                             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
@@ -1113,7 +1121,7 @@ const CaseSection = ({ onToast, isLocalAdmin }) => {
             <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
                 {visibleTabs.map(t => (
                     <button key={t.id} onClick={() => setActiveTab(t.id)}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                             activeTab === t.id
                                 ? 'bg-white text-canopy shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'
@@ -1250,7 +1258,7 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                     </div>
                     <div className="flex items-center justify-end pt-2 border-t border-slate-100">
                         <button type="submit" disabled={submitting || !value.trim()}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
+                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
                             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                             {submitting ? 'Adding…' : 'Add'}
                         </button>
@@ -1272,7 +1280,7 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                         )}
                     </div>
                     <button onClick={loadList} disabled={loading}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-all disabled:opacity-40">
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-40">
                         <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>
@@ -1289,9 +1297,9 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                 ) : items.length === 0 ? (
                     <div className="px-5 py-8 text-center text-sm text-slate-400">No values found</div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto scrollbar-thin max-h-[70vh]">
                         <table className="w-full text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-200">
+                            <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                 <tr>
                                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 w-8">#</th>
                                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Nature of Correspondence</th>
@@ -1318,12 +1326,12 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                                                 {isEditing ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button onClick={() => handleSave(item)} disabled={saving}
-                                                            className="px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-50 flex items-center gap-1">
+                                                            className="px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1">
                                                             {saving ? <Loader2 size={11} className="animate-spin" /> : null}
                                                             Save
                                                         </button>
                                                         <button onClick={cancelEdit} disabled={saving}
-                                                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition-all disabled:opacity-50">
+                                                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition-colors disabled:opacity-50">
                                                             Cancel
                                                         </button>
                                                     </div>
@@ -1332,23 +1340,23 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                                                 ) : allowEditDelete && isConfirming ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button onClick={() => handleDelete(item)}
-                                                            className="px-2 py-1 bg-danger hover:bg-danger text-white text-xs font-semibold rounded-lg transition-all">
+                                                            className="px-2 py-1 bg-danger hover:bg-danger text-white text-xs font-semibold rounded-lg transition-colors">
                                                             Delete
                                                         </button>
                                                         <button onClick={() => setConfirmId(null)}
-                                                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition-all">
+                                                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition-colors">
                                                             Cancel
                                                         </button>
                                                     </div>
                                                 ) : allowEditDelete ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button onClick={() => startEdit(item)}
-                                                            className="p-1.5 rounded-lg text-slate-300 hover:text-canopy hover:bg-canopy-tint transition-all"
+                                                            className="p-1.5 rounded-lg text-slate-300 hover:text-canopy hover:bg-canopy-tint transition-colors"
                                                             title="Edit">
                                                             <Pencil size={14} />
                                                         </button>
                                                         <button onClick={() => { setConfirmId(item.r_object_id); setEditingId(null); }}
-                                                            className="p-1.5 rounded-lg text-slate-300 hover:text-danger hover:bg-danger-tint transition-all"
+                                                            className="p-1.5 rounded-lg text-slate-300 hover:text-danger hover:bg-danger-tint transition-colors"
                                                             title="Delete">
                                                             <Trash2 size={14} />
                                                         </button>
@@ -1380,7 +1388,7 @@ const NatureOfCorrespondenceSection = ({ onToast }) => {
             <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
                 {NATURE_TABS.map(t => (
                     <button key={t.id} onClick={() => setActiveTab(t.id)}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                             activeTab === t.id
                                 ? 'bg-white text-canopy shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'
@@ -1430,7 +1438,7 @@ const DigidakSection = ({ onToast }) => {
             <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
                 {DIGIDAK_TABS.map(t => (
                     <button key={t.id} onClick={() => setActiveTab(t.id)}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                             activeTab === t.id
                                 ? 'bg-white text-canopy shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'

@@ -15,6 +15,8 @@ export const DESIGNATION_OPTIONS = [
     { value: 'CGM',      hindi: 'मुमप्र',        label: 'CGM' },
     { value: 'DMD',      hindi: 'उप्रनि',        label: 'DMD' },
     { value: 'CHAIRMAN', hindi: 'अध्यक्ष',      label: 'CHAIRMAN' },
+    { value: 'Young Professional', hindi: 'युवा प्रोफेशनल',  label: 'Young Professional' },
+    { value: 'Project Manager',    hindi: 'परियोजना प्रबंधक', label: 'Project Manager' },
 ];
 
 export const HO_DEPARTMENTS = [

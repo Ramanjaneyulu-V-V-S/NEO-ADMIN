@@ -188,7 +188,7 @@ const VerticalCreationTab = ({ setToast }) => {
             </div>
 
             <button onClick={handleCreate} disabled={!canCreate || creating}
-                className="w-full flex items-center justify-center gap-2 px-6 py-2.5 bg-canopy hover:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                className="w-full flex items-center justify-center gap-2 px-6 py-2.5 bg-canopy hover:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 {creating ? <><Loader2 size={15} className="animate-spin" /> Creating...</> : 'Create Vertical'}
             </button>
         </Card>
@@ -229,7 +229,7 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
 
     return (
         <div ref={containerRef} className="relative">
-            <div className={`border rounded-xl bg-white transition-all ${
+            <div className={`border rounded-xl bg-white transition-colors ${
                 isOpen ? 'border-canopy ring-2 ring-canopy/20' : 'border-slate-200'
             } ${disabled ? 'bg-slate-100' : ''}`}>
                 <div className="p-2 flex flex-wrap gap-1 min-h-10">
@@ -888,7 +888,7 @@ const AddMembersTab = ({ setToast }) => {
                                         <button
                                             onClick={handleModifyVerticalHead}
                                             disabled={!modifyVHSelectedUser || modifyingVH}
-                                            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-harvest hover:bg-harvest text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-harvest hover:bg-harvest text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {modifyingVH
                                                 ? <><Loader2 size={12} className="animate-spin" /> {vhMembers.length > 0 ? 'Updating' : 'Adding'}…</>
@@ -912,7 +912,7 @@ const AddMembersTab = ({ setToast }) => {
                         {/* Add to Group (HO only) */}
                         {!isROTE && (
                         <button onClick={handleAddToGroup} disabled={!canAdd || adding}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             {adding
                                 ? <><Loader2 size={14} className="animate-spin" /> Adding…</>
                                 : <><UserPlus size={14} /> Add to Vertical</>}
@@ -922,7 +922,7 @@ const AddMembersTab = ({ setToast }) => {
                         {/* Mark Department Head */}
                         {showMarkVHButton && (
                             <button onClick={handleMarkVerticalHead} disabled={creatingVH || vhExists}
-                                className="flex items-center gap-2 px-5 py-2.5 bg-harvest hover:bg-harvest text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                className="flex items-center gap-2 px-5 py-2.5 bg-harvest hover:bg-harvest text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                 {creatingVH
                                     ? <><Loader2 size={14} className="animate-spin" /> Creating…</>
                                     : <><Star size={14} /> Mark Department Head</>}
@@ -1446,7 +1446,7 @@ const RemoveMembersTab = ({ setToast }) => {
                             </div>
                         </div>
                         <button onClick={() => setDelegateTask(null)}
-                            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
+                            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
                             <X size={18} />
                         </button>
                     </div>
@@ -1493,7 +1493,7 @@ const RemoveMembersTab = ({ setToast }) => {
                         <button
                             onClick={handleDelegateConfirm}
                             disabled={!delegateSelectedUser || !!delegatingCaseId}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-all">
+                            className="flex items-center gap-1.5 px-4 py-2 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors">
                             {delegatingCaseId ? <><Loader2 size={12} className="animate-spin" /> Delegating…</> : <><ArrowRightLeft size={12} /> Delegate</>}
                         </button>
                     </div>
@@ -1546,13 +1546,13 @@ const RemoveMembersTab = ({ setToast }) => {
                                 setSelectedNewHead('');
                             }}
                             disabled={updatingHead}
-                            className="px-4 py-2 text-slate-600 text-sm font-medium hover:bg-slate-200 rounded-lg transition-all disabled:opacity-40">
+                            className="px-4 py-2 text-slate-600 text-sm font-medium hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-40">
                             Cancel
                         </button>
                         <button
                             onClick={handleConfirmNewHead}
                             disabled={!selectedNewHead || updatingHead}
-                            className="flex items-center gap-2 px-4 py-2 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-all">
+                            className="flex items-center gap-2 px-4 py-2 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors">
                             {updatingHead ? (
                                 <>
                                     <Loader2 size={14} className="animate-spin" />
@@ -1708,7 +1708,7 @@ const RemoveMembersTab = ({ setToast }) => {
                                                                                     )}
                                                                                     <button
                                                                                         onClick={() => handleDelegateClick(task)}
-                                                                                        className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all whitespace-nowrap">
+                                                                                        className="flex items-center gap-1 px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap">
                                                                                         <ArrowRightLeft size={11} /> Delegate
                                                                                     </button>
                                                                                 </div>
@@ -1732,7 +1732,7 @@ const RemoveMembersTab = ({ setToast }) => {
                                                         onClick={handleConfirmRemove}
                                                         disabled={hasPendingCases || removing || loadingInbox}
                                                         title={hasPendingCases ? 'Delegate pending cases first' : ''}
-                                                        className="flex items-center gap-1.5 px-4 py-2 bg-danger hover:bg-danger text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                                                        className="flex items-center gap-1.5 px-4 py-2 bg-danger hover:bg-danger text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                                                         {removing ? <><Loader2 size={12} className="animate-spin" /> Removing…</> : 'Remove'}
                                                     </button>
                                                     <button

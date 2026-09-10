@@ -9,13 +9,13 @@ import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 const inputCls = (err) =>
-    `w-full px-4 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy ${
+    `w-full px-4 py-2.5 border rounded-xl text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy ${
         err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
     }`;
 
 const selectCls = (err, disabled) => disabled
     ? 'w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-100 text-slate-400 cursor-not-allowed appearance-none pr-10'
-    : `w-full px-4 py-2.5 border rounded-xl text-sm appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy transition-all cursor-pointer ${
+    : `w-full px-4 py-2.5 border rounded-xl text-sm appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy transition-colors cursor-pointer ${
         err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
     }`;
 
@@ -129,7 +129,7 @@ const DocumentTypeList = ({ refreshKey, onToast }) => {
                     )}
                 </div>
                 <button onClick={loadList} disabled={loading}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-all disabled:opacity-40">
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-40">
                     <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                 </button>
             </div>
@@ -148,9 +148,9 @@ const DocumentTypeList = ({ refreshKey, onToast }) => {
                     No document types found
                 </div>
             ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-auto scrollbar-thin max-h-[70vh]">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200">
+                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 w-8">#</th>
                                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Document Type</th>
@@ -373,11 +373,11 @@ const DocumentTypeTab = ({ onToast }) => {
                         <button type="button"
                             onClick={() => { setForm(EMPTY_FORM); setErrors({}); }}
                             disabled={submitting}
-                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-all disabled:opacity-40">
+                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-colors disabled:opacity-40">
                             Reset
                         </button>
                         <button type="submit" disabled={submitting}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
+                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
                             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                             {submitting ? 'Creating…' : 'Create'}
                         </button>
@@ -480,7 +480,7 @@ const DocumentCategoryList = ({ refreshKey, onToast }) => {
                     )}
                 </div>
                 <button onClick={loadList} disabled={loading}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-all disabled:opacity-40">
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-40">
                     <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                 </button>
             </div>
@@ -499,9 +499,9 @@ const DocumentCategoryList = ({ refreshKey, onToast }) => {
                     No document categories found
                 </div>
             ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-auto scrollbar-thin max-h-[70vh]">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200">
+                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 w-8">#</th>
                                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Document Type</th>
@@ -740,11 +740,11 @@ const DocumentCategoryTab = ({ onToast }) => {
                         <button type="button"
                             onClick={() => { setForm(EMPTY_FORM); setErrors({}); }}
                             disabled={submitting}
-                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-all disabled:opacity-40">
+                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-colors disabled:opacity-40">
                             Reset
                         </button>
                         <button type="submit" disabled={submitting}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
+                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
                             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                             {submitting ? 'Creating…' : 'Create'}
                         </button>
@@ -1110,9 +1110,9 @@ const SfsUserAccessTab = ({ onToast }) => {
                         {searchQuery ? 'No users match your search' : 'No users found'}
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div className="overflow-auto scrollbar-thin max-h-[70vh]">
                         <table className="w-full text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-200">
+                            <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500">#</th>
                                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500">Name</th>
@@ -1161,7 +1161,7 @@ const SfsUserAccessTab = ({ onToast }) => {
                                                             return (
                                                                 <button key={r} onClick={() => handleAddUserToGroup(user.user_name, r)}
                                                                     disabled={addingUser === `${user.user_name}-${r}`}
-                                                                    className={`px-3 py-1.5 text-white text-xs font-semibold rounded transition-all inline-flex items-center gap-1 ${
+                                                                    className={`px-3 py-1.5 text-white text-xs font-semibold rounded transition-colors inline-flex items-center gap-1 ${
                                                                         isMember
                                                                             ? 'bg-danger hover:bg-danger'
                                                                             : 'bg-canopy hover:bg-canopy-dark'

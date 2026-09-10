@@ -31,9 +31,9 @@ export const Button = forwardRef(function Button(
             type={type}
             disabled={disabled || loading}
             className={cn(
-                'inline-flex items-center rounded-lg font-medium transition-colors',
+                'inline-flex items-center rounded-lg font-medium transition active:scale-[0.98]',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-canopy/40 focus-visible:ring-offset-1',
-                'disabled:cursor-not-allowed',
+                'disabled:cursor-not-allowed disabled:active:scale-100',
                 VARIANTS[variant],
                 SIZES[size],
                 className

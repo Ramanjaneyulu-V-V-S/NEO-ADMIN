@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../api/axios';
+import { recordExport } from '../utils/audit';
 import {
     Search, ChevronLeft, ChevronRight, ChevronDown, Users, UserPlus,
     Loader2, Edit2, ChevronsLeft, X, ArrowUpDown, ArrowUp, ArrowDown,
@@ -350,7 +351,7 @@ const DmUserTab = ({ onToast }) => {
                                     </td>
                                     <td className="px-4 py-3 text-center">
                                         <button onClick={() => { setSelectedUser(user); setIsEditOpen(true); }}
-                                            className="p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-400 hover:text-canopy hover:shadow-sm rounded-lg transition-all"
+                                            className="p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-400 hover:text-canopy hover:shadow-sm rounded-lg transition-[color,background-color,border-color,box-shadow]"
                                             title="Edit dm_user">
                                             <Edit2 size={16} />
                                         </button>
@@ -434,8 +435,7 @@ const CmsProfileTab = ({ onToast }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
     const [refreshKey, setRefreshKey] = useState(0);
-    const [filterName, setFilterName] = useState('');
-    const [filterUin, setFilterUin] = useState('');
+    const [filterSearch, setFilterSearch] = useState('');
     const [filterGrade, setFilterGrade] = useState('');
     const [filterOfficeType, setFilterOfficeType] = useState('');
     const [filterDeptCode, setFilterDeptCode] = useState('');
@@ -445,8 +445,7 @@ const CmsProfileTab = ({ onToast }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const fetchIdRef = useRef(0); // guard against stale / duplicate fetches
 
-    const debouncedName = useDebouncedValue(filterName.trim(), 300);
-    const debouncedUin  = useDebouncedValue(filterUin.trim(), 300);
+    const debouncedSearch = useDebouncedValue(filterSearch.trim(), 300);
 
     const storedUser   = JSON.parse(localStorage.getItem('user') || '{}');
     const adminRole    = storedUser.properties?.admin_role || storedUser.admin_role || null;
@@ -520,9 +519,8 @@ const CmsProfileTab = ({ onToast }) => {
                 sortDir: sortConfig.direction || 'asc',
                 'include-total': true,
             };
-            if (debouncedName) params.query = debouncedName;
-            if (debouncedUin)  params.uin = debouncedUin;
-            if (filterGrade)   params.grade = filterGrade;
+            if (debouncedSearch) params.query = debouncedSearch;
+            if (filterGrade)     params.grade = filterGrade;
 
             if (isLocalAdmin) {
                 if (profileOfficeType === 'HO') {
@@ -557,7 +555,7 @@ const CmsProfileTab = ({ onToast }) => {
 
         load();
     }, [scopeReady, isLocalAdmin, currentPage, pageSize, sortConfig, refreshKey,
-        debouncedName, debouncedUin, filterGrade, filterOfficeType, filterDeptCode, filterRoCode,
+        debouncedSearch, filterGrade, filterOfficeType, filterDeptCode, filterRoCode,
         profileOfficeType, profileLocation, localAdminDeptNames, onToast]);
 
     // Modal callback — refetch the current page (keeps filters / page position)
@@ -598,9 +596,9 @@ const CmsProfileTab = ({ onToast }) => {
         if (p <= currentPage || hasNext) setCurrentPage(p);
     };
 
-    const hasActiveFilters = filterName || filterUin || filterGrade || filterOfficeType || filterDeptCode || filterRoCode;
+    const hasActiveFilters = filterSearch || filterGrade || filterOfficeType || filterDeptCode || filterRoCode;
     const clearAllFilters = () => {
-        setFilterName(''); setFilterUin(''); setFilterGrade(''); setFilterOfficeType('');
+        setFilterSearch(''); setFilterGrade(''); setFilterOfficeType('');
         setFilterDeptCode(''); setFilterRoCode('');
         setCurrentPage(1);
     };
@@ -649,30 +647,16 @@ const CmsProfileTab = ({ onToast }) => {
             {/* Per-column filters */}
             <div className="rounded-card border border-line bg-white p-3 shadow-card">
                 <div className="flex flex-wrap items-end gap-3">
-                    {/* Name */}
-                    <div className="flex min-w-[160px] flex-1 flex-col gap-1 sm:flex-none">
-                        <label className={filterLabelCls}>Name</label>
+                    {/* Global search — name, UIN, login name, department, designation */}
+                    <div className="flex w-full flex-col gap-1 sm:w-64">
+                        <label className={filterLabelCls}>Search</label>
                         <div className="relative">
                             <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <Input value={filterName}
-                                onChange={e => { setFilterName(e.target.value); setCurrentPage(1); }}
-                                placeholder="Search name…"
+                            <Input value={filterSearch}
+                                onChange={e => { setFilterSearch(e.target.value); setCurrentPage(1); }}
+                                placeholder="Name, UIN, login, department…"
                                 className="pl-7 pr-7" />
-                            {filterName && <button onClick={() => { setFilterName(''); setCurrentPage(1); }}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-ink"><X size={12} /></button>}
-                        </div>
-                    </div>
-
-                    {/* UIN */}
-                    <div className="flex min-w-[130px] flex-1 flex-col gap-1 sm:flex-none">
-                        <label className={filterLabelCls}>UIN</label>
-                        <div className="relative">
-                            <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <Input value={filterUin}
-                                onChange={e => { setFilterUin(e.target.value); setCurrentPage(1); }}
-                                placeholder="Search UIN…"
-                                className="pl-7 pr-7" />
-                            {filterUin && <button onClick={() => { setFilterUin(''); setCurrentPage(1); }}
+                            {filterSearch && <button onClick={() => { setFilterSearch(''); setCurrentPage(1); }}
                                 className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-ink"><X size={12} /></button>}
                         </div>
                     </div>
@@ -683,7 +667,7 @@ const CmsProfileTab = ({ onToast }) => {
                             <label className={filterLabelCls}>Office Type</label>
                             <CustomSelect value={filterOfficeType}
                                 onChange={v => { setFilterOfficeType(v); setFilterDeptCode(''); setFilterRoCode(''); setCurrentPage(1); }}
-                                placeholder="All office types" options={officeTypeOptions} />
+                                placeholder="Select office type" options={officeTypeOptions} />
                         </div>
                     )}
 
@@ -713,7 +697,7 @@ const CmsProfileTab = ({ onToast }) => {
                     <div className="flex min-w-[150px] flex-col gap-1">
                         <label className={filterLabelCls}>Grade</label>
                         <CustomSelect value={filterGrade} onChange={v => { setFilterGrade(v); setCurrentPage(1); }}
-                            placeholder="All grades" options={gradeOptions} />
+                            placeholder="Select grade" options={gradeOptions} />
                     </div>
 
                     {/* Count + Clear */}
@@ -749,6 +733,7 @@ const CmsProfileTab = ({ onToast }) => {
                         description: hasActiveFilters ? 'Try adjusting your filters.' : 'There are no user profiles to show.',
                     }}
                     className="px-1"
+                    stickyHeader
                 />
                 {(total == null ? currentUsers.length > 0 : total > 0) && (
                     <Pagination
@@ -836,7 +821,7 @@ const FormField = ({ label, icon: Icon, required, error, hint, children }) => (
 );
 
 const inputCls = (hasError) =>
-    `w-full px-4 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy ${
+    `w-full px-4 py-2.5 border rounded-xl text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy ${
         hasError ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
     }`;
 
@@ -856,7 +841,7 @@ const StepIndicator = ({ step }) => (
             return (
                 <div key={s.num} className="flex items-center">
                     <div className="flex flex-col items-center">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 ${
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors duration-300 ${
                             done   ? 'bg-canopy border-canopy text-white' :
                             active ? 'bg-white border-canopy text-canopy' :
                                      'bg-white border-slate-200 text-slate-400'
@@ -869,7 +854,7 @@ const StepIndicator = ({ step }) => (
                         </div>
                     </div>
                     {i < STEPS.length - 1 && (
-                        <div className={`h-px w-16 sm:w-24 mx-2 mb-6 transition-all duration-300 ${step > s.num ? 'bg-canopy' : 'bg-slate-200'}`} />
+                        <div className={`h-px w-16 sm:w-24 mx-2 mb-6 transition-colors duration-300 ${step > s.num ? 'bg-canopy' : 'bg-slate-200'}`} />
                     )}
                 </div>
             );
@@ -888,7 +873,7 @@ const SourcePasswordBlock = ({ form, handleChange, showPassword, setShowPassword
                 <span className="text-danger/70">*</span>
             </span>
         </label>
-        <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-all">
+        <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-colors">
             <div className="flex items-center bg-white">
                 <div className="relative flex-1">
                     <select
@@ -936,7 +921,7 @@ const SourcePasswordBlock = ({ form, handleChange, showPassword, setShowPassword
                 <div className="border-t border-slate-200 bg-slate-50/60 p-4 space-y-3">
                     {/* Password */}
                     <div>
-                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-white focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-all">
+                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-white focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-colors">
                             <Key size={13} className="text-slate-400 shrink-0" />
                             <input type={showPassword ? 'text' : 'password'} value={form.otds_password}
                                 onChange={e => handleChange('otds_password', e.target.value)}
@@ -951,7 +936,7 @@ const SourcePasswordBlock = ({ form, handleChange, showPassword, setShowPassword
                     </div>
                     {/* Confirm Password */}
                     <div>
-                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-white focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-all">
+                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-white focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-colors">
                             <Key size={13} className="text-slate-400 shrink-0" />
                             <input type={showOtdsConfirm ? 'text' : 'password'} value={form.otds_confirm_pw}
                                 onChange={e => handleChange('otds_confirm_pw', e.target.value)}
@@ -966,7 +951,7 @@ const SourcePasswordBlock = ({ form, handleChange, showPassword, setShowPassword
                     </div>
                     {/* Partition */}
                     <div>
-                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 transition-all">
+                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 transition-colors">
                             <Database size={13} className="text-slate-400 shrink-0" />
                             <input type="text" value={form.otds_partition}
                                 readOnly
@@ -1471,12 +1456,12 @@ const UserCreateTab = ({ onToast }) => {
                         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2">
                                 <button type="button" onClick={handleReset}
-                                    className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-all">
+                                    className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-colors">
                                     Reset
                                 </button>
                                 {step > 1 && (
                                     <button type="button" onClick={goBack}
-                                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-white hover:border-slate-300 hover:shadow-sm transition-all">
+                                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-white hover:border-slate-300 hover:shadow-sm transition-[color,background-color,border-color,box-shadow]">
                                         <ChevronLeft size={15} /> Back
                                     </button>
                                 )}
@@ -1486,12 +1471,12 @@ const UserCreateTab = ({ onToast }) => {
                                 {/* Step dots */}
                                 <div className="flex gap-1 mr-2">
                                     {STEPS.map(s => (
-                                        <div key={s.num} className={`w-1.5 h-1.5 rounded-full transition-all ${step === s.num ? 'bg-canopy w-4' : step > s.num ? 'bg-canopy opacity-40' : 'bg-slate-200'}`} />
+                                        <div key={s.num} className={`w-1.5 h-1.5 rounded-full transition-colors ${step === s.num ? 'bg-canopy w-4' : step > s.num ? 'bg-canopy opacity-40' : 'bg-slate-200'}`} />
                                     ))}
                                 </div>
                                 {step < 3 ? (
                                     <button type="button" onClick={goNext}
-                                        className="flex items-center gap-1.5 px-5 py-2 bg-canopy hover:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
+                                        className="flex items-center gap-1.5 px-5 py-2 bg-canopy hover:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
                                         Next <ChevronRight size={15} />
                                     </button>
                                 ) : (
@@ -1500,7 +1485,7 @@ const UserCreateTab = ({ onToast }) => {
                                         !form.profile_hindi_user_name.trim() || !form.profile_uin.trim() ||
                                         !form.profile_user_grade || form.profile_grade_level === '' ||
                                         (errors.profile_uin && errors.profile_uin.startsWith('UIN already'))}
-                                        className="flex items-center gap-2 px-6 py-2 bg-canopy hover:bg-canopy-dark active:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                                        className="flex items-center gap-2 px-6 py-2 bg-canopy hover:bg-canopy-dark active:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                                         {submitting
                                             ? <><Loader2 size={15} className="animate-spin" /> Creating...</>
                                             : <><UserPlus size={15} /> Create User</>
@@ -1642,7 +1627,7 @@ const UpdatePasswordTab = ({ onToast }) => {
                                         <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-all ${errors.user ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.user ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <Search size={15} className="ml-3 text-slate-400 shrink-0" />
                                     <input
                                         type="text"
@@ -1718,7 +1703,7 @@ const UpdatePasswordTab = ({ onToast }) => {
                                         <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-all ${errors.newPassword ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.newPassword ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <input
                                         type={showNew ? 'text' : 'password'}
                                         value={newPassword}
@@ -1740,7 +1725,7 @@ const UpdatePasswordTab = ({ onToast }) => {
                                     <div className="mt-2">
                                         <div className="flex gap-1 mb-1">
                                             {[1,2,3,4,5].map(n => (
-                                                <div key={n} className={`h-1 flex-1 rounded-full transition-all ${n <= strength.bars ? strength.color : 'bg-slate-100'}`} />
+                                                <div key={n} className={`h-1 flex-1 rounded-full transition-colors ${n <= strength.bars ? strength.color : 'bg-slate-100'}`} />
                                             ))}
                                         </div>
                                         <p className={`text-xs font-medium ${strength.text}`}>{strength.label}</p>
@@ -1757,7 +1742,7 @@ const UpdatePasswordTab = ({ onToast }) => {
                                         <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-all ${errors.confirmPassword ? 'border-danger/40 bg-danger-tint' : confirmPassword && confirmPassword === newPassword ? 'border-canopy/40 bg-canopy-tint/30' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.confirmPassword ? 'border-danger/40 bg-danger-tint' : confirmPassword && confirmPassword === newPassword ? 'border-canopy/40 bg-canopy-tint/30' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <input
                                         type={showConfirm ? 'text' : 'password'}
                                         value={confirmPassword}
@@ -1783,11 +1768,11 @@ const UpdatePasswordTab = ({ onToast }) => {
                             {/* Actions */}
                             <div className="flex items-center justify-end gap-3 pt-1">
                                 <button type="button" onClick={clearUser}
-                                    className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
+                                    className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
                                     Clear
                                 </button>
                                 <button type="submit" disabled={submitting}
-                                    className="flex items-center gap-2 px-6 py-2 bg-harvest hover:bg-harvest active:bg-harvest text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                                    className="flex items-center gap-2 px-6 py-2 bg-harvest hover:bg-harvest active:bg-harvest text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                                     {submitting
                                         ? <><Loader2 size={15} className="animate-spin" /> Updating…</>
                                         : <><KeyRound size={15} /> Update Password</>
@@ -1975,7 +1960,7 @@ const BulkPasswordTab = ({ onToast }) => {
                                         <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-all ${errors.users ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.users ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <Search size={15} className="ml-3 text-slate-400 shrink-0" />
                                     <input
                                         type="text"
@@ -2096,7 +2081,7 @@ const BulkPasswordTab = ({ onToast }) => {
                                         <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-all ${errors.newPassword ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.newPassword ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <input
                                         type={showNew ? 'text' : 'password'}
                                         value={newPassword}
@@ -2116,7 +2101,7 @@ const BulkPasswordTab = ({ onToast }) => {
                                     <div className="mt-2">
                                         <div className="flex gap-1 mb-1">
                                             {[1,2,3,4,5].map(n => (
-                                                <div key={n} className={`h-1 flex-1 rounded-full transition-all ${n <= strength.bars ? strength.color : 'bg-slate-100'}`} />
+                                                <div key={n} className={`h-1 flex-1 rounded-full transition-colors ${n <= strength.bars ? strength.color : 'bg-slate-100'}`} />
                                             ))}
                                         </div>
                                         <p className={`text-xs font-medium ${strength.text}`}>{strength.label}</p>
@@ -2133,7 +2118,7 @@ const BulkPasswordTab = ({ onToast }) => {
                                         <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-all ${errors.confirmPassword ? 'border-danger/40 bg-danger-tint' : confirmPassword && confirmPassword === newPassword ? 'border-canopy/40 bg-canopy-tint/30' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.confirmPassword ? 'border-danger/40 bg-danger-tint' : confirmPassword && confirmPassword === newPassword ? 'border-canopy/40 bg-canopy-tint/30' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <input
                                         type={showConfirm ? 'text' : 'password'}
                                         value={confirmPassword}
@@ -2163,12 +2148,12 @@ const BulkPasswordTab = ({ onToast }) => {
                                 </p>
                                 <div className="flex gap-3">
                                     <button type="button" onClick={clearAll}
-                                        className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
+                                        className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
                                         Clear All
                                     </button>
                                     <button type="button" onClick={handleUpdateAll}
                                         disabled={updating || selectedUsers.length === 0}
-                                        className="flex items-center gap-2 px-6 py-2 bg-canopy hover:bg-canopy active:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                                        className="flex items-center gap-2 px-6 py-2 bg-canopy hover:bg-canopy active:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                                         {updating
                                             ? <><Loader2 size={15} className="animate-spin" /> Updating…</>
                                             : <><KeyRound size={15} /> Update All{selectedUsers.length > 0 ? ` (${selectedUsers.length})` : ''}</>
@@ -2238,7 +2223,7 @@ const PasswordTab = ({ onToast }) => {
                     { id: 'multiple', label: 'Multiple User', icon: UserCog },
                 ].map(({ id, label, icon: Icon }) => (
                     <button key={id} type="button" onClick={() => setMode(id)}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px ${
+                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
                             mode === id
                                 ? 'border-canopy text-canopy'
                                 : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
@@ -2595,6 +2580,13 @@ const UserAccessTab = ({ onToast }) => {
         const locSuffix = filterLocation ? `_${filterLocation}` : '';
         const dateStr = new Date().toISOString().slice(0, 10);
         downloadCsv(headers, rows, `user-access_${officeType}${locSuffix}${roleSuffix}_${dateStr}.csv`);
+        recordExport({
+            action: 'Export user access list',
+            target: `${officeType}${locSuffix}${roleSuffix}`,
+            targetType: 'user',
+            count: rows.length,
+            detail: 'CSV',
+        });
     };
 
     // One row per department (HO) or per location (RO/TE); members stacked within each row
@@ -2696,6 +2688,13 @@ const UserAccessTab = ({ onToast }) => {
             onToast({
                 type: 'success',
                 message: `Exported ${all.length} user${all.length !== 1 ? 's' : ''} across ${groups.length} groups (sheets: ${sheets}).`,
+            });
+            recordExport({
+                action: 'Export role members',
+                target: role === 'localAdmin' ? 'Local Admins' : 'CGM Sect.',
+                targetType: 'user',
+                count: all.length,
+                detail: 'XLSX',
             });
         } catch {
             onToast({ type: 'error', message: 'Export failed. Please try again.' });
@@ -2871,9 +2870,9 @@ const UserAccessTab = ({ onToast }) => {
 
                 {officeType && !loading && users.length > 0 && (
                     <>
-                        <div className="overflow-x-auto flex-1">
+                        <div className="overflow-auto scrollbar-thin max-h-[70vh]">
                             <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                     <tr>
                                         <th className="px-4 py-3 font-semibold text-slate-600 w-10 text-center">#</th>
                                         <th className="px-4 py-3 font-semibold text-slate-600">Name</th>
@@ -2922,7 +2921,7 @@ const UserAccessTab = ({ onToast }) => {
                                                         onClick={() => handleRemoveLocalAdmin(u)}
                                                         disabled={inProgress}
                                                         title="Remove from Local Admin group"
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-tint hover:bg-danger-tint text-danger border border-danger/20 text-xs font-semibold rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-tint hover:bg-danger-tint text-danger border border-danger/20 text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
                                                     >
                                                         {adminInProgress
                                                             ? <><Loader2 size={12} className="animate-spin" /> Removing…</>
@@ -2933,7 +2932,7 @@ const UserAccessTab = ({ onToast }) => {
                                                     <button
                                                         onClick={() => handleMarkLocalAdmin(u)}
                                                         disabled={inProgress}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
                                                     >
                                                         {adminInProgress
                                                             ? <><Loader2 size={12} className="animate-spin" /> Marking…</>
@@ -2952,7 +2951,7 @@ const UserAccessTab = ({ onToast }) => {
                                                         onClick={() => handleRemoveCGMSect(u)}
                                                         disabled={inProgress}
                                                         title="Remove CGM Sect. groups"
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-tint hover:bg-danger-tint text-danger border border-danger/20 text-xs font-semibold rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-tint hover:bg-danger-tint text-danger border border-danger/20 text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
                                                     >
                                                         {cgmInProgress
                                                             ? <><Loader2 size={12} className="animate-spin" /> Removing…</>
@@ -2963,7 +2962,7 @@ const UserAccessTab = ({ onToast }) => {
                                                     <button
                                                         onClick={() => handleMarkCGMSect(u)}
                                                         disabled={inProgress}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
                                                     >
                                                         {cgmInProgress
                                                             ? <><Loader2 size={12} className="animate-spin" /> Marking…</>
@@ -3190,7 +3189,7 @@ const AlternateCgmTab = ({ onToast }) => {
                                                     <button
                                                         onClick={() => handleRemoveAltCgm(u, code)}
                                                         disabled={inProgress}
-                                                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-danger bg-white border border-danger/20 hover:bg-danger-tint rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-danger bg-white border border-danger/20 hover:bg-danger-tint rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         {isRemovingThis ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
                                                         {isRemovingThis ? 'Removing…' : 'Remove'}
@@ -3218,7 +3217,7 @@ const AlternateCgmTab = ({ onToast }) => {
                                         <button
                                             onClick={() => handleAddAltCgm(u)}
                                             disabled={!modalDeptSelect || inProgress}
-                                            className="flex items-center gap-1.5 px-4 py-2 bg-canopy hover:bg-canopy-dark text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-canopy hover:bg-canopy-dark text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                                         >
                                             {addInProg ? <><Loader2 size={13} className="animate-spin" /> Adding…</> : <><Shield size={13} /> Add</>}
                                         </button>
@@ -3243,7 +3242,7 @@ const AlternateCgmTab = ({ onToast }) => {
                     </div>
                 ) : (
                     <>
-                        <div className="overflow-x-auto flex-1">
+                        <div className="overflow-auto scrollbar-thin max-h-[70vh]">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                     <tr>
@@ -3289,7 +3288,7 @@ const AlternateCgmTab = ({ onToast }) => {
                                                 <td className="px-4 py-3 text-center">
                                                     <button
                                                         onClick={() => { setManagingUser(u); setModalDeptSelect(''); }}
-                                                        className="p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-400 hover:text-canopy hover:shadow-sm rounded-lg transition-all"
+                                                        className="p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-400 hover:text-canopy hover:shadow-sm rounded-lg transition-[color,background-color,border-color,box-shadow]"
                                                         title="Manage Alternate CGM departments"
                                                     >
                                                         <Edit2 size={15} />

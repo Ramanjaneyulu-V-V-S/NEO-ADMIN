@@ -44,7 +44,7 @@ const IdleWarningModal = ({ isOpen, remainingTime, onContinue }) => {
                 strokeDasharray={`${Math.PI * 90}`}
                 strokeDashoffset={`${Math.PI * 90 * (1 - seconds / 30)}`}
                 strokeLinecap="round"
-                className="transition-all duration-1000 ease-linear"
+                className="transition-[width] duration-1000 ease-linear"
               />
             </svg>
             <div className="absolute text-center">

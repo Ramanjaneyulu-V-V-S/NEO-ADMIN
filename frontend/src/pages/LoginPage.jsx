@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Lock, Loader2, ArrowRight, Compass, Mail, Eye, EyeOff } from 'lucide-react';
+import { Lock, Loader2, ArrowRight, Mail, Eye, EyeOff } from 'lucide-react';
 import api from '../api/axios';
+import nabardLogo from '../assets/nabard-logo.svg';
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
+
+const EASE_SMOOTH = [0.32, 0.72, 0, 1];
 
 // Determine repository based on environment
 const getDefaultRepository = () => {
@@ -88,6 +92,7 @@ const getOtdsUrl = () => {
 
 const LoginPage = () => {
     const navigate = useNavigate();
+    const reduceMotion = usePrefersReducedMotion();
     const [formData, setFormData] = useState({
         username: '',
         password: '',
@@ -214,8 +219,8 @@ const LoginPage = () => {
 
                 <div className="relative z-10">
                     <div className="flex items-center gap-3">
-                        <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
-                            <Compass size={28} className="text-white" />
+                        <div className="rounded-lg bg-white p-2 shadow-card backdrop-blur-sm">
+                            <img src={nabardLogo} alt="NABARD" className="h-7 w-7" />
                         </div>
                         <span className="font-display text-2xl font-medium tracking-tight">NEO Admin</span>
                     </div>
@@ -234,14 +239,14 @@ const LoginPage = () => {
             {/* Right Side - Login Form */}
             <div className="flex-1 bg-paper flex flex-col justify-center items-center p-8 relative">
                 <motion.div
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4 }}
+                    initial={reduceMotion ? false : { opacity: 0, y: 15 }}
+                    animate={reduceMotion ? false : { opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, ease: EASE_SMOOTH }}
                     className="w-full max-w-md bg-white rounded-card border border-line shadow-card p-8 md:p-10"
                 >
                     <div className="ledger-spine pl-4 mb-8">
                         <h2 className="font-display text-display font-medium text-ink">Sign in</h2>
-                        <p className="mt-1 text-sm text-slate-500">Use your NABARD OTDS credentials.</p>
+                        <p className="mt-1 text-sm text-slate-500">Use your NEO credentials.</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-5">
@@ -259,7 +264,7 @@ const LoginPage = () => {
                                     onChange={handleChange}
                                     className="block w-full pl-10 pr-3 py-2.5 bg-paper border border-line rounded-lg
                                              text-ink placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy
-                                             transition-all text-sm"
+                                             transition-colors text-sm"
                                     placeholder="Username"
                                     required
                                 />
@@ -279,7 +284,7 @@ const LoginPage = () => {
                                     onChange={handleChange}
                                     className="block w-full pl-10 pr-10 py-2.5 bg-paper border border-line rounded-lg
                                              text-ink placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy
-                                             transition-all text-sm"
+                                             transition-colors text-sm"
                                     placeholder="Password"
                                     required
                                 />
@@ -306,7 +311,7 @@ const LoginPage = () => {
                             disabled={isLoading}
                             className="w-full flex items-center justify-center py-2.5 px-4 rounded-lg shadow-sm text-sm font-semibold text-white
                                      bg-canopy hover:bg-canopy-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-canopy
-                                     disabled:opacity-70 disabled:cursor-not-allowed transition-all gap-2"
+                                     disabled:opacity-70 disabled:cursor-not-allowed transition-colors gap-2"
                         >
                             {isLoading ? (
                                 <Loader2 className="animate-spin h-4 w-4" />

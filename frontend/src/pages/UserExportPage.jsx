@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { fetchDepartments, getLocations } from '../data/nabardMetadata.js';
 import { downloadCsv, downloadXlsx, downloadRosterXlsx, mapWithConcurrency } from '../utils/userExport.js';
+import { recordExport } from '../utils/audit.js';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 const PAGE_SIZE = 15;
@@ -493,6 +494,13 @@ const UserExportTab = ({ onToast }) => {
                 await downloadXlsx([{ name: (officeType || 'Users').slice(0, 31), columns, rows: dataRows }], `${filenameBase}.xlsx`);
             }
             onToast({ type: 'success', message: `Exported ${rows.length} user${rows.length !== 1 ? 's' : ''}.` });
+            recordExport({
+                action: 'Export User Directory',
+                target: currentSelectionLabel(),
+                targetType: 'user',
+                count: rows.length,
+                detail: format.toUpperCase(),
+            });
         } catch {
             onToast({ type: 'error', message: 'Export failed. Please try again.' });
         } finally {
@@ -569,6 +577,13 @@ const UserExportTab = ({ onToast }) => {
 
             const total = hoRows.length + roRows.length + teRows.length;
             onToast({ type: 'success', message: `Exported ${total} users across HO/RO/TE.` });
+            recordExport({
+                action: 'Export User Directory',
+                target: 'All HO/RO/TE',
+                targetType: 'user',
+                count: total,
+                detail: 'XLSX roster (full hierarchy)',
+            });
         } catch {
             onToast({ type: 'error', message: 'Bulk export failed. Please try again.' });
         } finally {
@@ -690,9 +705,9 @@ const UserExportTab = ({ onToast }) => {
                     </div>
                 )}
 
-                <div className="overflow-x-auto">
+                <div className="overflow-auto scrollbar-thin max-h-[70vh]">
                     <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200">
+                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th className="px-4 py-3 font-semibold text-slate-700 w-10">#</th>
                                 {cols.map(c => (

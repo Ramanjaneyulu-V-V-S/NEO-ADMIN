@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-// eslint-disable-next-line no-unused-vars -- `motion` is used via <motion.div> (JSX member expr)
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '../../utils/cn';
@@ -57,7 +56,7 @@ export function Modal({
               initial: { opacity: 0, y: 24, scale: 0.98 },
               animate: { opacity: 1, y: 0, scale: 1 },
               exit: { opacity: 0, y: 24, scale: 0.98 },
-              transition: { duration: 0.2, ease: 'easeOut' },
+              transition: { duration: 0.2, ease: [0.32, 0.72, 0, 1] },
           };
 
     return createPortal(
@@ -68,7 +67,7 @@ export function Modal({
                     initial={reduce ? undefined : { opacity: 0 }}
                     animate={reduce ? undefined : { opacity: 1 }}
                     exit={reduce ? undefined : { opacity: 0 }}
-                    transition={{ duration: 0.15 }}
+                    transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
                     onMouseDown={(e) => {
                         if (closeOnBackdrop && e.target === e.currentTarget) onClose?.();
                     }}

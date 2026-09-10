@@ -64,7 +64,7 @@ are the only shell exceptions.
 | `Modal` | Centred dialog on desktop, full bottom-sheet on phones. Esc / backdrop close. | `isOpen`, `onClose`, `title`, `footer`, `size` |
 | `Button` | `variant`: primary \| secondary \| ghost \| danger \| accent. `size`: sm \| md \| icon. | `loading`, native button props |
 | `Input` / `Textarea` | Text inputs, one focus-ring recipe. | `invalid` |
-| `CustomSelect` | The one dropdown treatment — portal panel that escapes `overflow:hidden`, auto-flips up, keyboard nav, auto filter input above ~12 options. Value-based `onChange(value)`. | `value`, `onChange`, `options`, `placeholder`, `invalid`, `searchable`, `disabled` |
+| `CustomSelect` | The one dropdown treatment — portal panel that escapes `overflow:hidden`, auto-flips up, keyboard nav, auto filter input above ~12 options. Value-based `onChange(value)`. Internals: Radix Select for short lists, Radix Popover + `cmdk` for searchable lists. | `value`, `onChange`, `options`, `placeholder`, `invalid`, `searchable`, `disabled` |
 | `Field` / `Label` | Label + control slot + help/error line. | `label`, `required`, `error`, `help` |
 | `FormGrid` | `grid-cols-1` → `cols` at `md`. `FormGrid.Full` for a spanning child. | `cols` (2\|3\|4) |
 | `Card` | Surface. `spine` adds the ledger spine; `pad={false}` for tables. | `spine`, `pad` |

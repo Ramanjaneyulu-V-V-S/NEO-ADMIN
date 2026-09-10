@@ -6,11 +6,16 @@ import {
 } from 'lucide-react';
 import axios from '../api/axios';
 import { downloadXlsx } from '../utils/userExport';
+import { recordExport } from '../utils/audit';
+import { formatDate } from '../utils/datetime';
 import { getLocations, fetchDepartments } from '../data/nabardMetadata';
 import { CaseDetailsModal, MovementRegisterModal } from './DelegatePage';
 import { PageHeader, Tabs } from '../components/ui';
 import MultiSelectDropdown from '../components/MultiSelectDropdown';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
+
+const EASE_SMOOTH = [0.32, 0.72, 0, 1];
 
 // Error boundary class component
 class ErrorBoundary extends Component {
@@ -101,7 +106,7 @@ const DigidakMovementRegisterModal = ({ digidakItem, onClose }) => {
                         </div>
                     </div>
                     <button onClick={onClose}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
+                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
                         <X size={18} />
                     </button>
                 </div>
@@ -129,9 +134,9 @@ const DigidakMovementRegisterModal = ({ digidakItem, onClose }) => {
                             No movement register records found for this digidak.
                         </div>
                     ) : (
-                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                        <div className="overflow-auto scrollbar-thin border border-slate-200 rounded-xl max-h-[55vh]">
                             <table className="w-full text-xs text-left">
-                                <thead className="bg-slate-50 border-b border-slate-200">
+                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                     <tr>
                                         <th className="px-3 py-2.5 font-semibold text-slate-600 w-8">#</th>
                                         {movCols.map(col => (
@@ -164,6 +169,7 @@ const DigidakMovementRegisterModal = ({ digidakItem, onClose }) => {
 };
 
 const ReportsPage = () => {
+    const reduceMotion = usePrefersReducedMotion();
     // ── Tab state ─────────────────────────────────────────────────────────────
     const [activeTab, setActiveTab] = useState('cases'); // 'cases', 'digidak', or 'rajbhasha'
     const [digidakSubTab, setDigidakSubTab] = useState('inbox'); // 'inbox', 'outbox', or 'draft'
@@ -917,6 +923,7 @@ const ReportsPage = () => {
         a.download = `cases_report_${new Date().toISOString().slice(0,10)}.csv`;
         a.click();
         URL.revokeObjectURL(url);
+        recordExport({ action: 'Export Cases report', targetType: 'report', count: rows.length, detail: 'CSV' });
     };
 
     const exportToExcel = async () => {
@@ -948,6 +955,7 @@ const ReportsPage = () => {
             [{ name: 'Cases Report', columns, rows: sheetData }],
             `cases_report_${new Date().toISOString().slice(0, 10)}.xlsx`,
         );
+        recordExport({ action: 'Export Cases report', targetType: 'report', count: rows.length, detail: 'XLSX' });
     };
 
     // ── Digidak Export Functions ──────────────────────────────────────────────
@@ -1045,22 +1053,24 @@ const ReportsPage = () => {
             [{ name: sheetName, columns, rows: sheetData }],
             `digidak_${digidakSubTab}_report_${new Date().toISOString().slice(0, 10)}.xlsx`,
         );
+        recordExport({
+            action: 'Export Digidak report',
+            target: digidakSubTab,
+            targetType: 'report',
+            count: rows.length,
+            detail: 'XLSX',
+        });
     };
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-    const formatDate = (d) => {
-        if (!d) return '-';
-        try { return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
-        catch { return d; }
-    };
-
     const selectCls = 'w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-canopy bg-white';
 
     return (
         <ErrorBoundary>
         <motion.div
-            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 16 }}
+            animate={reduceMotion ? false : { opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: EASE_SMOOTH }}
             className="flex flex-col"
         >
             <PageHeader
@@ -1204,9 +1214,9 @@ const ReportsPage = () => {
             {/* Cases Total Count Card */}
             {filtersApplied && (
                 <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
+                    initial={reduceMotion ? false : { opacity: 0, y: -10 }}
+                    animate={reduceMotion ? false : { opacity: 1, y: 0 }}
+                    transition={{ duration: 0.22, ease: EASE_SMOOTH }}
                     className="bg-gradient-to-r from-canopy-tint to-canopy-tint rounded-xl border border-canopy/20 shadow-sm p-4 mb-6"
                 >
                     <div className="flex items-center justify-between">
@@ -1235,9 +1245,9 @@ const ReportsPage = () => {
                     </div>
                 ) : (
                     <>
-                        <div className="overflow-x-auto">
+                        <div className="overflow-auto scrollbar-thin max-h-[70vh]">
                             <table className="w-full text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200">
+                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                     <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-10">#</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Case Number</th>
@@ -1294,11 +1304,11 @@ const ReportsPage = () => {
                                                 <td className="px-4 py-2.5">
                                                     <div className="flex items-center justify-center gap-2">
                                                         <button onClick={() => setDetailCase(c)} title="Case Details"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors">
                                                             <FileText size={15} />
                                                         </button>
                                                         <button onClick={() => setMovementCase(c)} title="Movement Register"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors">
                                                             <ClipboardList size={15} />
                                                         </button>
                                                     </div>
@@ -1618,9 +1628,9 @@ const ReportsPage = () => {
             {/* Digidak Total Count Card */}
             {filtersApplied && (
                 <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
+                    initial={reduceMotion ? false : { opacity: 0, y: -10 }}
+                    animate={reduceMotion ? false : { opacity: 1, y: 0 }}
+                    transition={{ duration: 0.22, ease: EASE_SMOOTH }}
                     className="bg-gradient-to-r from-canopy-tint to-canopy-tint rounded-xl border border-canopy/20 shadow-sm p-4 mb-6"
                 >
                     <div className="flex items-center justify-between">
@@ -1652,9 +1662,9 @@ const ReportsPage = () => {
                     </div>
                 ) : (
                     <>
-                        <div className="overflow-x-auto">
+                        <div className="overflow-auto scrollbar-thin max-h-[70vh]">
                             <table className="w-full text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200">
+                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                     <tr>
                                         <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">#</th>
                                         <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">UID Number</th>
@@ -1718,7 +1728,7 @@ const ReportsPage = () => {
                                                 <td className="px-4 py-2.5">
                                                     <div className="flex items-center justify-center">
                                                         <button onClick={() => setDigidakMovement(item)} title="Movement Register"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-all">
+                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors">
                                                             <ClipboardList size={15} />
                                                         </button>
                                                     </div>
@@ -1863,9 +1873,9 @@ const ReportsPage = () => {
                 ) : rajbhashaReport ? (
                     <div className="space-y-8">
                         {/* Grid 1 */}
-                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto scrollbar-thin max-h-[70vh]">
                             <table className="w-full text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200">
+                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                     <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Summary</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Total</th>
@@ -1883,9 +1893,9 @@ const ReportsPage = () => {
                         </div>
 
                         {/* Grid 2 */}
-                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto scrollbar-thin max-h-[70vh]">
                             <table className="w-full text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200">
+                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                     <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Region</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of English Letters</th>
@@ -1909,9 +1919,9 @@ const ReportsPage = () => {
                         </div>
 
                         {/* Grid 3 */}
-                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto scrollbar-thin max-h-[70vh]">
                             <table className="w-full text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200">
+                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                                     <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Region</th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">In Hindi/Bilingual</th>
