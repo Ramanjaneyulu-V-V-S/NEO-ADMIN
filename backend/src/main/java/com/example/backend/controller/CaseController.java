@@ -50,8 +50,9 @@ public class CaseController {
             @RequestParam(defaultValue = "") String fromDate,
             @RequestParam(defaultValue = "") String toDate,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        return caseService.searchCases(caseNumber, hoRo, roShortCode, deptNames, departmentShortCode, functions, fromDate, toDate, page, size);
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "true") boolean withCount) {
+        return caseService.searchCases(caseNumber, hoRo, roShortCode, deptNames, departmentShortCode, functions, fromDate, toDate, page, size, withCount);
     }
 
     /**

@@ -48,7 +48,8 @@ public class CaseService {
     @SuppressWarnings("unchecked")
     public Map<String, Object> searchCases(String caseNumber, String hoRo, String roShortCode,
                                             String deptNames, String departmentShortCode, String functions,
-                                            String fromDate, String toDate, int page, int itemsPerPage) {
+                                            String fromDate, String toDate, int page, int itemsPerPage,
+                                            boolean withCount) {
         try {
             StringBuilder where = new StringBuilder();
 
@@ -126,7 +127,22 @@ public class CaseService {
 
             log.info("Case search DQL filters — hoRo: {}, roShortCode: {}, deptNames: {}", hoRo, roShortCode, deptNames);
 
-            return executeCaseDQL(dql, page, itemsPerPage);
+            Map<String, Object> result = executeCaseDQL(dql, page, itemsPerPage);
+
+            // Exact total for the current filter set. Skipped on plain page navigation
+            // (filters unchanged) and best-effort otherwise — if the count query can't
+            // be produced the client falls back to the "N+" running estimate.
+            if (withCount) {
+                try {
+                    long total = executeCountDQL(
+                            "SELECT count(*) as total FROM cms_case_folder WHERE " + where);
+                    result.put("total", total);
+                } catch (Exception ce) {
+                    log.warn("Case search count failed, client will show an estimate: {}", ce.getMessage());
+                }
+            }
+
+            return result;
 
         } catch (Exception e) {
             log.error("Error in searchCases", e);
@@ -334,43 +350,7 @@ public class CaseService {
             }
 
             String dql = "SELECT count(*) as total FROM cms_case_folder WHERE " + where;
-            log.info("Cases count DQL: {}", dql);
-
-            String baseUrl = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository();
-            Map<String, Object> response = restClient.get()
-                    .uri(baseUrl + "?dql={dql}&inline=true", dql)
-                    .header("Authorization", getAuthHeader())
-                    .header("Accept", "application/vnd.emc.documentum+json")
-                    .retrieve()
-                    .body(Map.class);
-
-            long total = 0;
-            if (response != null) {
-                List<Map<String, Object>> entries = (List<Map<String, Object>>) response.get("entries");
-                if (entries != null && !entries.isEmpty()) {
-                    Map<String, Object> entry = entries.get(0);
-                    Map<String, Object> content = (Map<String, Object>) entry.get("content");
-                    if (content != null) {
-                        Map<String, Object> props = (Map<String, Object>) content.get("properties");
-                        if (props != null) {
-                            if (props.containsKey("total")) {
-                                Object totalObj = props.get("total");
-                                total = toLong(totalObj);
-                            } else if (props.containsKey("COUNT(*)")) {
-                                Object countObj = props.get("COUNT(*)");
-                                total = toLong(countObj);
-                            } else {
-                                for (Object value : props.values()) {
-                                    if (value instanceof Number) {
-                                        total = ((Number) value).longValue();
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            long total = executeCountDQL(dql);
             result.put("total", total);
             log.info("Cases count result: {}", total);
         } catch (Exception e) {
@@ -378,6 +358,50 @@ public class CaseService {
             result.put("total", 0);
         }
         return result;
+    }
+
+    /**
+     * Run an aggregate {@code SELECT count(*) as total ...} DQL and pull the number
+     * out of the Documentum REST response. Shared by the cases-report count endpoint
+     * and the cases-search total. Exceptions propagate — callers decide how to degrade.
+     */
+    @SuppressWarnings("unchecked")
+    private long executeCountDQL(String dql) {
+        log.info("Count DQL: {}", dql);
+
+        String baseUrl = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository();
+        Map<String, Object> response = restClient.get()
+                .uri(baseUrl + "?dql={dql}&inline=true", dql)
+                .header("Authorization", getAuthHeader())
+                .header("Accept", "application/vnd.emc.documentum+json")
+                .retrieve()
+                .body(Map.class);
+
+        long total = 0;
+        if (response != null) {
+            List<Map<String, Object>> entries = (List<Map<String, Object>>) response.get("entries");
+            if (entries != null && !entries.isEmpty()) {
+                Map<String, Object> content = (Map<String, Object>) entries.get(0).get("content");
+                if (content != null) {
+                    Map<String, Object> props = (Map<String, Object>) content.get("properties");
+                    if (props != null) {
+                        if (props.containsKey("total")) {
+                            total = toLong(props.get("total"));
+                        } else if (props.containsKey("COUNT(*)")) {
+                            total = toLong(props.get("COUNT(*)"));
+                        } else {
+                            for (Object value : props.values()) {
+                                if (value instanceof Number) {
+                                    total = ((Number) value).longValue();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return total;
     }
 
     /**

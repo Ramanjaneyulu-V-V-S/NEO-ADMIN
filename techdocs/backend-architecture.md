@@ -22,7 +22,7 @@
 | ECM integration | Documentum REST Services — HTTP/JSON, DQL, `application/vnd.emc.documentum+json` |
 | Auth model | HTTP Basic Auth forwarded to Documentum **+ OTDS SSO** (bearer token issued by OTDS, profile resolved server-side); service-account **login-ticket cache** for privileged ops |
 | Config model | **3 Spring profiles** — `uat` (default), `prod`, `azure` — selected by `spring.profiles.active` |
-| Logging | SLF4J via Lombok `@Slf4j`; **stock Spring Boot Logback** (no `spring-boot-starter-log4j2` on the classpath). Console + a rolling file appender configured entirely by `logging.*` keys in the profile properties — file `${NEOADMIN_LOG_DIR:Reports Queries}/rajbhasha.log`, 10 MB / 10 history / 100 MB cap. `log4j2-spring.xml` is present but **inert** (Log4j2 is not the active logging system) |
+| Logging | SLF4J via Lombok `@Slf4j`; **stock Spring Boot Logback** (no `spring-boot-starter-log4j2` on the classpath). Console + a rolling file appender configured entirely by `logging.*` keys in the profile properties — file `${NEOADMIN_LOG_DIR:Reports Queries}/rajbhasha.log`, 10 MB / 10 history / 100 MB cap. `logback-spring.xml` includes Boot's `base.xml` unchanged and adds a separate **audit** appender → `${catalina.base}/logs/app.log` (see §13). `log4j2-spring.xml` is present but **inert** (Log4j2 is not the active logging system) |
 
 The surface has roughly doubled since the first draft of this document: **16 controllers,
 17 services, 8 `@Configuration` classes**, two DTOs, and two entry-point classes.
@@ -105,8 +105,10 @@ backend/
    application-uat.properties              # UAT repo/OTDS/mail/tasklist/process endpoints
    application-prod.properties             # PROD endpoints (real credentials — do not copy)
    application-azure.properties            # Azure endpoints
+   logback-spring.xml                      # includes Boot base.xml + adds the AUDIT appender (app.log)
    log4j2-spring.xml                       # INERT — Log4j2 not on classpath; logging is Logback via logging.* keys
   java/com/example/backend/
+   audit/                                  # AuditLogInterceptor, AuditController, AuditActions, AuditContext
    BackendApplication.java                 # @SpringBootApplication
    ServletInitializer.java                 # SpringBootServletInitializer (external Tomcat)
    config/
@@ -644,10 +646,11 @@ errorResult.put("error", "Failed to search cases: " + e.getMessage());
 Basic-Auth fallback), `log.error` for failures with the exception message (and often the
 stack trace).
 
-Logging is **stock Spring Boot Logback** — there is no `logback-spring.xml`, and the
+Logging is **stock Spring Boot Logback**. `logback-spring.xml` exists but only adds the
+audit appender (below) on top of Boot's defaults via `<include base.xml>`; the
 `log4j2-spring.xml` in `resources/` is inert (`spring-boot-starter-log4j2` / `log4j-core` are
-not on the classpath). Everything is driven by `logging.*` keys in the profile properties
-(`application-{uat,prod,azure}.properties`):
+not on the classpath). The root log is driven entirely by `logging.*` keys in the profile
+properties (`application-{uat,prod,azure}.properties`):
 
 | Key | Value | Effect |
 |---|---|---|
@@ -661,6 +664,51 @@ not on the classpath). Everything is driven by `logging.*` keys in the profile p
 The console appender is always on, so under an external Tomcat every line also lands in
 `catalina.out` (or `tomcat-stdout.<date>.log` for a Windows service install). Despite the
 filename, `rajbhasha.log` holds the **entire** root log, not just Rajbhasha reporting.
+
+#### Audit trail — `app.log`
+
+A dedicated **audit log** records every state-changing action a signed-in admin
+performs. It is separate from the root log above.
+
+- **Config:** `backend/src/main/resources/logback-spring.xml`. It `<include>`s Boot's
+  `base.xml` (so everything above keeps working unchanged) and adds one appender —
+  `AUDIT_FILE`, a `SizeAndTimeBasedRollingPolicy` (`10MB` / `30` archives / `200MB`
+  cap, `app.log.<date>.<i>.gz`) — bound to a logger named `AUDIT` with
+  `additivity="false"` (audit lines never leak into `rajbhasha.log`).
+- **Location:** `${NEOADMIN_AUDIT_DIR:-${catalina.base:-.}/logs}/app.log`. On a
+  deployed Tomcat `${catalina.base}` is set by the bootstrap, so `app.log` lands in
+  `$CATALINA_BASE/logs` next to `catalina.out`; under `mvn spring-boot:run` it falls
+  back to `./logs/app.log`. `NEOADMIN_AUDIT_DIR` overrides. The `AUDIT` logger also
+  writes to `CONSOLE`, so lines reach `catalina.out` too.
+- **Capture:** `com.example.backend.audit.AuditLogInterceptor` (a `HandlerInterceptor`
+  registered on `/api/**` in `WebConfig`). In `afterCompletion` it emits **one** line
+  for any `POST/PUT/PATCH/DELETE`, plus a small GET allowlist for report exports
+  (`AuditActions.AUDITED_GETS` — currently `RajbhashaController#exportRajbhashaReport`).
+  It skips `OPTIONS`, `/api/audit/**`, and pure diagnostics (`/api/auth/config`,
+  `/api/auth/current-user`, `/api/users/otds/probe`). It never mutates the
+  request/response and never throws (failures degrade to `log.warn`).
+- **Actor identity:** the backend talks to Documentum as the service account, so the
+  human identity comes from two request headers the frontend attaches in
+  `frontend/src/api/axios.js` — **`X-Actor-Login`** and **`X-Actor-Role`**, read from
+  `localStorage.user`. Absent → `actor=anonymous role=-`. Client IP is taken from
+  `X-Forwarded-For` (first hop) / `X-Real-IP` / `getRemoteAddr()`. These two headers
+  are added to the CORS `Access-Control-Allow-Headers` list in `WebConfig`.
+- **Client-built exports:** the User Directory / Reports / Metadata XLSX files are
+  generated in-browser (exceljs), so the server only sees a data-fetch GET. The
+  frontend posts to **`POST /api/audit/event`** (`AuditController`, body
+  `{ action, target, targetType, detail, count }`, returns `204`) after a successful
+  download; helper: `frontend/src/utils/audit.js` `recordExport(...)`. These lines
+  carry `source=client`; interceptor lines carry `source=request`.
+- **Action labels:** `AuditActions.LABELS` maps `SimpleClassName#method` →
+  human-readable label (one entry per write endpoint). Unmapped handlers fall back to
+  `<VERB> <last-path-segment>`.
+- **Line format** (space-delimited `key=value`, one line, quotes stripped from values):
+  ```
+  ts=<ISO-8601> actor=<login> role="<role>" ip=<ip> action="<label>" target="<target>" method=<VERB> uri=<path> status=<code> ms=<duration> source=request
+  ts=<ISO-8601> actor=<login> role="<role>" ip=<ip> action="<label>" target="<target>" targetType=<type> count=<n> detail="<text>" source=client
+  ```
+  `target` is the path variables + a fixed set of identifying params (`objectId`,
+  `loginName`, `groupName`, …) when present, else `-`.
 
 ---
 

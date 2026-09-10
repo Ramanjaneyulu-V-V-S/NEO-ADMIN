@@ -118,7 +118,7 @@ public class UserService {
             dqlBuilder.append("AND ro_short_code = '").append(roCode.trim().toLowerCase().replace("'", "''")).append("' ");
         }
 
-        String sortCol = SORT_COLUMNS.getOrDefault(sortBy, "object_name");
+        String sortCol = sortBy != null ? SORT_COLUMNS.getOrDefault(sortBy, "object_name") : "object_name";
         String dir = "desc".equalsIgnoreCase(sortDir) ? "DESC" : "ASC";
         dqlBuilder.append("ORDER BY ").append(sortCol).append(" ").append(dir);
 

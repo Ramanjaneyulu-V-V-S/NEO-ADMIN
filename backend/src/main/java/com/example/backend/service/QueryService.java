@@ -12,10 +12,19 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 @Service
 @Slf4j
 public class QueryService {
+
+    /** Only these leading verbs may run from the Query tab — it is a read-only console. */
+    private static final Set<String> READ_ONLY_VERBS = Set.of("SELECT");
+
+    /** {@code -- line} comments and {@code /* block *}{@code /} comments, stripped before the verb check. */
+    private static final Pattern COMMENTS =
+            Pattern.compile("--[^\\n]*|/\\*.*?\\*/", Pattern.DOTALL);
 
     private final DctmConfig dctmConfig;
     private final RestClient restClient;
@@ -43,11 +52,15 @@ public class QueryService {
     @SuppressWarnings("unchecked")
     public Map<String, Object> executeQuery(String dqlQuery, int limit) {
         if (dqlQuery == null || dqlQuery.isBlank()) {
-            Map<String, Object> emptyResult = new HashMap<>();
-            emptyResult.put("rows", new ArrayList<>());
-            emptyResult.put("columns", new ArrayList<>());
-            emptyResult.put("error", "Query cannot be empty");
-            return emptyResult;
+            return errorResult("Query cannot be empty");
+        }
+
+        // The Query tab is a read-only console: reject anything that isn't a single
+        // SELECT before it can reach Documentum.
+        String guardError = validateReadOnly(dqlQuery);
+        if (guardError != null) {
+            log.warn("Blocked non-SELECT DQL from Query tab: {}", firstChars(dqlQuery, 200));
+            return errorResult(guardError);
         }
 
         // Modify query to include r_object_id and r_object_type if not present
@@ -105,12 +118,51 @@ public class QueryService {
 
         } catch (Exception e) {
             log.error("Error executing DQL query", e);
-            Map<String, Object> errorResult = new HashMap<>();
-            errorResult.put("rows", new ArrayList<>());
-            errorResult.put("columns", new ArrayList<>());
-            errorResult.put("error", "Query failed: " + e.getMessage());
-            return errorResult;
+            return errorResult("Query failed: " + e.getMessage());
         }
+    }
+
+    /** Standard failure payload — matches the success shape minus the data. */
+    private Map<String, Object> errorResult(String message) {
+        Map<String, Object> result = new HashMap<>();
+        result.put("rows", new ArrayList<>());
+        result.put("columns", new ArrayList<>());
+        result.put("error", message);
+        return result;
+    }
+
+    /**
+     * Returns an error message if {@code dqlQuery} is not a single SELECT
+     * statement, or {@code null} if it is safe to run. Comments are stripped
+     * first so a leading {@code /* *}{@code /} or {@code --} cannot mask the verb.
+     */
+    private String validateReadOnly(String dqlQuery) {
+        String stripped = COMMENTS.matcher(dqlQuery).replaceAll(" ").trim();
+        if (stripped.isEmpty()) {
+            return "Query cannot be empty";
+        }
+
+        int space = 0;
+        while (space < stripped.length() && !Character.isWhitespace(stripped.charAt(space))) {
+            space++;
+        }
+        String verb = stripped.substring(0, space).toUpperCase();
+        if (!READ_ONLY_VERBS.contains(verb)) {
+            return "Only SELECT queries are allowed from the Query tab.";
+        }
+
+        // Reject a smuggled second statement (e.g. "SELECT ... ; DELETE ...").
+        int semi = stripped.indexOf(';');
+        if (semi != -1 && !stripped.substring(semi + 1).isBlank()) {
+            return "Run one statement at a time.";
+        }
+        return null;
+    }
+
+    private static String firstChars(String value, int max) {
+        if (value == null) return "";
+        String oneLine = value.replaceAll("\\s+", " ").trim();
+        return oneLine.length() <= max ? oneLine : oneLine.substring(0, max) + "…";
     }
 
     /**
