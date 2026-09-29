@@ -566,14 +566,27 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
             const oldGroups = getGroups(old.officeType, old.roShortCode, old.deptCodes);
             const newGroups = getGroups(form.office_type, newRoShortCode, newDeptCodes);
 
+            const groupFailures = [];
+            const syncGroup = async (label, g, call) => {
+                try {
+                    const res = await call();
+                    // Backend removeMember returns 200 with success:false on failure
+                    if (res?.data?.success === false) throw new Error(res.data.message || 'failed');
+                } catch (e) {
+                    groupFailures.push(`${label} ${g}`);
+                }
+            };
+
+            const groupOps = [];
             for (const g of oldGroups) {
                 if (!newGroups.includes(g))
-                    api.delete(`/groups/${g}/members/${encodeURIComponent(loginName)}`).catch(() => {});
+                    groupOps.push(syncGroup('remove from', g, () => api.delete(`/groups/${g}/members/${encodeURIComponent(loginName)}`, { params: { memberType: 'user' } })));
             }
             for (const g of newGroups) {
                 if (!oldGroups.includes(g))
-                    api.post(`/groups/${g}/members`, { memberName: loginName, memberType: 'user' }).catch(() => {});
+                    groupOps.push(syncGroup('add to', g, () => api.post(`/groups/${g}/members`, { memberName: loginName, memberType: 'user' })));
             }
+            await Promise.all(groupOps);
 
             // ── CGM group management based on designation change ──────────
             const getCgmGroup = (offType, roCode, deptCodes) => {
@@ -595,14 +608,21 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                 // Designation changed TO CGM — add CGM group
                 const cgmGroup = getCgmGroup(form.office_type, newRoShortCode, newDeptCodes);
                 if (cgmGroup) {
-                    api.post(`/groups/${cgmGroup}/members`, { memberName: loginName, memberType: 'user' }).catch(() => {});
+                    await syncGroup('add to', cgmGroup, () => api.post(`/groups/${cgmGroup}/members`, { memberName: loginName, memberType: 'user' }));
                 }
             } else if (wasCGM && !isCGM) {
                 // Designation changed FROM CGM — remove old CGM group
                 const cgmGroup = getCgmGroup(old.officeType, old.roShortCode, old.deptCodes);
                 if (cgmGroup) {
-                    api.delete(`/groups/${cgmGroup}/members/${encodeURIComponent(loginName)}`).catch(() => {});
+                    await syncGroup('remove from', cgmGroup, () => api.delete(`/groups/${cgmGroup}/members/${encodeURIComponent(loginName)}`, { params: { memberType: 'user' } }));
                 }
+            }
+
+            if (groupFailures.length > 0) {
+                toast(
+                    `Profile saved, but group sync failed: could not ${groupFailures.join('; ')}. Profile and groups may be out of sync.`,
+                    { icon: '⚠️', duration: 5000 }
+                );
             }
 
             onUpdate();
