@@ -9,13 +9,13 @@ import { downloadXlsx } from '../utils/userExport';
 import { recordExport } from '../utils/audit';
 import { formatDate } from '../utils/datetime';
 import { getLocations, fetchDepartments } from '../data/nabardMetadata';
-import { CaseDetailsModal, MovementRegisterModal } from './DelegatePage';
-import { PageHeader, Tabs } from '../components/ui';
+import { CaseDetailsModal, MovementRegisterModal } from '../components/CaseModals';
+import { PageHeader, Tabs, DateInput, Modal, DataTable, Badge } from '../components/ui';
+import { caseStatusTone } from '../utils/statusTone';
 import MultiSelectDropdown from '../components/MultiSelectDropdown';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
 import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
-
-const EASE_SMOOTH = [0.32, 0.72, 0, 1];
+import { EASE_SMOOTH } from '../utils/motion';
 
 // Error boundary class component
 class ErrorBoundary extends Component {
@@ -62,6 +62,53 @@ const PRIORITY_OPTIONS = ['Ordinary', 'Urgent'];
 const LANGUAGE_OPTIONS = ['Bilingual', 'English', 'Hindi', 'Others'];
 
 // ─── Digidak Movement Register Modal ──────────────────────────────────────────
+// Truncating cell with the full value on hover; folio cards truncate on their own.
+const TruncCell = ({ value }) => (
+    <span className="block max-w-xs truncate" title={String(value ?? '')}>{value ?? '—'}</span>
+);
+const digidakCol = (key, header, extra = {}) => ({
+    key, header, render: (r) => <TruncCell value={r[key]} />, ...extra,
+});
+const DIGIDAK_MOVEMENT_COLUMNS = [
+    { key: 'idx', header: '#', mono: true, width: 'w-12', card: 'hide', render: (_r, i) => i + 1 },
+    digidakCol('type_category',  'Type Category', { primary: true }),
+    digidakCol('letter_subject', 'Letter Subject'),
+    digidakCol('performer',      'Performer'),
+    digidakCol('status',         'Status'),
+    digidakCol('assigned_user',  'Assigned User'),
+    digidakCol('entry_type',     'Entry Type'),
+    digidakCol('received_date',  'Received Date', { mono: true }),
+    digidakCol('completed_date', 'Completed Date', { mono: true }),
+];
+
+// ─── Rajbhasha report grids ───────────────────────────────────────────────────
+// Region / summary label in the first column, large-count figures after it.
+const rajbhashaLabel = (header) => ({
+    key: 'summary', header, primary: true, render: (r) => <span className="font-medium text-slate-900">{r.summary}</span>,
+});
+const rajbhashaCount = (key, header, tone = 'text-canopy') => ({
+    key, header, cardLabel: header, mono: true,
+    render: (r) => <span className={`text-lg font-semibold ${tone}`}>{r[key]}</span>,
+});
+const RAJBHASHA_GRID1_COLUMNS = [
+    rajbhashaLabel('Summary'),
+    rajbhashaCount('total', 'Total'),
+];
+const RAJBHASHA_GRID2_COLUMNS = [
+    rajbhashaLabel('Region'),
+    rajbhashaCount('no_of_letters_english', 'No. of English Letters'),
+    rajbhashaCount('replied_in_hindi',      'Replied in Hindi', 'text-harvest'),
+    rajbhashaCount('replied_in_english',    'Replied in English'),
+    rajbhashaCount('not_replied_to',        'Not Replied To', 'text-danger'),
+];
+const RAJBHASHA_GRID3_COLUMNS = [
+    rajbhashaLabel('Region'),
+    rajbhashaCount('hindi_bilingual',      'In Hindi/Bilingual'),
+    rajbhashaCount('english_only',         'In English Only', 'text-harvest'),
+    rajbhashaCount('total_letters_issued', 'Total Letters Issued'),
+    rajbhashaCount('percentage',           '% Hindi/Bilingual'),
+];
+
 const DigidakMovementRegisterModal = ({ digidakItem, onClose }) => {
     const [movement, setMovement] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -80,91 +127,40 @@ const DigidakMovementRegisterModal = ({ digidakItem, onClose }) => {
 
     if (!digidakItem) return null;
 
-    const movCols = [
-        { key: 'type_category', label: 'Type Category' },
-        { key: 'letter_subject', label: 'Letter Subject' },
-        { key: 'performer', label: 'Performer' },
-        { key: 'status', label: 'Status' },
-        { key: 'assigned_user', label: 'Assigned User' },
-        { key: 'entry_type', label: 'Entry Type' },
-        { key: 'received_date', label: 'Received Date' },
-        { key: 'completed_date', label: 'Completed Date' },
-    ];
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
-                            <ClipboardList size={17} className="text-white" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-bold text-slate-900">{digidakItem.letter_subject || digidakItem.uid_number}</p>
-                            <p className="text-xs text-slate-500">Digidak Movement Register</p>
-                        </div>
-                    </div>
-                    <button onClick={onClose}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                        <X size={18} />
-                    </button>
-                </div>
-
-                <div className="overflow-y-auto flex-1 p-6">
-                    <div className="flex items-center gap-2 mb-3">
-                        <ClipboardList size={14} className="text-canopy" />
-                        <h3 className="text-sm font-bold text-slate-800">Movement Register</h3>
-                        {!loading && (
-                            <span className="px-2 py-0.5 bg-canopy-tint text-canopy text-xs font-semibold rounded-full">
-                                {movement.length}
-                            </span>
-                        )}
-                    </div>
-
-                    {loading ? (
-                        <div className="flex items-center gap-2 py-12 justify-center text-slate-400">
-                            <div className="animate-spin text-canopy" style={{width: '18px', height: '18px'}}>
-                                ⟳
-                            </div>
-                            <span className="text-sm">Loading movement register…</span>
-                        </div>
-                    ) : movement.length === 0 ? (
-                        <div className="py-12 text-center text-sm text-slate-400 bg-slate-50 rounded-xl border border-slate-100">
-                            No movement register records found for this digidak.
-                        </div>
-                    ) : (
-                        <div className="overflow-auto scrollbar-thin border border-slate-200 rounded-xl max-h-[55vh]">
-                            <table className="w-full text-xs text-left">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-3 py-2.5 font-semibold text-slate-600 w-8">#</th>
-                                        {movCols.map(col => (
-                                            <th key={col.key} className="px-3 py-2.5 font-semibold text-slate-600 whitespace-nowrap">
-                                                {col.label}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {movement.map((rec, idx) => (
-                                        <tr key={idx} className="hover:bg-canopy-tint/30 transition-colors">
-                                            <td className="px-3 py-2 text-slate-400 font-mono">{idx + 1}</td>
-                                            {movCols.map(col => (
-                                                <td key={col.key} className="px-3 py-2 text-slate-700 max-w-xs truncate"
-                                                    title={String(rec[col.key] ?? '')}>
-                                                    {rec[col.key] ?? '—'}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
+        <Modal
+            isOpen
+            onClose={onClose}
+            size="3xl"
+            title={
+                <span className="flex items-center gap-2">
+                    <ClipboardList size={16} className="text-canopy" />
+                    Digidak Movement Register
+                </span>
+            }
+        >
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="truncate font-mono text-caption text-slate-500">
+                    {digidakItem.letter_subject || digidakItem.uid_number}
+                </span>
+                {!loading && <Badge tone="canopy">{movement.length}</Badge>}
             </div>
-        </div>
+            <DataTable
+                columns={DIGIDAK_MOVEMENT_COLUMNS}
+                rows={movement}
+                rowKey={(r, i) => r.r_object_id || i}
+                loading={loading}
+                skeletonRows={4}
+                stickyHeader
+                maxHeight="55vh"
+                empty={{
+                    icon: ClipboardList,
+                    title: 'No movement records',
+                    description: 'No movement register entries were found for this digidak.',
+                }}
+                className="md:rounded-card md:border md:border-line"
+            />
+        </Modal>
     );
 };
 
@@ -1062,8 +1058,67 @@ const ReportsPage = () => {
         });
     };
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-    const selectCls = 'w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-canopy bg-white';
+    // ── Report table columns (DataTable reflows these to folio cards below md) ──
+    const rowNumber = (idx) => <span className="text-slate-400 text-xs">{(page - 1) * pageSize + idx + 1}</span>;
+    const iconBtnCls = 'p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors';
+    const casesReportColumns = [
+        { key: 'idx', header: '#', width: 'w-10', card: 'hide', render: (_c, idx) => rowNumber(idx) },
+        { key: 'object_name', header: 'Case Number', primary: true, render: (c) => <span className="font-medium text-slate-900">{c.object_name}</span> },
+        { key: 'description', header: 'Description', cardLabel: 'Description',
+          render: (c) => <span className="block max-w-[200px] truncate text-slate-500" title={c.description}>{c.description || c.subject || '-'}</span> },
+        { key: 'office', header: 'Office / Dept', cardLabel: 'Office / Dept',
+          render: (c) => (
+              <div className="flex flex-col text-slate-600">
+                  <span className="font-medium">{c.ho_ro}</span>
+                  {c.department_name && <span className="text-xs text-slate-400">{c.department_name}</span>}
+              </div>
+          ) },
+        { key: 'status', header: 'Status', cardLabel: 'Status',
+          render: (c) => c.status ? <Badge tone={caseStatusTone(c.status)}>{c.status}</Badge> : '-' },
+        { key: 'task_priority', header: 'Priority', cardLabel: 'Priority',
+          render: (c) => c.task_priority ? (
+              <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                  c.task_priority === 'High'   ? 'bg-danger-tint text-danger' :
+                  c.task_priority === 'Medium' ? 'bg-harvest/15 text-harvest' :
+                  'bg-slate-100 text-slate-600'
+              }`}>{c.task_priority}</span>
+          ) : <span className="text-xs text-slate-600">-</span> },
+        { key: 'r_creation_date', header: 'Date Created', mono: true, cardLabel: 'Created', render: (c) => <span className="text-xs text-slate-600">{formatDate(c.r_creation_date)}</span> },
+        { key: 'actions', header: 'Actions', align: 'center', card: 'footer',
+          render: (c) => (
+              <div className="flex items-center gap-2 md:justify-center">
+                  <button onClick={() => setDetailCase(c)} title="Case Details" className={iconBtnCls}><FileText size={15} /></button>
+                  <button onClick={() => setMovementCase(c)} title="Movement Register" className={iconBtnCls}><ClipboardList size={15} /></button>
+              </div>
+          ) },
+    ];
+    const digidakText = (key, header, extra = {}) => ({
+        key, header, cardLabel: header, render: (r) => <span className="text-xs text-slate-600">{r[key] || '-'}</span>, ...extra,
+    });
+    const digidakColumns = [
+        { key: 'idx', header: '#', width: 'w-10', card: 'hide', render: (_r, idx) => rowNumber(idx) },
+        { key: 'uid_number', header: 'UID Number', primary: true, mono: true, render: (r) => <span className="font-medium text-slate-900">{r.uid_number || '-'}</span> },
+        { key: 'letter_subject', header: 'Letter Subject', cardLabel: 'Subject',
+          render: (r) => <span className="block max-w-[250px] truncate text-slate-600" title={r.letter_subject}>{r.letter_subject || '-'}</span> },
+        digidakText('initiator', 'Initiator'),
+        digidakText('file_number', 'File Number', { mono: true }),
+        digidakText('type_category', 'Type Category'),
+        digidakText('languages', 'Language'),
+        digidakText('mode_of_receipt', 'Mode of Dispatch'),
+        digidakText('priority', 'Priority'),
+        digidakText('secrecy', 'Secrecy'),
+        { key: 'status', header: 'Status', cardLabel: 'Status', render: (r) => <Badge tone={caseStatusTone(r.status)}>{r.status || '-'}</Badge> },
+        ...(digidakSubTab === 'outbox' ? [digidakText('selected_region', 'Sent To')] : []),
+        ...(digidakSubTab !== 'inbox' ? [{ key: 'decision', header: 'Decision', cardLabel: 'Decision',
+            render: (r) => <Badge tone={r.decision === 'Inward' ? 'canopy' : 'harvest'}>{r.decision || '-'}</Badge> }] : []),
+        { key: 'r_creation_date', header: 'Date Created', mono: true, cardLabel: 'Created', render: (r) => <span className="text-xs text-slate-600">{formatDate(r.r_creation_date)}</span> },
+        { key: 'actions', header: 'Actions', align: 'center', card: 'footer',
+          render: (r) => (
+              <button onClick={() => setDigidakMovement(r)} title="Movement Register" className={`${iconBtnCls} md:mx-auto`}>
+                  <ClipboardList size={15} />
+              </button>
+          ) },
+    ];
 
     return (
         <ErrorBoundary>
@@ -1094,13 +1149,13 @@ const ReportsPage = () => {
             {activeTab === 'cases' && (
             <>
             {/* Filter Card */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-6">
+            <div className="bg-surface rounded-xl border border-slate-200 shadow-sm p-5 mb-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Filter size={16} className="text-slate-500" />
                     <span className="text-sm font-semibold text-slate-700">Filters</span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-4">
+                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-4">
                     {/* Office Type */}
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">Office Type</label>
@@ -1147,15 +1202,13 @@ const ReportsPage = () => {
                     {/* From Date */}
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">From Date</label>
-                        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-                            className={selectCls} />
+                        <DateInput value={fromDate} onChange={e => setFromDate(e.target.value)} />
                     </div>
 
                     {/* To Date */}
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">To Date</label>
-                        <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-                            className={selectCls} />
+                        <DateInput value={toDate} onChange={e => setToDate(e.target.value)} />
                     </div>
 
                     {/* Status */}
@@ -1186,7 +1239,7 @@ const ReportsPage = () => {
                     />
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                     <button onClick={handleApply} disabled={loading}
                         className="flex items-center gap-2 px-4 py-2 bg-canopy text-white text-sm font-medium rounded-lg hover:bg-canopy-dark disabled:opacity-50 transition-colors">
                         <Search size={14} />
@@ -1237,7 +1290,7 @@ const ReportsPage = () => {
             )}
 
             {/* Results Card */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-surface rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 {!filtersApplied && !loading ? (
                     <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                         <FileBarChart2 size={48} className="mb-3 opacity-30" />
@@ -1245,84 +1298,21 @@ const ReportsPage = () => {
                     </div>
                 ) : (
                     <>
-                        <div className="overflow-auto scrollbar-thin max-h-[70vh]">
-                            <table className="w-full text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-10">#</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Case Number</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Office / Dept</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Priority</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Date Created</th>
-                                        <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {loading ? (
-                                        Array.from({ length: 5 }).map((_, i) => (
-                                            <tr key={i} className="animate-pulse">
-                                                {Array.from({ length: 8 }).map((__, j) => (
-                                                    <td key={j} className="px-4 py-3">
-                                                        <div className="h-3 bg-slate-200 rounded w-full" />
-                                                    </td>
-                                                ))}
-                                            </tr>
-                                        ))
-                                    ) : cases.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={8} className="px-4 py-16 text-center text-slate-400 text-sm">
-                                                No cases found for the selected filters.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        cases.map((c, idx) => (
-                                            <tr key={c.r_object_id || idx} className="hover:bg-canopy-tint/30 transition-colors group">
-                                                <td className="px-4 py-2.5 text-slate-400 text-xs">
-                                                    {(page - 1) * pageSize + idx + 1}
-                                                </td>
-                                                <td className="px-4 py-2.5 font-medium text-slate-900">{c.object_name}</td>
-                                                <td className="px-4 py-2.5 text-slate-500 max-w-[200px] truncate" title={c.description}>
-                                                    {c.description || c.subject || '-'}
-                                                </td>
-                                                <td className="px-4 py-2.5 text-slate-600">
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium">{c.ho_ro}</span>
-                                                        {c.department_name && <span className="text-xs text-slate-400">{c.department_name}</span>}
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-2.5">
-                                                    {c.status ? (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-canopy-tint text-canopy">
-                                                            {c.status}
-                                                        </span>
-                                                    ) : '-'}
-                                                </td>
-                                                <td className="px-4 py-2.5 text-slate-600 text-xs">{c.task_priority || '-'}</td>
-                                                <td className="px-4 py-2.5 text-slate-600 text-xs">{formatDate(c.r_creation_date)}</td>
-                                                <td className="px-4 py-2.5">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <button onClick={() => setDetailCase(c)} title="Case Details"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors">
-                                                            <FileText size={15} />
-                                                        </button>
-                                                        <button onClick={() => setMovementCase(c)} title="Movement Register"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors">
-                                                            <ClipboardList size={15} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                        <DataTable
+                            columns={casesReportColumns}
+                            rows={cases}
+                            rowKey={(c, idx) => c.r_object_id || idx}
+                            loading={loading}
+                            skeletonRows={5}
+                            empty={{ icon: FileBarChart2, title: 'No cases found for the selected filters.' }}
+                            stickyHeader
+                            maxHeight="70vh"
+                            className="p-3 md:p-0"
+                        />
 
                         {/* Pagination */}
                         {filtersApplied && !loading && cases.length > 0 && (
-                            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
+                            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50">
                                 <div className="flex items-center gap-2 text-sm text-slate-600">
                                     <span>Rows per page:</span>
                                     <select value={pageSize} onChange={e => handlePageSizeChange(Number(e.target.value))}
@@ -1332,18 +1322,18 @@ const ReportsPage = () => {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button onClick={() => fetchReport(1, pageSize)} disabled={page === 1}
-                                        className="p-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-600">
+                                        className="p-1.5 border border-slate-200 rounded bg-surface hover:bg-slate-50 disabled:opacity-40 text-slate-600">
                                         <ChevronsLeft size={16} />
                                     </button>
                                     <button onClick={() => fetchReport(page - 1, pageSize)} disabled={page === 1}
-                                        className="p-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-600">
+                                        className="p-1.5 border border-slate-200 rounded bg-surface hover:bg-slate-50 disabled:opacity-40 text-slate-600">
                                         <ChevronLeft size={16} />
                                     </button>
-                                    <span className="px-3 py-1 bg-white border border-slate-200 rounded text-slate-700 font-medium min-w-[2rem] text-center">
+                                    <span className="px-3 py-1 bg-surface border border-slate-200 rounded text-slate-700 font-medium min-w-[2rem] text-center">
                                         {page}
                                     </span>
                                     <button onClick={() => fetchReport(page + 1, pageSize)} disabled={!hasNextPage}
-                                        className="p-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-600">
+                                        className="p-1.5 border border-slate-200 rounded bg-surface hover:bg-slate-50 disabled:opacity-40 text-slate-600">
                                         <ChevronRight size={16} />
                                     </button>
                                 </div>
@@ -1360,7 +1350,7 @@ const ReportsPage = () => {
             {activeTab === 'digidak' && (
             <>
             {/* Digidak Sub-tabs */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-6">
+            <div className="bg-surface rounded-xl border border-slate-200 shadow-sm p-4 mb-6">
                 <div className="flex gap-4 border-b border-slate-200">
                     <button
                         onClick={() => setDigidakSubTab('inbox')}
@@ -1396,13 +1386,13 @@ const ReportsPage = () => {
             </div>
 
             {/* Digidak Filter Card */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-6">
+            <div className="bg-surface rounded-xl border border-slate-200 shadow-sm p-5 mb-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Filter size={16} className="text-slate-500" />
                     <span className="text-sm font-semibold text-slate-700">Filters</span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-4">
+                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-4">
                     {/* Office Type */}
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">Office Type</label>
@@ -1461,13 +1451,13 @@ const ReportsPage = () => {
                     {/* From Date */}
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">From Date</label>
-                        <input type="date" value={digidakFromDate} onChange={e => setDigidakFromDate(e.target.value)} className={selectCls} />
+                        <DateInput value={digidakFromDate} onChange={e => setDigidakFromDate(e.target.value)} />
                     </div>
 
                     {/* To Date */}
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">To Date</label>
-                        <input type="date" value={digidakToDate} onChange={e => setDigidakToDate(e.target.value)} className={selectCls} />
+                        <DateInput value={digidakToDate} onChange={e => setDigidakToDate(e.target.value)} />
                     </div>
 
                     {/* Language */}
@@ -1651,7 +1641,7 @@ const ReportsPage = () => {
             )}
 
             {/* Digidak Results */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-surface rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 {loading ? (
                     <div className="flex items-center justify-center py-12">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-canopy"></div>
@@ -1662,87 +1652,19 @@ const ReportsPage = () => {
                     </div>
                 ) : (
                     <>
-                        <div className="overflow-auto scrollbar-thin max-h-[70vh]">
-                            <table className="w-full text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">#</th>
-                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">UID Number</th>
-                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">Letter Subject</th>
-                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">Initiator</th>
-                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">File Number</th>
-                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">Type Category</th>
-                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">Language</th>
-                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">Mode of Dispatch</th>
-                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">Priority</th>
-                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">Secrecy</th>
-                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">Status</th>
-                                        {digidakSubTab === 'outbox' && (
-                                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">Sent To</th>
-                                        )}
-                                        {digidakSubTab !== 'inbox' && (
-                                            <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">Decision</th>
-                                        )}
-                                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600">Date Created</th>
-                                        <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-600">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {digidakResults.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={digidakSubTab === 'inbox' ? 12 : 14} className="px-4 py-16 text-center text-slate-400 text-sm">
-                                                No Digidak records found for the selected filters.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        digidakResults.map((item, idx) => (
-                                            <tr key={`${item.r_object_id}-${idx}`} className="hover:bg-canopy-tint/30 transition-colors">
-                                                <td className="px-4 py-2.5 text-slate-400 text-xs">{(page - 1) * pageSize + idx + 1}</td>
-                                                <td className="px-4 py-2.5 font-medium text-slate-900 font-mono">{item.uid_number || '-'}</td>
-                                                <td className="px-4 py-2.5 text-slate-600 max-w-[250px] truncate" title={item.letter_subject}>{item.letter_subject || '-'}</td>
-                                                <td className="px-4 py-2.5 text-slate-600">{item.initiator || '-'}</td>
-                                                <td className="px-4 py-2.5 font-mono text-sm text-slate-600">{item.file_number || '-'}</td>
-                                                <td className="px-4 py-2.5 text-slate-600 text-xs">{item.type_category || '-'}</td>
-                                                <td className="px-4 py-2.5 text-slate-600 text-xs">{item.languages || '-'}</td>
-                                                <td className="px-4 py-2.5 text-slate-600 text-xs">{item.mode_of_receipt || '-'}</td>
-                                                <td className="px-4 py-2.5 text-slate-600 text-xs">{item.priority || '-'}</td>
-                                                <td className="px-4 py-2.5 text-slate-600 text-xs">{item.secrecy || '-'}</td>
-                                                <td className="px-4 py-2.5">
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-canopy-tint text-canopy">
-                                                        {item.status || '-'}
-                                                    </span>
-                                                </td>
-                                                {digidakSubTab === 'outbox' && (
-                                                    <td className="px-4 py-2.5 text-slate-600 text-xs">{item.selected_region || '-'}</td>
-                                                )}
-                                                {digidakSubTab !== 'inbox' && (
-                                                    <td className="px-4 py-2.5 text-xs">
-                                                        <span className={`px-2 py-0.5 rounded-full font-medium ${
-                                                            item.decision === 'Inward' ? 'bg-canopy-tint text-canopy' : 'bg-harvest/10 text-harvest'
-                                                        }`}>
-                                                            {item.decision || '-'}
-                                                        </span>
-                                                    </td>
-                                                )}
-                                                <td className="px-4 py-2.5 text-slate-600 text-xs">{formatDate(item.r_creation_date)}</td>
-                                                <td className="px-4 py-2.5">
-                                                    <div className="flex items-center justify-center">
-                                                        <button onClick={() => setDigidakMovement(item)} title="Movement Register"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors">
-                                                            <ClipboardList size={15} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                        <DataTable
+                            columns={digidakColumns}
+                            rows={digidakResults}
+                            rowKey={(item, idx) => `${item.r_object_id}-${idx}`}
+                            empty={{ icon: FileBarChart2, title: 'No Digidak records found for the selected filters.' }}
+                            stickyHeader
+                            maxHeight="70vh"
+                            className="p-3 md:p-0"
+                        />
 
                         {/* Pagination */}
                         {filtersApplied && !loading && digidakResults.length > 0 && (
-                            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
+                            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50">
                                 <div className="flex items-center gap-2 text-sm text-slate-600">
                                     <span>Rows per page:</span>
                                     <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); fetchDigidakReport(1, Number(e.target.value)); }}
@@ -1752,18 +1674,18 @@ const ReportsPage = () => {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button onClick={() => fetchDigidakReport(1, pageSize)} disabled={page === 1}
-                                        className="p-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-600">
+                                        className="p-1.5 border border-slate-200 rounded bg-surface hover:bg-slate-50 disabled:opacity-40 text-slate-600">
                                         <ChevronsLeft size={16} />
                                     </button>
                                     <button onClick={() => fetchDigidakReport(page - 1, pageSize)} disabled={page === 1}
-                                        className="p-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-600">
+                                        className="p-1.5 border border-slate-200 rounded bg-surface hover:bg-slate-50 disabled:opacity-40 text-slate-600">
                                         <ChevronLeft size={16} />
                                     </button>
-                                    <span className="px-3 py-1 bg-white border border-slate-200 rounded text-slate-700 font-medium min-w-[2rem] text-center">
+                                    <span className="px-3 py-1 bg-surface border border-slate-200 rounded text-slate-700 font-medium min-w-[2rem] text-center">
                                         {page}
                                     </span>
                                     <button onClick={() => fetchDigidakReport(page + 1, pageSize)} disabled={!hasNextPage}
-                                        className="p-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-600">
+                                        className="p-1.5 border border-slate-200 rounded bg-surface hover:bg-slate-50 disabled:opacity-40 text-slate-600">
                                         <ChevronRight size={16} />
                                     </button>
                                 </div>
@@ -1780,13 +1702,13 @@ const ReportsPage = () => {
             {activeTab === 'rajbhasha' && !isLocalAdmin && (
             <>
             {/* Filter Card */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-6">
+            <div className="bg-surface rounded-xl border border-slate-200 shadow-sm p-5 mb-6">
                 <div className="flex items-center gap-2 mb-4">
                     <Filter size={16} className="text-slate-500" />
                     <span className="text-sm font-semibold text-slate-700">Filters</span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-4">
+                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-4">
                     {/* Office Type */}
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">Office Type</label>
@@ -1822,17 +1744,17 @@ const ReportsPage = () => {
                     {/* From Date */}
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">From Date</label>
-                        <input type="date" value={rajbhashaFromDate} onChange={e => setRajbhashaFromDate(e.target.value)} className={selectCls} />
+                        <DateInput value={rajbhashaFromDate} onChange={e => setRajbhashaFromDate(e.target.value)} />
                     </div>
 
                     {/* To Date */}
                     <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">To Date</label>
-                        <input type="date" value={rajbhashaToDate} onChange={e => setRajbhashaToDate(e.target.value)} className={selectCls} />
+                        <DateInput value={rajbhashaToDate} onChange={e => setRajbhashaToDate(e.target.value)} />
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                     <button onClick={handleRajbhashaApply} disabled={loading}
                         className="flex items-center gap-2 px-4 py-2 bg-canopy text-white text-sm font-medium rounded-lg hover:bg-canopy-dark disabled:opacity-50 transition-colors">
                         <Search size={14} />
@@ -1860,7 +1782,7 @@ const ReportsPage = () => {
             </div>
 
             {/* Results Card */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-surface rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 {!filtersApplied && !loading ? (
                     <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                         <FileBarChart2 size={48} className="mb-3 opacity-30" />
@@ -1871,78 +1793,24 @@ const ReportsPage = () => {
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-canopy"></div>
                     </div>
                 ) : rajbhashaReport ? (
-                    <div className="space-y-8">
-                        {/* Grid 1 */}
-                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto scrollbar-thin max-h-[70vh]">
-                            <table className="w-full text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Summary</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {rajbhashaReport.grid1?.rows && rajbhashaReport.grid1.rows.map((row, idx) => (
-                                        <tr key={idx} className="hover:bg-canopy-tint/30 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-slate-900">{row.summary}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-canopy">{row.total}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Grid 2 */}
-                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto scrollbar-thin max-h-[70vh]">
-                            <table className="w-full text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Region</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of English Letters</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Replied in Hindi</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Replied in English</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Not Replied To</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {rajbhashaReport.grid2?.rows && rajbhashaReport.grid2.rows.map((row, idx) => (
-                                        <tr key={idx} className="hover:bg-canopy-tint/30 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-slate-900">{row.summary}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-canopy">{row.no_of_letters_english}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-harvest">{row.replied_in_hindi}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-canopy">{row.replied_in_english}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-danger">{row.not_replied_to}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Grid 3 */}
-                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto scrollbar-thin max-h-[70vh]">
-                            <table className="w-full text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Region</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">In Hindi/Bilingual</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">In English Only</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Letters Issued</th>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">% Hindi/Bilingual</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {rajbhashaReport.grid3?.rows && rajbhashaReport.grid3.rows.map((row, idx) => (
-                                        <tr key={idx} className={`${row.summary === 'Total' ? 'bg-slate-100 font-semibold' : 'hover:bg-canopy-tint/30'} transition-colors`}>
-                                            <td className="px-4 py-3 font-medium text-slate-900">{row.summary}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-canopy">{row.hindi_bilingual}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-harvest">{row.english_only}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-canopy">{row.total_letters_issued}</td>
-                                            <td className="px-4 py-3 text-slate-700 text-lg font-semibold text-canopy">{row.percentage}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                    <div className="space-y-6 p-3 md:p-4">
+                        {[
+                            { key: 'grid1', columns: RAJBHASHA_GRID1_COLUMNS },
+                            { key: 'grid2', columns: RAJBHASHA_GRID2_COLUMNS },
+                            { key: 'grid3', columns: RAJBHASHA_GRID3_COLUMNS },
+                        ].map(({ key, columns }) => (
+                            <div key={key} className="bg-surface rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                                <DataTable
+                                    columns={columns}
+                                    rows={rajbhashaReport[key]?.rows || []}
+                                    rowKey={(_row, idx) => idx}
+                                    rowClassName={(row) => row.summary === 'Total' ? 'bg-slate-100 font-semibold' : ''}
+                                    stickyHeader
+                                    maxHeight="70vh"
+                                    className="p-3 md:p-0"
+                                />
+                            </div>
+                        ))}
                     </div>
                 ) : (
                     <div className="px-6 py-12 text-center text-slate-400">

@@ -2,21 +2,21 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 import { getLocations } from '../data/nabardMetadata.js';
 import {
-    CheckCircle2, AlertCircle, X, Loader2, Plus, Hash, RefreshCw, Trash2, FileText
+    CheckCircle2, AlertCircle, X, Loader2, Plus, Hash, RefreshCw, Trash2, FileText, Users
 } from 'lucide-react';
-import { PageHeader, Tabs, useToast } from '../components/ui';
+import { PageHeader, Tabs, useToast, DataTable } from '../components/ui';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 const inputCls = (err) =>
     `w-full px-4 py-2.5 border rounded-xl text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy ${
-        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
+        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'
     }`;
 
 const selectCls = (err, disabled) => disabled
     ? 'w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-100 text-slate-400 cursor-not-allowed appearance-none pr-10'
     : `w-full px-4 py-2.5 border rounded-xl text-sm appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy transition-colors cursor-pointer ${
-        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
+        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'
     }`;
 
 const ChevronDown = ({ disabled }) => (
@@ -39,6 +39,88 @@ const FieldLabel = ({ label, required }) => (
 const FieldError = ({ msg }) => msg
     ? <p className="mt-1 text-xs text-danger flex items-center gap-1"><AlertCircle size={12} />{msg}</p>
     : null;
+
+const editInputCls = 'w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-surface';
+
+// Columns for the two SFS metadata lists (types / categories). Both share the
+// same inline-edit + two-step delete row UI; only the "Document Type" editor
+// differs, so it is injected via `typeEditor`.
+const buildSfsListColumns = (s, { typeEditor } = {}) => {
+    const isEditing    = (item) => s.editingId === item.r_object_id;
+    const editable = (key) => (item) => isEditing(item)
+        ? <input value={s.editValues[key]}
+              onChange={e => s.setEditValues(v => ({ ...v, [key]: e.target.value }))}
+              className={editInputCls} />
+        : (item[key] || '—');
+    return [
+        { key: 'idx', header: '#', mono: true, width: 'w-12', card: 'hide', render: (_item, idx) => idx + 1 },
+        {
+            key: 'document_type', header: 'Document Type', primary: true,
+            render: (item) => (isEditing(item) && typeEditor) ? typeEditor(s) : editable('document_type')(item),
+        },
+        { key: 'document_category', header: 'Document Category', render: editable('document_category') },
+        { key: 'serial_number', header: 'Serial Number', mono: true, render: editable('serial_number') },
+        {
+            key: 'actions', header: 'Actions', align: 'center', card: 'footer',
+            render: (item) => {
+                const isConfirming = s.confirmId === item.r_object_id;
+                const isDeleting   = s.deleting === item.r_object_id;
+                return (
+                    <div className="flex items-center justify-center gap-1.5">
+                        {isEditing(item) ? (
+                            <>
+                                <button onClick={() => s.handleSave(item)} disabled={s.saving}
+                                    className="p-1 rounded text-canopy hover:bg-canopy-tint disabled:opacity-40 transition-colors"
+                                    title="Save">
+                                    {s.saving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                                </button>
+                                <button onClick={s.cancelEdit} disabled={s.saving}
+                                    className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+                                    title="Cancel">
+                                    <X size={16} />
+                                </button>
+                            </>
+                        ) : isConfirming ? (
+                            <>
+                                <button onClick={() => s.handleDelete(item)} disabled={isDeleting}
+                                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-danger bg-danger-tint border border-danger/20 rounded hover:bg-danger-tint disabled:opacity-40 transition-colors"
+                                    title="Confirm delete">
+                                    {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                    Delete
+                                </button>
+                                <button onClick={() => s.setConfirmId(null)} disabled={isDeleting}
+                                    className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+                                    title="Cancel">
+                                    <X size={16} />
+                                </button>
+                            </>
+                        ) : (
+                            <button onClick={() => s.setConfirmId(item.r_object_id)}
+                                className="p-1 rounded text-danger hover:bg-danger-tint transition-colors"
+                                title="Delete">
+                                <Trash2 size={16} />
+                            </button>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ];
+};
+
+// Highlight the row being edited or awaiting delete confirmation.
+const sfsRowClassName = (s) => (item) =>
+    (s.editingId === item.r_object_id || s.confirmId === item.r_object_id) ? 'bg-canopy-tint' : '';
+
+// Category rows pick their Document Type from a select rather than free text.
+const categoryTypeEditor = (s) => (
+    <CustomSelect
+        value={s.editValues.document_type}
+        onChange={val => s.setEditValues(v => ({ ...v, document_type: val }))}
+        placeholder="— Select —"
+        options={[]}
+    />
+);
 
 // ─── Existing Document Types List ────────────────────────────────────────────
 const DocumentTypeList = ({ refreshKey, onToast }) => {
@@ -116,9 +198,11 @@ const DocumentTypeList = ({ refreshKey, onToast }) => {
         }
     };
 
+    const listState = { editingId, editValues, setEditValues, confirmId, setConfirmId, deleting, saving, handleSave, cancelEdit, handleDelete };
+
     return (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <Hash size={14} className="text-slate-400" />
                     <span className="text-sm font-semibold text-slate-700">Existing Document Types</span>
@@ -134,107 +218,23 @@ const DocumentTypeList = ({ refreshKey, onToast }) => {
                 </button>
             </div>
 
-            {loading ? (
-                <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                    <Loader2 size={18} className="animate-spin text-canopy" />
-                    <span className="text-sm">Loading…</span>
-                </div>
-            ) : error ? (
+            {error ? (
                 <div className="px-5 py-4 text-sm text-danger flex items-center gap-2">
                     <AlertCircle size={15} /> {error}
                 </div>
-            ) : items.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm text-slate-400">
-                    No document types found
-                </div>
             ) : (
-                <div className="overflow-auto scrollbar-thin max-h-[70vh]">
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                            <tr>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 w-8">#</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Document Type</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Document Category</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Serial Number</th>
-                                <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-500">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {items.map((item, idx) => {
-                                const isConfirming = confirmId === item.r_object_id;
-                                const isDeleting = deleting === item.r_object_id;
-                                const isEditing = editingId === item.r_object_id;
-                                const rowBg = isEditing ? 'bg-canopy-tint' : isConfirming ? 'bg-canopy-tint' : 'hover:bg-canopy-tint/30';
-                                return (
-                                    <tr key={item.r_object_id || idx} className={`transition-colors ${rowBg}`}>
-                                        <td className="px-4 py-2.5 text-slate-400 text-xs font-mono">{idx + 1}</td>
-                                        <td className="px-4 py-2.5 text-slate-800 text-sm">
-                                            {isEditing ? (
-                                                <input value={editValues.document_type}
-                                                    onChange={e => setEditValues(v => ({ ...v, document_type: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white" />
-                                            ) : (item.document_type || '—')}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-slate-800 text-sm">
-                                            {isEditing ? (
-                                                <input value={editValues.document_category}
-                                                    onChange={e => setEditValues(v => ({ ...v, document_category: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white" />
-                                            ) : (item.document_category || '—')}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-slate-800 text-sm">
-                                            {isEditing ? (
-                                                <input value={editValues.serial_number}
-                                                    onChange={e => setEditValues(v => ({ ...v, serial_number: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white" />
-                                            ) : (item.serial_number || '—')}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-center">
-                                            <div className="flex items-center justify-center gap-1.5">
-                                                {isEditing ? (
-                                                    <>
-                                                        <button onClick={() => handleSave(item)} disabled={saving}
-                                                            className="p-1 rounded text-canopy hover:bg-canopy-tint disabled:opacity-40 transition-colors"
-                                                            title="Save">
-                                                            {saving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                                                        </button>
-                                                        <button onClick={cancelEdit} disabled={saving}
-                                                            className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
-                                                            title="Cancel">
-                                                            <X size={16} />
-                                                        </button>
-                                                    </>
-                                                ) : isConfirming ? (
-                                                    <>
-                                                        <button onClick={() => handleDelete(item)} disabled={isDeleting}
-                                                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-danger bg-danger-tint border border-danger/20 rounded hover:bg-danger-tint disabled:opacity-40 transition-colors"
-                                                            title="Confirm delete">
-                                                            {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                                                            Delete
-                                                        </button>
-                                                        <button onClick={() => setConfirmId(null)} disabled={isDeleting}
-                                                            className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
-                                                            title="Cancel">
-                                                            <X size={16} />
-                                                        </button>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <button onClick={() => setConfirmId(item.r_object_id)}
-                                                            className="p-1 rounded text-danger hover:bg-danger-tint transition-colors"
-                                                            title="Delete">
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                <DataTable
+                    columns={buildSfsListColumns(listState)}
+                    rows={items}
+                    rowKey={(item, idx) => item.r_object_id || idx}
+                    loading={loading}
+                    skeletonRows={5}
+                    rowClassName={sfsRowClassName(listState)}
+                    stickyHeader
+                    maxHeight="70vh"
+                    empty={{ icon: Hash, title: 'No document types found' }}
+                    className="p-3 md:p-0"
+                />
             )}
         </div>
     );
@@ -312,7 +312,7 @@ const DocumentTypeTab = ({ onToast }) => {
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
             {/* Left: creation form */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm shrink-0">
                         <FileText size={17} className="text-white" />
@@ -373,7 +373,7 @@ const DocumentTypeTab = ({ onToast }) => {
                         <button type="button"
                             onClick={() => { setForm(EMPTY_FORM); setErrors({}); }}
                             disabled={submitting}
-                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-colors disabled:opacity-40">
+                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-surface transition-colors disabled:opacity-40">
                             Reset
                         </button>
                         <button type="submit" disabled={submitting}
@@ -467,9 +467,11 @@ const DocumentCategoryList = ({ refreshKey, onToast }) => {
         }
     };
 
+    const listState = { editingId, editValues, setEditValues, confirmId, setConfirmId, deleting, saving, handleSave, cancelEdit, handleDelete };
+
     return (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <Hash size={14} className="text-slate-400" />
                     <span className="text-sm font-semibold text-slate-700">Existing Document Categories</span>
@@ -485,110 +487,23 @@ const DocumentCategoryList = ({ refreshKey, onToast }) => {
                 </button>
             </div>
 
-            {loading ? (
-                <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                    <Loader2 size={18} className="animate-spin text-canopy" />
-                    <span className="text-sm">Loading…</span>
-                </div>
-            ) : error ? (
+            {error ? (
                 <div className="px-5 py-4 text-sm text-danger flex items-center gap-2">
                     <AlertCircle size={15} /> {error}
                 </div>
-            ) : items.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm text-slate-400">
-                    No document categories found
-                </div>
             ) : (
-                <div className="overflow-auto scrollbar-thin max-h-[70vh]">
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                            <tr>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 w-8">#</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Document Type</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Document Category</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Serial Number</th>
-                                <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-500">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {items.map((item, idx) => {
-                                const isConfirming = confirmId === item.r_object_id;
-                                const isDeleting = deleting === item.r_object_id;
-                                const isEditing = editingId === item.r_object_id;
-                                const rowBg = isEditing ? 'bg-canopy-tint' : isConfirming ? 'bg-canopy-tint' : 'hover:bg-canopy-tint/30';
-                                return (
-                                    <tr key={item.r_object_id || idx} className={`transition-colors ${rowBg}`}>
-                                        <td className="px-4 py-2.5 text-slate-400 text-xs font-mono">{idx + 1}</td>
-                                        <td className="px-4 py-2.5 text-slate-800 text-sm">
-                                            {isEditing ? (
-                                                <CustomSelect
-                                                    value={editValues.document_type}
-                                                    onChange={val => setEditValues(v => ({ ...v, document_type: val }))}
-                                                    placeholder="— Select —"
-                                                    options={[]}
-                                                />
-                                            ) : (item.document_type || '—')}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-slate-800 text-sm">
-                                            {isEditing ? (
-                                                <input value={editValues.document_category}
-                                                    onChange={e => setEditValues(v => ({ ...v, document_category: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white" />
-                                            ) : (item.document_category || '—')}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-slate-800 text-sm">
-                                            {isEditing ? (
-                                                <input value={editValues.serial_number}
-                                                    onChange={e => setEditValues(v => ({ ...v, serial_number: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white" />
-                                            ) : (item.serial_number || '—')}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-center">
-                                            <div className="flex items-center justify-center gap-1.5">
-                                                {isEditing ? (
-                                                    <>
-                                                        <button onClick={() => handleSave(item)} disabled={saving}
-                                                            className="p-1 rounded text-canopy hover:bg-canopy-tint disabled:opacity-40 transition-colors"
-                                                            title="Save">
-                                                            {saving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                                                        </button>
-                                                        <button onClick={cancelEdit} disabled={saving}
-                                                            className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
-                                                            title="Cancel">
-                                                            <X size={16} />
-                                                        </button>
-                                                    </>
-                                                ) : isConfirming ? (
-                                                    <>
-                                                        <button onClick={() => handleDelete(item)} disabled={isDeleting}
-                                                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-danger bg-danger-tint border border-danger/20 rounded hover:bg-danger-tint disabled:opacity-40 transition-colors"
-                                                            title="Confirm delete">
-                                                            {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                                                            Delete
-                                                        </button>
-                                                        <button onClick={() => setConfirmId(null)} disabled={isDeleting}
-                                                            className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
-                                                            title="Cancel">
-                                                            <X size={16} />
-                                                        </button>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <button onClick={() => setConfirmId(item.r_object_id)}
-                                                            className="p-1 rounded text-danger hover:bg-danger-tint transition-colors"
-                                                            title="Delete">
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                <DataTable
+                    columns={buildSfsListColumns(listState, { typeEditor: categoryTypeEditor })}
+                    rows={items}
+                    rowKey={(item, idx) => item.r_object_id || idx}
+                    loading={loading}
+                    skeletonRows={5}
+                    rowClassName={sfsRowClassName(listState)}
+                    stickyHeader
+                    maxHeight="70vh"
+                    empty={{ icon: Hash, title: 'No document categories found' }}
+                    className="p-3 md:p-0"
+                />
             )}
         </div>
     );
@@ -675,7 +590,7 @@ const DocumentCategoryTab = ({ onToast }) => {
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
             {/* Left: creation form */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm shrink-0">
                         <FileText size={17} className="text-white" />
@@ -740,7 +655,7 @@ const DocumentCategoryTab = ({ onToast }) => {
                         <button type="button"
                             onClick={() => { setForm(EMPTY_FORM); setErrors({}); }}
                             disabled={submitting}
-                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-colors disabled:opacity-40">
+                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-surface transition-colors disabled:opacity-40">
                             Reset
                         </button>
                         <button type="submit" disabled={submitting}
@@ -1012,10 +927,61 @@ const SfsUserAccessTab = ({ onToast }) => {
         );
     }
 
+    const userColumns = [
+        { key: 'idx', header: '#', mono: true, width: 'w-12', card: 'hide', render: (_u, idx) => idx + 1 },
+        { key: 'user_name', header: 'Name', primary: true, render: u => <span className="font-medium text-ink">{u.user_name || '—'}</span> },
+        { key: 'user_login_name', header: 'Login' },
+        { key: 'uin', header: 'UIN', mono: true },
+        {
+            key: 'roles', header: 'SFS Roles',
+            render: (u) => {
+                const userMem = userMembership[u.user_name];
+                if (!userMem) return <span className="text-slate-300 text-xs">…</span>;
+                const assignedRoles = SFS_USER_ROLES.filter(r => userMem[r]);
+                if (assignedRoles.length === 0) return <span className="text-slate-400 text-xs">—</span>;
+                return (
+                    <div className="flex flex-wrap gap-1">
+                        {assignedRoles.map(r => (
+                            <span key={r} className="px-2 py-1 bg-canopy-tint text-canopy text-xs font-medium rounded">
+                                {r.substring(0, 15)}
+                            </span>
+                        ))}
+                    </div>
+                );
+            },
+        },
+        {
+            key: 'actions', header: 'Actions', align: 'center', card: 'footer',
+            render: (u) => {
+                const userMem = userMembership[u.user_name];
+                if (!userMem) return <span className="text-slate-300 text-xs">Loading…</span>;
+                return (
+                    <div className="flex flex-wrap gap-2 justify-center">
+                        {SFS_USER_ROLES.map(r => {
+                            const isMember = userMem[r];
+                            const busy = addingUser === `${u.user_name}-${r}`;
+                            return (
+                                <button key={r} onClick={() => handleAddUserToGroup(u.user_name, r)}
+                                    disabled={busy}
+                                    className={`px-3 py-1.5 text-white text-xs font-semibold rounded transition-colors inline-flex items-center gap-1 ${
+                                        isMember ? 'bg-danger hover:bg-danger' : 'bg-canopy hover:bg-canopy-dark'
+                                    } disabled:opacity-60`}>
+                                    {busy
+                                        ? <Loader2 size={11} className="animate-spin" />
+                                        : (isMember ? `Remove ${r.substring(0, 12)}` : `Mark to ${r.substring(0, 12)}`)}
+                                </button>
+                            );
+                        })}
+                    </div>
+                );
+            },
+        },
+    ];
+
     return (
         <div className="space-y-4">
             {/* Filters */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="p-6 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {/* Office Type */}
@@ -1095,95 +1061,22 @@ const SfsUserAccessTab = ({ onToast }) => {
             </div>
 
             {/* Users Table */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 {!officeType ? (
                     <div className="px-6 py-8 text-center text-sm text-slate-400">
                         Select office type to view users
                     </div>
-                ) : loading ? (
-                    <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                        <Loader2 size={18} className="animate-spin text-canopy" />
-                        <span className="text-sm">Loading…</span>
-                    </div>
-                ) : displayedUsers.length === 0 ? (
-                    <div className="px-6 py-8 text-center text-sm text-slate-400">
-                        {searchQuery ? 'No users match your search' : 'No users found'}
-                    </div>
                 ) : (
-                    <div className="overflow-auto scrollbar-thin max-h-[70vh]">
-                        <table className="w-full text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500">#</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500">Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500">Login</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500">UIN</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500">SFS Roles</th>
-                                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-500">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {displayedUsers.map((user, idx) => {
-                                    const userMem = userMembership[user.user_name];
-                                    const assignedRoles = userMem ? SFS_USER_ROLES.filter(r => userMem[r]) : [];
-
-                                    return (
-                                        <tr key={user.r_object_id || idx} className="hover:bg-canopy-tint/30">
-                                            <td className="px-6 py-3 text-slate-400 text-xs font-mono">{idx + 1}</td>
-                                            <td className="px-6 py-3 text-slate-900 font-medium">{user.user_name || '—'}</td>
-                                            <td className="px-6 py-3 text-slate-600 text-sm">{user.user_login_name || '—'}</td>
-                                            <td className="px-6 py-3 text-slate-600 font-mono text-xs">{user.uin || '—'}</td>
-                                            <td className="px-6 py-3">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {userMem ? (
-                                                        assignedRoles.length > 0 ? (
-                                                            assignedRoles.map(r => (
-                                                                <span key={r} className="px-2 py-1 bg-canopy-tint text-canopy text-xs font-medium rounded">
-                                                                    {r.substring(0, 15)}
-                                                                </span>
-                                                            ))
-                                                        ) : (
-                                                            <span className="text-slate-400 text-xs">—</span>
-                                                        )
-                                                    ) : (
-                                                        <span className="text-slate-300 text-xs">…</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-3 text-center">
-                                                <>
-                                                    {!userMem ? (
-                                                        <span className="text-slate-300 text-xs">Loading…</span>
-                                                    ) : (
-                                                        <div className="flex flex-wrap gap-2 justify-center">
-                                                        {SFS_USER_ROLES.map(r => {
-                                                            const isMember = userMem[r];
-                                                            return (
-                                                                <button key={r} onClick={() => handleAddUserToGroup(user.user_name, r)}
-                                                                    disabled={addingUser === `${user.user_name}-${r}`}
-                                                                    className={`px-3 py-1.5 text-white text-xs font-semibold rounded transition-colors inline-flex items-center gap-1 ${
-                                                                        isMember
-                                                                            ? 'bg-danger hover:bg-danger'
-                                                                            : 'bg-canopy hover:bg-canopy-dark'
-                                                                    } disabled:opacity-60`}>
-                                                                    {addingUser === `${user.user_name}-${r}` ? (
-                                                                        <Loader2 size={11} className="animate-spin" />
-                                                                    ) : (
-                                                                        isMember ? `Remove ${r.substring(0, 12)}` : `Mark to ${r.substring(0, 12)}`
-                                                                    )}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                                    )}
-                                                </>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                    <DataTable
+                        columns={userColumns}
+                        rows={displayedUsers}
+                        rowKey={(u, idx) => u.r_object_id || idx}
+                        loading={loading}
+                        stickyHeader
+                        maxHeight="70vh"
+                        empty={{ icon: Users, title: searchQuery ? 'No users match your search' : 'No users found' }}
+                        className="p-3 md:p-0"
+                    />
                 )}
             </div>
         </div>

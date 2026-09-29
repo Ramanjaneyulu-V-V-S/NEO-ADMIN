@@ -7,19 +7,19 @@ import {
 import { getLocations, fetchDepartments } from '../data/nabardMetadata.js';
 import { downloadCsv, downloadXlsx } from '../utils/userExport.js';
 import { recordExport } from '../utils/audit.js';
-import { PageHeader, Tabs, useToast } from '../components/ui';
+import { PageHeader, Tabs, useToast, DataTable } from '../components/ui';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 const inputCls = (err) =>
     `w-full px-4 py-2.5 border rounded-xl text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy ${
-        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
+        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'
     }`;
 
 const selectCls = (err, disabled) => disabled
     ? 'w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-100 text-slate-400 cursor-not-allowed appearance-none pr-10'
     : `w-full px-4 py-2.5 border rounded-xl text-sm appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy transition-colors cursor-pointer ${
-        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
+        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'
     }`;
 
 const ChevronDown = ({ disabled }) => (
@@ -44,6 +44,22 @@ const FieldLabel = ({ icon: Icon, label, required }) => (
 const FieldError = ({ msg }) => msg
     ? <p className="mt-1 text-xs text-danger flex items-center gap-1"><AlertCircle size={12} />{msg}</p>
     : null;
+
+// Inline edit input used inside DataTable rows
+const editInputCls = 'w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-surface';
+
+// Per-row validation / edit-guard note rendered under the row's headline cell
+const ValidationNote = ({ ok, message, onDismiss }) => (
+    <div className={`mt-1.5 flex items-start justify-between gap-2 rounded-lg px-2.5 py-1.5 text-caption font-medium ${ok ? 'bg-canopy-tint text-canopy' : 'bg-danger-tint text-danger'}`}>
+        <span className="flex min-w-0 items-start gap-1.5">
+            {ok ? <CheckCircle2 size={14} className="mt-0.5 shrink-0" /> : <AlertCircle size={14} className="mt-0.5 shrink-0" />}
+            <span className="whitespace-normal">{message}</span>
+        </span>
+        <button onClick={onDismiss} className="shrink-0 rounded p-0.5 opacity-70 transition-opacity hover:opacity-100" title="Dismiss">
+            <X size={14} />
+        </button>
+    </div>
+);
 
 // ─── Existing File Numbers List ───────────────────────────────────────────────
 const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast }) => {
@@ -286,9 +302,118 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
 
     if (!canFetch) return null;
 
+    const isEditingRow = (item) => editingId === item.r_object_id;
+    const fileNumberColumns = [
+        { key: 'idx', header: '#', mono: true, width: 'w-12', card: 'hide', render: (_item, idx) => startIdx + idx + 1 },
+        {
+            key: 'object_name', header: 'File Number', primary: true,
+            render: (item) => {
+                const validation = validationResults[item.r_object_id];
+                return (
+                    <div className="min-w-0">
+                        {isEditingRow(item) ? (
+                            <input
+                                value={editValues.object_name}
+                                onChange={e => setEditValues(v => ({ ...v, object_name: e.target.value }))}
+                                className={`${editInputCls} font-mono`}
+                            />
+                        ) : (
+                            <span className="font-mono font-semibold text-slate-800">{item.object_name || '—'}</span>
+                        )}
+                        {isEditingRow(item) && editValidationMsg && (
+                            <ValidationNote ok={false} message={editValidationMsg} onDismiss={cancelEdit} />
+                        )}
+                        {validation && (
+                            <ValidationNote ok={validation.canDelete} message={validation.message} onDismiss={() => clearValidationResult(item.r_object_id)} />
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            key: 'description', header: 'Description',
+            render: (item) => isEditingRow(item) ? (
+                <input
+                    value={editValues.description}
+                    onChange={e => setEditValues(v => ({ ...v, description: e.target.value }))}
+                    className={`${editInputCls} text-xs`}
+                />
+            ) : (
+                <span className="block max-w-xs truncate text-xs text-slate-600" title={item.description || ''}>{item.description || '—'}</span>
+            ),
+        },
+        {
+            key: 'dept_short_code', header: 'Dept Code',
+            render: (item) => <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600">{item.dept_short_code || '—'}</span>,
+        },
+        ...(hoRo !== 'HO' ? [{
+            key: 'ro_short_code', header: 'Location Code',
+            render: (item) => <span className="rounded bg-canopy-tint px-2 py-0.5 font-mono text-xs text-canopy">{item.ro_short_code || '—'}</span>,
+        }] : []),
+        {
+            key: 'actions', header: 'Actions', align: 'center', card: 'footer',
+            render: (item) => {
+                const isConfirming = confirmId === item.r_object_id;
+                const isDeleting = deleting === item.r_object_id;
+                const busy = saving || editValidating === item.r_object_id;
+                return (
+                    <div className="flex items-center justify-center gap-1.5">
+                        {isEditingRow(item) ? (
+                            <>
+                                <button onClick={() => handleSave(item)} disabled={busy}
+                                    className="p-1 rounded text-canopy hover:bg-canopy-tint disabled:opacity-40 transition-colors"
+                                    title="Save">
+                                    {busy ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                                </button>
+                                <button onClick={cancelEdit} disabled={busy}
+                                    className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+                                    title="Cancel">
+                                    <X size={16} />
+                                </button>
+                            </>
+                        ) : isConfirming ? (
+                            <>
+                                <button onClick={() => handleDelete(item)} disabled={isDeleting}
+                                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-danger bg-danger-tint border border-danger/20 rounded hover:bg-danger-tint disabled:opacity-40 transition-colors"
+                                    title="Confirm delete">
+                                    {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                    Delete
+                                </button>
+                                <button onClick={() => setConfirmId(null)} disabled={isDeleting}
+                                    className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+                                    title="Cancel">
+                                    <X size={16} />
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button onClick={() => startEdit(item)}
+                                    className="p-1 rounded text-canopy hover:bg-canopy-tint transition-colors"
+                                    title="Edit">
+                                    <Pencil size={16} />
+                                </button>
+                                <button onClick={() => handleValidateDelete(item)} disabled={validating === item.r_object_id}
+                                    className="p-1 rounded text-danger hover:bg-danger-tint disabled:opacity-40 transition-colors"
+                                    title="Delete">
+                                    {validating === item.r_object_id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ];
+    const fileNumberRowClass = (item) => {
+        const validation = validationResults[item.r_object_id];
+        if (validation && !validation.canDelete) return 'bg-danger-tint';
+        if (isEditingRow(item) || confirmId === item.r_object_id) return 'bg-canopy-tint';
+        return '';
+    };
+
     return (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <Hash size={14} className="text-slate-400" />
                     <span className="text-sm font-semibold text-slate-700">Existing File Numbers</span>
@@ -298,7 +423,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                         </span>
                     )}
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                     {!loading && !error && items.length > 0 && (
                         <>
                             <button onClick={() => handleExport('xlsx')} disabled={exporting || filteredItems.length === 0}
@@ -323,7 +448,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
 
             {/* Filter Section */}
             {items.length > 0 && !loading && (
-                <div className="px-5 py-3 border-b border-slate-100 bg-white">
+                <div className="px-5 py-3 border-b border-slate-100 bg-surface">
                     <div className="flex items-end gap-3 flex-wrap">
                         <div className="flex-1 min-w-56">
                             <label className="block text-xs font-semibold text-slate-600 mb-1.5">File Number</label>
@@ -332,7 +457,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                 placeholder="Search file number..."
                                 value={filterFileNumber}
                                 onChange={e => setFilterFileNumber(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-white"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-surface"
                             />
                         </div>
                         <div className="flex-1 min-w-56">
@@ -342,7 +467,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                                 placeholder="Search description..."
                                 value={filterDescription}
                                 onChange={e => setFilterDescription(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-white"
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-surface"
                             />
                         </div>
                         {(filterFileNumber || filterDescription) && (
@@ -361,173 +486,23 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                 </div>
             )}
 
-            {loading ? (
-                <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                    <Loader2 size={18} className="animate-spin text-canopy" />
-                    <span className="text-sm">Loading…</span>
-                </div>
-            ) : error ? (
+            {error ? (
                 <div className="px-5 py-4 text-sm text-danger flex items-center gap-2">
                     <AlertCircle size={15} /> {error}
                 </div>
-            ) : items.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm text-slate-400">
-                    No file numbers found for this selection
-                </div>
-            ) : filteredItems.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm text-slate-400">
-                    No file numbers match your filters
-                </div>
             ) : (
-                <div className="overflow-auto scrollbar-thin max-h-[70vh]">
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                            <tr>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 w-8">#</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">File Number</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Description</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Dept Code</th>
-                                {hoRo !== 'HO' && (
-                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Location Code</th>
-                                )}
-                                <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-500">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {paginatedItems.map((item, idx) => {
-                                const isConfirming = confirmId === item.r_object_id;
-                                const isDeleting   = deleting  === item.r_object_id;
-                                const isEditing    = editingId === item.r_object_id;
-                                const hasValidation = !!validationResults[item.r_object_id];
-                                const canDelete = validationResults[item.r_object_id]?.canDelete;
-                                const rowBg = hasValidation && !canDelete ? 'bg-danger-tint' : isEditing ? 'bg-canopy-tint' : isConfirming ? 'bg-canopy-tint' : 'hover:bg-canopy-tint/30';
-                                return [
-                                    (<tr key={item.r_object_id || idx}
-                                        className={`transition-colors ${rowBg}`}>
-                                        <td className="px-4 py-2.5 text-slate-400 text-xs font-mono">{startIdx + idx + 1}</td>
-                                        <td className="px-4 py-2.5 font-mono text-sm font-semibold text-slate-800">
-                                            {isEditing ? (
-                                                <input
-                                                    value={editValues.object_name}
-                                                    onChange={e => setEditValues(v => ({ ...v, object_name: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-sm font-mono focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white"
-                                                />
-                                            ) : (item.object_name || '—')}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-slate-600 text-xs max-w-xs">
-                                            {isEditing ? (
-                                                <input
-                                                    value={editValues.description}
-                                                    onChange={e => setEditValues(v => ({ ...v, description: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-canopy/40 rounded text-xs focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white"
-                                                />
-                                            ) : (
-                                                <span className="truncate block">{item.description || '—'}</span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-2.5">
-                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-mono">
-                                                {item.dept_short_code || '—'}
-                                            </span>
-                                        </td>
-                                        {hoRo !== 'HO' && (
-                                            <td className="px-4 py-2.5">
-                                                <span className="px-2 py-0.5 bg-canopy-tint text-canopy rounded text-xs font-mono">
-                                                    {item.ro_short_code || '—'}
-                                                </span>
-                                            </td>
-                                        )}
-                                        <td className="px-4 py-2.5">
-                                            <div className="flex items-center justify-center gap-1.5">
-                                                {isEditing ? (
-                                                    <>
-                                                        <button onClick={() => handleSave(item)} disabled={saving || editValidating === item.r_object_id}
-                                                            className="p-1 rounded text-canopy hover:bg-canopy-tint disabled:opacity-40 transition-colors"
-                                                            title="Save">
-                                                            {saving || editValidating === item.r_object_id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                                                        </button>
-                                                        <button onClick={cancelEdit} disabled={saving || editValidating === item.r_object_id}
-                                                            className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
-                                                            title="Cancel">
-                                                            <X size={16} />
-                                                        </button>
-                                                    </>
-                                                ) : isConfirming ? (
-                                                    <>
-                                                        <button onClick={() => handleDelete(item)} disabled={isDeleting}
-                                                            className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-danger bg-danger-tint border border-danger/20 rounded hover:bg-danger-tint disabled:opacity-40 transition-colors"
-                                                            title="Confirm delete">
-                                                            {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                                                            Delete
-                                                        </button>
-                                                        <button onClick={() => setConfirmId(null)} disabled={isDeleting}
-                                                            className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
-                                                            title="Cancel">
-                                                            <X size={16} />
-                                                        </button>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <button onClick={() => startEdit(item)}
-                                                            className="p-1 rounded text-canopy hover:bg-canopy-tint transition-colors"
-                                                            title="Edit">
-                                                            <Pencil size={16} />
-                                                        </button>
-                                                        <button onClick={() => handleValidateDelete(item)} disabled={validating === item.r_object_id}
-                                                            className="p-1 rounded text-danger hover:bg-danger-tint disabled:opacity-40 transition-colors"
-                                                            title="Delete">
-                                                            {validating === item.r_object_id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>),
-                                    editValidationMsg && isEditing && (
-                                        <tr key={`edit-validation-${item.r_object_id}`} className="border-t-0 border-b transition-colors bg-danger-tint border-b-danger/20">
-                                            <td colSpan={hoRo === 'HO' ? 5 : 6} className="px-4 py-3">
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <div className="flex items-center gap-2.5">
-                                                        <AlertCircle size={16} className="text-danger shrink-0" />
-                                                        <span className="text-sm font-medium text-danger">{editValidationMsg}</span>
-                                                    </div>
-                                                    <button onClick={cancelEdit}
-                                                        className="p-1 rounded transition-colors text-danger/70 hover:text-danger hover:bg-danger-tint"
-                                                        title="Dismiss">
-                                                        <X size={16} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ),
-                                    hasValidation && (
-                                        <tr key={`validation-${item.r_object_id}`} className={`border-t-0 border-b transition-colors ${canDelete ? 'bg-canopy-tint border-b-canopy/20' : 'bg-danger-tint border-b-danger/20'}`}>
-                                            <td colSpan={hoRo === 'HO' ? 5 : 6} className="px-4 py-3">
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <div className="flex items-center gap-2.5">
-                                                        {canDelete ? (
-                                                            <CheckCircle2 size={16} className="text-canopy shrink-0" />
-                                                        ) : (
-                                                            <AlertCircle size={16} className="text-danger shrink-0" />
-                                                        )}
-                                                        <span className={`text-sm font-medium ${canDelete ? 'text-canopy' : 'text-danger'}`}>
-                                                            {validationResults[item.r_object_id]?.message}
-                                                        </span>
-                                                    </div>
-                                                    <button onClick={() => clearValidationResult(item.r_object_id)}
-                                                        className={`p-1 rounded transition-colors ${canDelete ? 'text-canopy/70 hover:text-canopy hover:bg-canopy-tint' : 'text-danger/70 hover:text-danger hover:bg-danger-tint'}`}
-                                                        title="Dismiss">
-                                                        <X size={16} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )
-                                ];
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                <DataTable
+                    columns={fileNumberColumns}
+                    rows={paginatedItems}
+                    rowKey={(item, idx) => item.r_object_id || idx}
+                    loading={loading}
+                    skeletonRows={5}
+                    rowClassName={fileNumberRowClass}
+                    stickyHeader
+                    maxHeight="70vh"
+                    empty={{ icon: Hash, title: items.length === 0 ? 'No file numbers found for this selection' : 'No file numbers match your filters' }}
+                    className="p-3 md:p-0"
+                />
             )}
             {!loading && items.length > 0 && (
                 <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-sm">
@@ -730,7 +705,7 @@ const FileNumberTab = ({ onToast }) => {
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
             {/* ── Left: creation form ── */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm shrink-0">
                         <FileText size={17} className="text-white" />
@@ -831,7 +806,7 @@ const FileNumberTab = ({ onToast }) => {
                             onChange={e => set('description', e.target.value)}
                             placeholder="e.g. Jammu & Kashmir - State Master File (SMF)"
                             rows={3}
-                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy hover:border-slate-300 bg-white resize-none transition-colors" />
+                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy hover:border-slate-300 bg-surface resize-none transition-colors" />
                     </div>
 
                     {/* DQL preview */}
@@ -855,7 +830,7 @@ const FileNumberTab = ({ onToast }) => {
                         <button type="button"
                             onClick={() => { setForm(EMPTY_FN); setErrors({}); setChecking(false); }}
                             disabled={submitting || checking}
-                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-colors disabled:opacity-40">
+                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-surface transition-colors disabled:opacity-40">
                             Reset
                         </button>
                         <button type="submit" disabled={submitting || checking}
@@ -926,7 +901,7 @@ const CaseTypeTab = ({ onToast }) => {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Create form */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+            <div className="bg-surface rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-canopy-tint rounded-xl flex items-center justify-center">
                         <FolderOpen size={20} className="text-canopy" />
@@ -964,7 +939,7 @@ const CaseTypeTab = ({ onToast }) => {
             </div>
 
             {/* Existing list */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div className="bg-surface rounded-2xl border border-slate-200 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                     <span className="text-sm font-semibold text-slate-700">Existing Case Types</span>
                     <button onClick={() => setRefreshKey(k => k + 1)}
@@ -1031,7 +1006,7 @@ const HindiCommentsTab = ({ onToast }) => {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Create form */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+            <div className="bg-surface rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-canopy-tint rounded-xl flex items-center justify-center">
                         <MessageSquareText size={20} className="text-canopy" />
@@ -1069,7 +1044,7 @@ const HindiCommentsTab = ({ onToast }) => {
             </div>
 
             {/* Existing list */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div className="bg-surface rounded-2xl border border-slate-200 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-slate-700">Existing Hindi Comments</span>
@@ -1118,19 +1093,7 @@ const CaseSection = ({ onToast, isLocalAdmin }) => {
         : CASE_TABS;
     return (
         <div className="space-y-4">
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-                {visibleTabs.map(t => (
-                    <button key={t.id} onClick={() => setActiveTab(t.id)}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                            activeTab === t.id
-                                ? 'bg-white text-canopy shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700'
-                        }`}>
-                        <t.icon size={15} />
-                        {t.label}
-                    </button>
-                ))}
-            </div>
+            <Tabs tabs={visibleTabs} value={activeTab} onChange={setActiveTab} />
             {activeTab === 'filenumber'    && <FileNumberTab onToast={onToast} />}
             {activeTab === 'casetype'      && <CaseTypeTab onToast={onToast} />}
             {activeTab === 'hindicomments' && <HindiCommentsTab onToast={onToast} />}
@@ -1233,11 +1196,72 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
     const resolvedFormTitle = formTitle ?? (inputValue.includes('internal') ? 'Add Nature of Correspondence (Internal)' : 'Add Nature of Correspondence (External)');
     const resolvedFieldLabel = fieldLabel ?? 'Nature of Correspondence';
 
+    const natureColumns = [
+        { key: 'idx', header: '#', mono: true, width: 'w-12', card: 'hide', render: (_item, idx) => idx + 1 },
+        {
+            key: 'results', header: 'Nature of Correspondence', primary: true,
+            render: (item) => editingId === item.r_object_id ? (
+                <input value={editValue} onChange={e => setEditValue(e.target.value)} className={editInputCls} />
+            ) : (item.results || '—'),
+        },
+        {
+            key: 'actions', header: 'Action', align: 'center', width: 'w-32', card: 'footer',
+            render: (item) => {
+                const isEditing = editingId === item.r_object_id;
+                const isConfirming = confirmId === item.r_object_id;
+                const isDeleting = deleting === item.r_object_id;
+                if (isEditing) return (
+                    <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => handleSave(item)} disabled={saving}
+                            className="px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1">
+                            {saving ? <Loader2 size={11} className="animate-spin" /> : null}
+                            Save
+                        </button>
+                        <button onClick={cancelEdit} disabled={saving}
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition-colors disabled:opacity-50">
+                            Cancel
+                        </button>
+                    </div>
+                );
+                if (isDeleting) return <Loader2 size={15} className="animate-spin text-danger/70 mx-auto" />;
+                if (!allowEditDelete) return null;
+                if (isConfirming) return (
+                    <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => handleDelete(item)}
+                            className="px-2 py-1 bg-danger hover:bg-danger text-white text-xs font-semibold rounded-lg transition-colors">
+                            Delete
+                        </button>
+                        <button onClick={() => setConfirmId(null)}
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition-colors">
+                            Cancel
+                        </button>
+                    </div>
+                );
+                return (
+                    <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => startEdit(item)}
+                            className="p-1.5 rounded-lg text-slate-300 hover:text-canopy hover:bg-canopy-tint transition-colors"
+                            title="Edit">
+                            <Pencil size={14} />
+                        </button>
+                        <button onClick={() => { setConfirmId(item.r_object_id); setEditingId(null); }}
+                            className="p-1.5 rounded-lg text-slate-300 hover:text-danger hover:bg-danger-tint transition-colors"
+                            title="Delete">
+                            <Trash2 size={14} />
+                        </button>
+                    </div>
+                );
+            },
+        },
+    ];
+    const natureRowClass = (item) =>
+        editingId === item.r_object_id ? 'bg-canopy-tint' : confirmId === item.r_object_id ? 'bg-danger-tint' : '';
+
     return (
         <div className={`grid ${allowAdd ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'} gap-6 items-start`}>
             {/* Left: form (only shown if add allowed) */}
             {allowAdd && (
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm shrink-0">
                         <Tag size={17} className="text-white" />
@@ -1268,8 +1292,8 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
             )}
 
             {/* Right: list with edit + delete */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+            <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <Hash size={14} className="text-slate-400" />
                         <span className="text-sm font-semibold text-slate-700">{listLabel}</span>
@@ -1285,90 +1309,23 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                     </button>
                 </div>
 
-                {loading ? (
-                    <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                        <Loader2 size={18} className="animate-spin text-canopy" />
-                        <span className="text-sm">Loading…</span>
-                    </div>
-                ) : error ? (
+                {error ? (
                     <div className="px-5 py-4 text-sm text-danger flex items-center gap-2">
                         <AlertCircle size={15} /> {error}
                     </div>
-                ) : items.length === 0 ? (
-                    <div className="px-5 py-8 text-center text-sm text-slate-400">No values found</div>
                 ) : (
-                    <div className="overflow-auto scrollbar-thin max-h-[70vh]">
-                        <table className="w-full text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                <tr>
-                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 w-8">#</th>
-                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Nature of Correspondence</th>
-                                    <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-500 w-32">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {items.map((item, idx) => {
-                                    const isEditing    = editingId  === item.r_object_id;
-                                    const isConfirming = confirmId  === item.r_object_id;
-                                    const isDeleting   = deleting   === item.r_object_id;
-                                    const rowBg = isEditing ? 'bg-canopy-tint' : isConfirming ? 'bg-danger-tint' : 'hover:bg-canopy-tint/30';
-                                    return (
-                                        <tr key={item.r_object_id || idx} className={`transition-colors ${rowBg}`}>
-                                            <td className="px-4 py-2.5 text-slate-400 text-xs font-mono">{idx + 1}</td>
-                                            <td className="px-4 py-2.5 text-slate-800 text-sm">
-                                                {isEditing ? (
-                                                    <input value={editValue}
-                                                        onChange={e => setEditValue(e.target.value)}
-                                                        className="w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-white" />
-                                                ) : (item.results || '—')}
-                                            </td>
-                                            <td className="px-4 py-2.5 text-center">
-                                                {isEditing ? (
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <button onClick={() => handleSave(item)} disabled={saving}
-                                                            className="px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1">
-                                                            {saving ? <Loader2 size={11} className="animate-spin" /> : null}
-                                                            Save
-                                                        </button>
-                                                        <button onClick={cancelEdit} disabled={saving}
-                                                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition-colors disabled:opacity-50">
-                                                            Cancel
-                                                        </button>
-                                                    </div>
-                                                ) : isDeleting ? (
-                                                    <Loader2 size={15} className="animate-spin text-danger/70 mx-auto" />
-                                                ) : allowEditDelete && isConfirming ? (
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <button onClick={() => handleDelete(item)}
-                                                            className="px-2 py-1 bg-danger hover:bg-danger text-white text-xs font-semibold rounded-lg transition-colors">
-                                                            Delete
-                                                        </button>
-                                                        <button onClick={() => setConfirmId(null)}
-                                                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition-colors">
-                                                            Cancel
-                                                        </button>
-                                                    </div>
-                                                ) : allowEditDelete ? (
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <button onClick={() => startEdit(item)}
-                                                            className="p-1.5 rounded-lg text-slate-300 hover:text-canopy hover:bg-canopy-tint transition-colors"
-                                                            title="Edit">
-                                                            <Pencil size={14} />
-                                                        </button>
-                                                        <button onClick={() => { setConfirmId(item.r_object_id); setEditingId(null); }}
-                                                            className="p-1.5 rounded-lg text-slate-300 hover:text-danger hover:bg-danger-tint transition-colors"
-                                                            title="Delete">
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                ) : null}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                    <DataTable
+                        columns={natureColumns}
+                        rows={items}
+                        rowKey={(item, idx) => item.r_object_id || idx}
+                        loading={loading}
+                        skeletonRows={5}
+                        rowClassName={natureRowClass}
+                        stickyHeader
+                        maxHeight="70vh"
+                        empty={{ icon: Hash, title: 'No values found' }}
+                        className="p-3 md:p-0"
+                    />
                 )}
             </div>
         </div>
@@ -1385,18 +1342,7 @@ const NatureOfCorrespondenceSection = ({ onToast }) => {
     const [activeTab, setActiveTab] = useState('internal');
     return (
         <div className="space-y-4">
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-                {NATURE_TABS.map(t => (
-                    <button key={t.id} onClick={() => setActiveTab(t.id)}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                            activeTab === t.id
-                                ? 'bg-white text-canopy shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700'
-                        }`}>
-                        {t.label}
-                    </button>
-                ))}
-            </div>
+            <Tabs tabs={NATURE_TABS} value={activeTab} onChange={setActiveTab} />
             {activeTab === 'internal' && (
                 <NatureOfCorrespondenceTab
                     inputValue="nature_of_correspondence_internal"
@@ -1435,18 +1381,7 @@ const DigidakSection = ({ onToast }) => {
     const [activeTab, setActiveTab] = useState('nature_of_correspondence');
     return (
         <div className="space-y-4">
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-                {DIGIDAK_TABS.map(t => (
-                    <button key={t.id} onClick={() => setActiveTab(t.id)}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                            activeTab === t.id
-                                ? 'bg-white text-canopy shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700'
-                        }`}>
-                        {t.label}
-                    </button>
-                ))}
-            </div>
+            <Tabs tabs={DIGIDAK_TABS} value={activeTab} onChange={setActiveTab} />
             {activeTab === 'nature_of_correspondence' && <NatureOfCorrespondenceSection onToast={onToast} />}
             {activeTab === 'mode_of_dispatch' && (
                 <NatureOfCorrespondenceTab

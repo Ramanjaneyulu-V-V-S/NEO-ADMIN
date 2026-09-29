@@ -243,7 +243,7 @@ const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
                                 className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-body font-medium transition-colors ${
                                     searchType === t.id
                                         ? 'bg-canopy text-white'
-                                        : 'bg-white text-slate-700 ring-1 ring-line hover:bg-slate-50'
+                                        : 'bg-surface text-slate-700 ring-1 ring-line hover:bg-slate-50'
                                 }`}
                             >
                                 <t.Icon size={14} />
@@ -260,7 +260,7 @@ const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder={`Search for ${searchType}s...`}
-                            className="w-full rounded-lg border border-line bg-white py-2.5 pl-10 pr-4 text-body focus:border-canopy focus:outline-none focus:ring-2 focus:ring-canopy/20"
+                            className="w-full rounded-lg border border-line bg-surface py-2.5 pl-10 pr-4 text-body focus:border-canopy focus:outline-none focus:ring-2 focus:ring-canopy/20"
                         />
                         {searching && (
                             <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />
@@ -286,7 +286,7 @@ const ManageMembersModal = ({ isOpen, onClose, groupName, onUpdate }) => {
                                         className={`flex items-center justify-between rounded-lg p-3 transition-colors ${
                                             alreadyMember
                                                 ? 'bg-slate-100 opacity-60'
-                                                : 'bg-white ring-1 ring-line hover:bg-slate-50'
+                                                : 'bg-surface ring-1 ring-line hover:bg-slate-50'
                                         }`}
                                     >
                                         <div>

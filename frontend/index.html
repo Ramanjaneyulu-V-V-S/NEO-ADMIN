@@ -5,6 +5,16 @@
     <link rel="icon" type="image/svg+xml" href="/nabard-logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#14532D" />
+    <script>
+      // Apply the saved theme before first paint so a dark reload never flashes light.
+      // Mirrors hooks/useTheme.js: `light` / `dark` stamp <html data-theme>, `system` stamps nothing.
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+        if (t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches))
+          document.querySelector('meta[name="theme-color"]').content = '#111814';
+      } catch (e) {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <title>NEO Admin — NABARD</title>

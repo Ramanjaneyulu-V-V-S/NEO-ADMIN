@@ -8,6 +8,7 @@ import { fetchDepartments, getLocations } from '../data/nabardMetadata.js';
 import { downloadCsv, downloadXlsx, downloadRosterXlsx, mapWithConcurrency } from '../utils/userExport.js';
 import { recordExport } from '../utils/audit.js';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
+import { Button, DataTable } from '../components/ui';
 
 const PAGE_SIZE = 15;
 const CONCURRENCY = 8;
@@ -468,6 +469,24 @@ const UserExportTab = ({ onToast }) => {
     const end = Math.min(page * PAGE_SIZE, rows.length);
 
     const cols = columnsFor(officeType);
+    const WRAP_KEYS = ['vertical', 'department_name'];
+    const tableColumns = [
+        { key: 'idx', header: '#', width: 'w-10', card: 'hide',
+          render: (_r, idx) => <span className="text-slate-400 font-mono text-xs">{(page - 1) * PAGE_SIZE + idx + 1}</span> },
+        ...cols.map((c, i) => ({
+            key: c.key,
+            header: c.header,
+            primary: i === 0,
+            render: (r) => (
+                <span
+                    className={`block text-slate-700 ${WRAP_KEYS.includes(c.key) ? 'whitespace-normal break-words md:min-w-[220px] md:max-w-[320px]' : 'md:whitespace-nowrap'}`}
+                    title={r._unresolved ? 'Profile not found for this login name' : undefined}
+                >
+                    {cellValue(r, c) || <span className="text-slate-300">—</span>}
+                </span>
+            ),
+        })),
+    ];
 
     // ── Export: current drilled-down selection ──────────────────────────────────
     const currentSelectionLabel = () => {
@@ -607,19 +626,19 @@ const UserExportTab = ({ onToast }) => {
     return (
         <div className="flex-1 flex flex-col overflow-y-auto">
             <div className="flex items-center justify-end gap-4 mb-4 flex-wrap">
-                <button
+                <Button
+                    variant="secondary"
                     onClick={handleExportAll}
-                    disabled={exportingAll}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                    loading={exportingAll}
                     title="Export the entire HO/RO/TE hierarchy as one workbook"
                 >
-                    {exportingAll ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} />}
+                    {!exportingAll && <FileSpreadsheet size={14} />}
                     {exportingAll ? (exportProgress || 'Exporting…') : 'Export All (XLSX)'}
-                </button>
+                </Button>
             </div>
 
             {/* Cascading filters */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-end gap-4 flex-wrap mb-4">
+            <div className="bg-surface border border-slate-200 rounded-xl p-4 shadow-sm flex items-end gap-4 flex-wrap mb-4">
                 <div className="min-w-[160px]">
                     <Label>Office Type</Label>
                     <Select
@@ -695,9 +714,9 @@ const UserExportTab = ({ onToast }) => {
             </div>
 
             {/* Results */}
-            <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+            <div className="bg-surface border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                 {rows.length > 0 && (
-                    <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-sm">
+                    <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 text-sm">
                         <span className="text-slate-600">
                             <span className="font-semibold text-canopy">{rows.length}</span> user{rows.length !== 1 ? 's' : ''} found
                         </span>
@@ -705,62 +724,25 @@ const UserExportTab = ({ onToast }) => {
                     </div>
                 )}
 
-                <div className="overflow-auto scrollbar-thin max-h-[70vh]">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                            <tr>
-                                <th className="px-4 py-3 font-semibold text-slate-700 w-10">#</th>
-                                {cols.map(c => (
-                                    <th key={c.key} className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">{c.header}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {busy ? (
-                                [...Array(5)].map((_, i) => (
-                                    <tr key={i} className="animate-pulse">
-                                        <td className="px-4 py-3"><div className="h-4 bg-slate-100 rounded w-6"></div></td>
-                                        {cols.map(c => (
-                                            <td key={c.key} className="px-4 py-3"><div className="h-4 bg-slate-100 rounded w-24"></div></td>
-                                        ))}
-                                    </tr>
-                                ))
-                            ) : rows.length === 0 ? (
-                                <tr>
-                                    <td colSpan={cols.length + 1} className="px-4 py-16 text-center text-slate-400">
-                                        <Users className="mx-auto h-10 w-10 text-slate-300 mb-2" />
-                                        <p className="font-medium text-slate-500">
-                                            {!officeType ? 'Select an office type to begin' : 'No users found for this selection'}
-                                        </p>
-                                    </td>
-                                </tr>
-                            ) : (
-                                paged.map((r, idx) => (
-                                    <tr key={r.r_object_id || r.user_login_name || idx} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-4 py-3 text-slate-400 font-mono text-xs">{(page - 1) * PAGE_SIZE + idx + 1}</td>
-                                        {cols.map(c => (
-                                            <td
-                                                key={c.key}
-                                                className={`px-4 py-3 text-slate-700 ${c.key === 'vertical' || c.key === 'department_name' ? 'whitespace-normal break-words min-w-[220px] max-w-[320px]' : 'whitespace-nowrap'}`}
-                                                title={r._unresolved ? 'Profile not found for this login name' : undefined}
-                                            >
-                                                {cellValue(r, c) || <span className="text-slate-300">—</span>}
-                                            </td>
-                                        ))}
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                <DataTable
+                    columns={tableColumns}
+                    rows={paged}
+                    rowKey={(r, idx) => r.r_object_id || r.user_login_name || idx}
+                    loading={busy}
+                    skeletonRows={5}
+                    empty={{ icon: Users, title: !officeType ? 'Select an office type to begin' : 'No users found for this selection' }}
+                    stickyHeader
+                    maxHeight="70vh"
+                    className="p-3 md:p-0"
+                />
 
                 {rows.length > 0 && (
-                    <div className="flex items-center justify-end px-4 py-2 border-t border-slate-100 bg-slate-50/50 text-sm">
+                    <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-2 border-t border-slate-100 bg-slate-50/50 text-sm">
                         <div className="flex items-center gap-1">
-                            <button onClick={() => setPage(1)} disabled={page === 1} className="p-1.5 border border-slate-200 rounded hover:bg-white disabled:opacity-40 text-slate-600"><ChevronsLeft size={14} /></button>
-                            <button onClick={() => setPage(p => p - 1)} disabled={page === 1} className="p-1.5 border border-slate-200 rounded hover:bg-white disabled:opacity-40 text-slate-600"><ChevronLeft size={14} /></button>
+                            <button onClick={() => setPage(1)} disabled={page === 1} className="p-1.5 border border-slate-200 rounded hover:bg-surface disabled:opacity-40 text-slate-600"><ChevronsLeft size={14} /></button>
+                            <button onClick={() => setPage(p => p - 1)} disabled={page === 1} className="p-1.5 border border-slate-200 rounded hover:bg-surface disabled:opacity-40 text-slate-600"><ChevronLeft size={14} /></button>
                             <span className="px-3 text-slate-700 font-medium">{page} / {totalPages}</span>
-                            <button onClick={() => setPage(p => p + 1)} disabled={page === totalPages} className="p-1.5 border border-slate-200 rounded hover:bg-white disabled:opacity-40 text-slate-600"><ChevronRight size={14} /></button>
+                            <button onClick={() => setPage(p => p + 1)} disabled={page === totalPages} className="p-1.5 border border-slate-200 rounded hover:bg-surface disabled:opacity-40 text-slate-600"><ChevronRight size={14} /></button>
                         </div>
                     </div>
                 )}

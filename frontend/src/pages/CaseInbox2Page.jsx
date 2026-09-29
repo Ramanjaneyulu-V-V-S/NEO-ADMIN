@@ -3,10 +3,12 @@ import api from '../api/axios';
 import { getLocations, fetchDepartments } from '../data/nabardMetadata';
 import {
     Inbox, Loader2, X, User, Building2, MapPin, FolderOpen,
-    FileText, Info, ClipboardList, ChevronLeft, ChevronRight, ChevronsLeft
+    FileText, ClipboardList, UploadCloud, ChevronLeft, ChevronRight, ChevronsLeft
 } from 'lucide-react';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
-import { formatDateTime } from '../utils/datetime';
+import { DataTable, Modal, Button, useToast } from '../components/ui';
+import { CaseDetailsModal, MovementRegisterModal } from '../components/CaseModals';
+import { caseStatusPillCls } from '../utils/statusTone';
 
 const PAGE_SIZE = 20;
 
@@ -18,176 +20,6 @@ const FieldLabel = ({ icon: Icon, label }) => (
         {label}
     </label>
 );
-
-// ─── Case Details Modal ────────────────────────────────────────────────────────
-const CaseDetailsModal = ({ caseItem, onClose }) => {
-    if (!caseItem) return null;
-
-    const f = (c, field) => c[`packagescase_folder${field}`] || c[field] || '';
-
-    const DetailRow = ({ label, value }) => (
-        <div className="flex gap-2">
-            <span className="text-xs font-semibold text-slate-500 w-36 shrink-0">{label}</span>
-            <span className="text-xs text-slate-800 break-all">{value || '—'}</span>
-        </div>
-    );
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
-                            <FileText size={17} className="text-white" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-bold text-slate-900">{f(caseItem, 'object_name')}</p>
-                            <p className="text-xs text-slate-500">Case Details</p>
-                        </div>
-                    </div>
-                    <button onClick={onClose}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                        <X size={18} />
-                    </button>
-                </div>
-
-                <div className="overflow-y-auto flex-1 p-6">
-                    <div className="flex items-center gap-2 mb-3">
-                        <Info size={14} className="text-canopy" />
-                        <h3 className="text-sm font-bold text-slate-800">Case Details</h3>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 border border-slate-100">
-                        <DetailRow label="Case Number"    value={f(caseItem, 'object_name')} />
-                        <DetailRow label="Subject"        value={f(caseItem, 'description')} />
-                        <DetailRow label="Department"     value={f(caseItem, 'department_name')} />
-                        <DetailRow label="Vertical"       value={f(caseItem, 'functions')} />
-                        <DetailRow label="Office Type"    value={f(caseItem, 'ho_ro')} />
-                        <DetailRow label="Case Priority"  value={f(caseItem, 'task_priority')} />
-                        <DetailRow label="Case Status"    value={f(caseItem, 'status')} />
-                        <DetailRow label="Nature of Case" value={f(caseItem, 'case_nature')} />
-                        <DetailRow label="Disposal Level" value={f(caseItem, 'disposal_level')} />
-                        <DetailRow label="File No"        value={f(caseItem, 'file_number')} />
-                        <DetailRow label="Case Type"      value={f(caseItem, 'types')} />
-                        <DetailRow label="Created By"     value={f(caseItem, 'r_creator_name')} />
-                        <DetailRow label="Language"       value={f(caseItem, 'language_type')} />
-                        <DetailRow label="Task"           value={caseItem.packagesworkflow_paramtask_name} />
-                        <DetailRow label="Performer"      value={caseItem.task_performer_name} />
-                        <DetailRow label="Object ID"      value={f(caseItem, 'id') || caseItem.id} />
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// ─── Movement Register Modal ───────────────────────────────────────────────────
-const MovementRegisterModal = ({ caseItem, onClose }) => {
-    const [movement, setMovement] = useState([]);
-    const [loading, setLoading]   = useState(true);
-
-    useEffect(() => {
-        if (!caseItem) return;
-        const caseId = caseItem.packagescase_folderid || caseItem.r_object_id || caseItem.objectId || caseItem.id;
-        if (!caseId) { setLoading(false); return; }
-        setLoading(true);
-        api.get(`/delegate/cases/${caseId}/movement`, {
-            params: { isValidEntry: true }
-        })
-            .then(res => setMovement(Array.isArray(res.data) ? res.data : []))
-            .catch(() => setMovement([]))
-            .finally(() => setLoading(false));
-    }, [caseItem]);
-
-    if (!caseItem) return null;
-
-    const movCols = [
-        { key: 'object_name',    label: 'Object Name' },
-        { key: 'performer',      label: 'Performer' },
-        { key: 'decision',       label: 'Decision' },
-        { key: 'assigned_user',  label: 'Assigned User' },
-        { key: 'completion_date',label: 'Completion Date', render: formatDateTime },
-        { key: 'r_creation_date',label: 'R Creation Date', render: formatDateTime },
-        { key: 'r_modify_date',  label: 'R Modify Date',   render: formatDateTime },
-        { key: 'acl_domain',     label: 'Acl Domain' },
-        { key: 'acl_name',       label: 'Acl Name' },
-        { key: 'owner_name',     label: 'Owner Name' },
-    ];
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
-                            <ClipboardList size={17} className="text-white" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-bold text-slate-900">
-                                {caseItem.packagescase_folderobject_name || caseItem.object_name}
-                            </p>
-                            <p className="text-xs text-slate-500">Movement Register</p>
-                        </div>
-                    </div>
-                    <button onClick={onClose}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                        <X size={18} />
-                    </button>
-                </div>
-
-                <div className="overflow-y-auto flex-1 p-6">
-                    <div className="flex items-center gap-2 mb-3">
-                        <ClipboardList size={14} className="text-canopy" />
-                        <h3 className="text-sm font-bold text-slate-800">Movement Register</h3>
-                        {!loading && (
-                            <span className="px-2 py-0.5 bg-canopy-tint text-canopy text-xs font-semibold rounded-full">
-                                {movement.length}
-                            </span>
-                        )}
-                    </div>
-
-                    {loading ? (
-                        <div className="flex items-center gap-2 py-12 justify-center text-slate-400">
-                            <Loader2 size={18} className="animate-spin text-canopy" />
-                            <span className="text-sm">Loading movement register…</span>
-                        </div>
-                    ) : movement.length === 0 ? (
-                        <div className="py-12 text-center text-sm text-slate-400 bg-slate-50 rounded-xl border border-slate-100">
-                            No movement register records found for this case.
-                        </div>
-                    ) : (
-                        <div className="overflow-auto scrollbar-thin border border-slate-200 rounded-xl max-h-[55vh]">
-                            <table className="w-full text-xs text-left">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-3 py-2.5 font-semibold text-slate-600 w-8">#</th>
-                                        {movCols.map(col => (
-                                            <th key={col.key} className="px-3 py-2.5 font-semibold text-slate-600 whitespace-nowrap">
-                                                {col.label}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {movement.map((rec, idx) => (
-                                        <tr key={idx} className="hover:bg-canopy-tint/30 transition-colors">
-                                            <td className="px-3 py-2 text-slate-400 font-mono">{idx + 1}</td>
-                                            {movCols.map(col => (
-                                                <td key={col.key} className="px-3 py-2 text-slate-700 max-w-xs truncate"
-                                                    title={String(rec[col.key] ?? '')}>
-                                                    {col.render ? col.render(rec[col.key]) : (rec[col.key] ?? '—')}
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
 
 // ─── CaseInbox2Page ────────────────────────────────────────────────────────────
 const CaseInbox2Page = () => {
@@ -246,6 +78,10 @@ const CaseInbox2Page = () => {
 
     const [detailCase,   setDetailCase]   = useState(null);
     const [movementCase, setMovementCase] = useState(null);
+
+    const [actionLoading, setActionLoading] = useState(null); // 'iv-<objectId>'
+    const [ivConfirmCase, setIvConfirmCase] = useState(null); // case pending Republish-to-IV confirmation
+    const toast = useToast();
 
     const locations = getLocations(officeType);
     const isRoTe    = officeType === 'RO' || officeType === 'TE';
@@ -397,14 +233,112 @@ const CaseInbox2Page = () => {
     const getCaseDept     = (c) => p(c, 'department_name') || '—';
     const getCaseHoRo     = (c) => p(c, 'ho_ro') || '—';
     const getCaseId       = (c) => p(c, 'id') || c.id || '';
+    const getCaseObjectId = (c) => c.packagescase_folderid || c.r_object_id || c.objectId || c.id || '';
+
+    const handleRepublishToIv = async (c) => {
+        const objectId = getCaseObjectId(c);
+        if (!objectId) return;
+        setActionLoading(`iv-${objectId}`);
+        try {
+            const { data: noteDoc } = await api.get(`/iv/note-document/${objectId}`);
+            if (!noteDoc.success) {
+                toast.error(noteDoc.error || 'No note document found for this case.');
+                return;
+            }
+            const { data: publishResult } = await api.post('/iv/publish', { docId: noteDoc.noteDocumentId });
+            if (publishResult.success) {
+                toast.success(
+                    publishResult.publicationId
+                        ? `Republish triggered — publication ID ${publishResult.publicationId}`
+                        : 'Republish triggered successfully.'
+                );
+            } else {
+                toast.error(publishResult.error || 'Failed to republish document.');
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.error || 'Failed to republish document.');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleConfirmRepublish = () => {
+        const c = ivConfirmCase;
+        setIvConfirmCase(null);
+        if (c) handleRepublishToIv(c);
+    };
+
+    const iconBtnCls = 'p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors';
+    const inboxColumns = [
+        { key: 'idx', header: '#', width: 'w-12', card: 'hide',
+          render: (_c, idx) => <span className="text-slate-400 font-mono text-xs">{(page - 1) * PAGE_SIZE + idx + 1}</span> },
+        { key: 'name', header: 'Case Number', primary: true,
+          render: (c) => <span className="font-medium text-slate-800">{getCaseName(c)}</span> },
+        { key: 'desc', header: 'Subject',
+          render: (c) => <span className="block max-w-xs truncate text-slate-600" title={getCaseDesc(c)}>{getCaseDesc(c)}</span> },
+        { key: 'dept', header: 'Department', render: (c) => <span className="text-xs text-slate-600">{getCaseDept(c)}</span> },
+        { key: 'office', header: 'Office', render: (c) => <span className="text-xs text-slate-600">{getCaseHoRo(c)}</span> },
+        { key: 'status', header: 'Status',
+          render: (c) => <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${caseStatusPillCls(getCaseStatus(c))}`}>{getCaseStatus(c)}</span> },
+        { key: 'priority', header: 'Priority',
+          render: (c) => getCasePriority(c) !== '—' ? (
+              <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
+                  getCasePriority(c) === 'High'   ? 'bg-danger-tint text-danger' :
+                  getCasePriority(c) === 'Medium' ? 'bg-harvest/15 text-harvest' :
+                  'bg-slate-100 text-slate-600'
+              }`}>{getCasePriority(c)}</span>
+          ) : '—' },
+        { key: 'actions', header: 'Actions', align: 'center', width: 'w-24', card: 'footer',
+          render: (c) => (
+              <div className="flex items-center justify-center gap-1">
+                  <button onClick={() => setDetailCase(c)} title="Case Details" className={iconBtnCls}><FileText size={15} /></button>
+                  <button onClick={() => setMovementCase(c)} title="Movement Register" className={iconBtnCls}><ClipboardList size={15} /></button>
+                  <button
+                      onClick={() => setIvConfirmCase(c)}
+                      title="Republish to IV"
+                      disabled={actionLoading === `iv-${getCaseObjectId(c)}`}
+                      className={`${iconBtnCls} disabled:opacity-40 disabled:pointer-events-none`}
+                  >
+                      {actionLoading === `iv-${getCaseObjectId(c)}`
+                          ? <Loader2 size={15} className="animate-spin" />
+                          : <UploadCloud size={15} />}
+                  </button>
+              </div>
+          ) },
+    ];
 
     return (
         <div className="flex h-full flex-col">
             {detailCase   && <CaseDetailsModal     caseItem={detailCase}   onClose={() => setDetailCase(null)} />}
             {movementCase && <MovementRegisterModal caseItem={movementCase} onClose={() => setMovementCase(null)} />}
 
+            {/* Republish to IV — confirmation */}
+            {ivConfirmCase && (
+                <Modal
+                    isOpen
+                    onClose={() => setIvConfirmCase(null)}
+                    size="sm"
+                    title={
+                        <span className="flex items-center gap-2">
+                            <UploadCloud size={18} className="text-slate-500" />
+                            Republish to IV
+                        </span>
+                    }
+                    footer={
+                        <>
+                            <Button variant="secondary" size="sm" onClick={() => setIvConfirmCase(null)}>Cancel</Button>
+                            <Button variant="primary" size="sm" onClick={handleConfirmRepublish}>Republish</Button>
+                        </>
+                    }
+                >
+                    <p className="text-sm text-slate-600">
+                        Republish notesheet of case <span className="font-medium text-slate-900">{getCaseName(ivConfirmCase)}</span> to the IV viewer?
+                    </p>
+                </Modal>
+            )}
+
             {/* Filter Panel */}
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm mb-5">
+            <div className="bg-surface border border-slate-200 rounded-xl p-5 shadow-sm mb-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                         <FieldLabel icon={Building2} label="Office Type" />
@@ -450,7 +384,7 @@ const CaseInbox2Page = () => {
                         <FieldLabel icon={User} label="User Name" />
                         {/* Show filtered users if department selected, otherwise show all users */}
                         {(() => {
-                            const displayUsers = department && isRoTe ? filteredUsers : users;
+                            const displayUsers = (department && isRoTe ? filteredUsers : users).filter(u => u.object_name?.trim());
                             const isEmpty = displayUsers.length === 0;
                             return (
                                 <CustomSelect
@@ -467,7 +401,7 @@ const CaseInbox2Page = () => {
             </div>
 
             {/* Tasks panel */}
-            <div className="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
+            <div className="flex-1 bg-surface border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
 
                 {/* Panel header */}
                 <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-3">
@@ -511,71 +445,20 @@ const CaseInbox2Page = () => {
                     )}
 
                     {selectedUser && !loadingCases && !error && cases.length > 0 && (
-                        <table className="w-full text-left text-sm">
-                            <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
-                                <tr>
-                                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-12">#</th>
-                                    {['Case Number', 'Subject', 'Department', 'Office', 'Status', 'Priority', 'Actions'].map(h => (
-                                        <th key={h} className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                                            {h}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {cases.map((c, idx) => (
-                                    <tr key={getCaseId(c) || idx} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-4 py-3 text-slate-400 font-mono text-xs">
-                                            {(page - 1) * PAGE_SIZE + idx + 1}
-                                        </td>
-                                        <td className="px-4 py-3 font-medium text-slate-800">{getCaseName(c)}</td>
-                                        <td className="px-4 py-3 text-slate-600 max-w-xs truncate" title={getCaseDesc(c)}>
-                                            {getCaseDesc(c)}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600 text-xs">{getCaseDept(c)}</td>
-                                        <td className="px-4 py-3 text-slate-600 text-xs">{getCaseHoRo(c)}</td>
-                                        <td className="px-4 py-3">
-                                            <span className="px-2 py-0.5 text-xs rounded-full bg-canopy-tint text-canopy font-medium">
-                                                {getCaseStatus(c)}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {getCasePriority(c) !== '—' ? (
-                                                <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                                                    getCasePriority(c) === 'High'   ? 'bg-danger-tint text-danger' :
-                                                    getCasePriority(c) === 'Medium' ? 'bg-harvest/15 text-harvest' :
-                                                    'bg-slate-100 text-slate-600'
-                                                }`}>{getCasePriority(c)}</span>
-                                            ) : '—'}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={() => setDetailCase(c)}
-                                                    title="Case Details"
-                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors"
-                                                >
-                                                    <FileText size={15} />
-                                                </button>
-                                                <button
-                                                    onClick={() => setMovementCase(c)}
-                                                    title="Movement Register"
-                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors"
-                                                >
-                                                    <ClipboardList size={15} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        <DataTable
+                            columns={inboxColumns}
+                            rows={cases}
+                            rowKey={(c, idx) => getCaseId(c) || idx}
+                            stickyHeader
+                            maxHeight="70vh"
+                            className="p-3 md:p-0"
+                        />
                     )}
                 </div>
 
                 {/* Pagination footer */}
                 {selectedUser && !loadingCases && cases.length > 0 && (hasPrev || hasNext) && (
-                    <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between bg-white">
+                    <div className="px-5 py-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-surface">
                         <span className="text-xs text-slate-500">
                             {rangeStart > 0 ? `Showing ${rangeStart}–${rangeEnd}${total > rangeEnd ? ` of ${total}` : ''}` : ''}
                         </span>

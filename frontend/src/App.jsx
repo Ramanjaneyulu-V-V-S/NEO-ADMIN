@@ -16,6 +16,8 @@ import SfsPage from './pages/SfsPage';
 import DelegatePage from './pages/DelegatePage';
 import CaseInbox2Page from './pages/CaseInbox2Page';
 import ReportsPage from './pages/ReportsPage';
+import DigidakPage from './pages/DigidakPage';
+import IvRepublishPage from './pages/IvRepublishPage';
 import { Spinner } from './components/ui';
 
 // Lazy-loaded so the CodeMirror editor stays out of the initial bundle.
@@ -51,6 +53,9 @@ function App() {
               }
             />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="digidak" element={<DigidakPage />} />
+            <Route path="digidak/*" element={<Navigate to="/dashboard/digidak" replace />} />
+            <Route path="iv-republish" element={<IvRepublishPage />} />
             <Route path="delegate" element={<Navigate to="/dashboard/cases" replace />} />
             <Route path="inbox2" element={<Navigate to="/dashboard/cases" replace />} />
           </Route>

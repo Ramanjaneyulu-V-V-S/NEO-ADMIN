@@ -1,15 +1,19 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import axios from '../api/axios';
 import {
-    Search, ChevronLeft, ChevronRight, Briefcase,
-    ChevronsLeft, Loader2, X, Eye, RefreshCw,
+    Search, Briefcase,
+    Loader2, X, Eye, RefreshCw,
     FileText, CheckCircle, AlertCircle, PlayCircle, Clock,
-    AlertTriangle, Inbox, ArrowRightLeft, ClipboardList, Download
+    AlertTriangle, Inbox, ArrowRightLeft, ClipboardList, Download, UploadCloud
 } from 'lucide-react';
 import { CaseInboxContent } from './CaseInbox2Page';
-import { DelegateContent, CaseDetailsModal, MovementRegisterModal } from './DelegatePage';
+import { DelegateContent } from './DelegatePage';
+import { CaseDetailsModal, MovementRegisterModal } from '../components/CaseModals';
 import { getLocations, fetchDepartments } from '../data/nabardMetadata';
-import { PageHeader, Tabs, useToast } from '../components/ui';
+import {
+    PageHeader, Tabs, useToast, Button, Input, DateInput,
+    Card, DataTable, Pagination, EmptyState, Modal,
+} from '../components/ui';
 import { formatDateTime } from '../utils/datetime';
 import { downloadXlsx, downloadRosterXlsx, mapWithConcurrency } from '../utils/userExport';
 import { recordExport } from '../utils/audit';
@@ -37,6 +41,12 @@ const CasesPage = () => {
     const [loadingWorkflow, setLoadingWorkflow] = useState(false);
     const [activeWorkflowIndex, setActiveWorkflowIndex] = useState(0);
     const [actionLoading, setActionLoading] = useState(null); // 'restart-wfID' or 'retry-actID'
+    const [ivCase, setIvCase] = useState(null); // case whose documents are open in the Republish-to-IV picker
+    const [ivDocs, setIvDocs] = useState([]);
+    const [ivDocsLoading, setIvDocsLoading] = useState(false);
+    const [ivDocsError, setIvDocsError] = useState(null);
+    const [ivSelected, setIvSelected] = useState(() => new Set());
+    const [ivStatus, setIvStatus] = useState({}); // docId -> { state: 'publishing'|'done'|'error', publicationId?, error? }
 
     // Log Modal State
     const [logModalOpen, setLogModalOpen] = useState(false);
@@ -554,6 +564,70 @@ const CasesPage = () => {
         }
     };
 
+    const openIvDocuments = async (c) => {
+        if (!c.r_object_id) return;
+        setIvCase(c);
+        setIvDocs([]);
+        setIvSelected(new Set());
+        setIvStatus({});
+        setIvDocsError(null);
+        setIvDocsLoading(true);
+        try {
+            const { data } = await axios.get(`/iv/case-documents/${c.r_object_id}`);
+            if (data.success) {
+                setIvDocs(data.documents || []);
+            } else {
+                setIvDocsError(data.error || 'Failed to load case documents.');
+            }
+        } catch (error) {
+            console.error('Error loading case documents', error);
+            setIvDocsError(error.response?.data?.error || 'Failed to load case documents.');
+        } finally {
+            setIvDocsLoading(false);
+        }
+    };
+
+    const closeIvDocuments = () => {
+        setIvCase(null);
+        setIvDocs([]);
+    };
+
+    const republishDocs = async (docs) => {
+        const ids = docs.map((d) => d.id);
+        setIvStatus((s) => ({ ...s, ...Object.fromEntries(ids.map((id) => [id, { state: 'publishing' }])) }));
+        let ok = 0;
+        for (const doc of docs) {
+            let status;
+            try {
+                const { data } = await axios.post('/iv/publish', { docId: doc.id });
+                status = data.success
+                    ? { state: 'done', publicationId: data.publicationId }
+                    : { state: 'error', error: data.error || 'Failed to republish.' };
+            } catch (error) {
+                console.error('Error republishing to IV', error);
+                status = { state: 'error', error: error.response?.data?.error || 'Failed to republish.' };
+            }
+            if (status.state === 'done') ok += 1;
+            setIvStatus((s) => ({ ...s, [doc.id]: status }));
+        }
+        if (ok === docs.length) {
+            toast.success(docs.length === 1 ? `Republished ${docs[0].name}.` : `Republished ${ok} documents.`);
+        } else {
+            toast.error(`Republished ${ok} of ${docs.length} documents — see the list for failures.`);
+        }
+    };
+
+    const toggleIvSelected = (id) => {
+        setIvSelected((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const ivBusy = Object.values(ivStatus).some((s) => s.state === 'publishing');
+    const allIvSelected = ivDocs.length > 0 && ivSelected.size === ivDocs.length;
+
     const handleViewLogs = (item) => {
         setSelectedLogItem(item);
         setLogModalOpen(true);
@@ -577,8 +651,8 @@ const CasesPage = () => {
         if (s === 'running' || s === 'active') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-canopy-tint text-canopy-dark"><PlayCircle size={12} /> Running</span>;
         if (s === 'halted' || s === 'paused') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-harvest/15 text-harvest"><AlertTriangle size={12} /> Halted</span>;
         if (s === 'failed') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-tint text-danger"><AlertCircle size={12} /> Failed</span>;
-        if (s === 'finished' || s === 'completed') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-canopy-tint text-canopy-dark"><CheckCircle size={12} /> Finished</span>;
-        if (s === 'terminated') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800"><XCircle size={12} /> Terminated</span>;
+        if (s === 'finished' || s === 'completed') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-tide/10 text-tide"><CheckCircle size={12} /> Finished</span>;
+        if (s === 'terminated') return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-clay/10 text-clay"><XCircle size={12} /> Terminated</span>;
         return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">{status || 'Unknown'}</span>;
     };
 
@@ -590,13 +664,118 @@ const CasesPage = () => {
         ? `recent case${isSingle ? '' : 's'}`
         : `result${isSingle ? '' : 's'} found`;
 
-    const activeWorkflow = workflowData?.workflows && workflowData.workflows.length > 0 
-        ? workflowData.workflows[activeWorkflowIndex] 
+    const activeWorkflow = workflowData?.workflows && workflowData.workflows.length > 0
+        ? workflowData.workflows[activeWorkflowIndex]
         : null;
+
+    const workItemColumns = [
+        { key: 'seq', header: 'Seq', width: 'w-16', align: 'center', mono: true, card: 'hide',
+          render: (item) => <span className="text-xs text-slate-500">{item.r_act_seqno}</span> },
+        { key: 'name', header: 'Activity Name', primary: true,
+          render: (item) => <span className="font-medium text-slate-900">{item.r_act_name}</span> },
+        { key: 'performer', header: 'Performer', render: (item) => <span className="text-slate-600">{item.r_performer_name || '-'}</span> },
+        { key: 'status', header: 'Status', render: (item) => getStatusBadge(item.r_runtime_state || item.a_wi_status) },
+        { key: 'date', header: 'Date', mono: true,
+          render: (item) => <span className="text-xs text-slate-600">{formatDateTime(item.r_creation_date, '-')}</span> },
+        { key: 'actions', header: 'Actions', width: 'w-32', align: 'right', card: 'footer',
+          render: (item) => (
+              <div className="flex items-center gap-2 md:justify-end">
+                  <button
+                      onClick={() => handleViewLogs(item)}
+                      className="p-1.5 text-slate-400 hover:text-canopy hover:bg-canopy-tint rounded transition-colors"
+                      title="View Logs"
+                  >
+                      <FileText size={16} />
+                  </button>
+                  {(item.r_runtime_state === 'failed' || item.r_runtime_state === 'halted') && (
+                      <button
+                          onClick={() => handleRetryActivity(activeWorkflow.r_object_id, item.r_object_id)}
+                          disabled={actionLoading === `retry-${item.r_object_id}`}
+                          className="p-1.5 text-slate-400 hover:text-canopy hover:bg-canopy-tint rounded transition-colors"
+                          title="Retry Activity"
+                      >
+                          {actionLoading === `retry-${item.r_object_id}`
+                              ? <Loader2 size={16} className="animate-spin" />
+                              : <RefreshCw size={16} />}
+                      </button>
+                  )}
+              </div>
+          ) },
+    ];
+
+    const caseColumns = [
+        {
+            key: 'object_name',
+            header: 'Case Number',
+            primary: true,
+            mono: true,
+            // one line in the table; free to break inside the phone folio card
+            render: (c) => <span className="break-all md:whitespace-nowrap">{c.object_name || '-'}</span>,
+        },
+        {
+            key: 'description',
+            header: 'Description',
+            card: 'body',
+            render: (c) => (
+                <span className="block max-w-xs truncate md:max-w-sm" title={c.description}>
+                    {c.description || '-'}
+                </span>
+            ),
+        },
+        {
+            key: 'office',
+            header: 'Office / Dept',
+            card: 'body',
+            render: (c) => (
+                <div className="flex flex-col">
+                    <span>{c.ho_ro}</span>
+                    <span className="text-caption text-slate-400">{c.department_name}</span>
+                </div>
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            align: 'center',
+            card: 'footer',
+            width: 'w-28',
+            render: (c) => (
+                <div className="flex items-center justify-center gap-1">
+                    <Button variant="ghost" size="icon" title="Case Details" onClick={() => setDetailCase(c)}>
+                        <FileText size={15} />
+                    </Button>
+                    <Button variant="ghost" size="icon" title="Movement Register" onClick={() => setMovementCase(c)}>
+                        <ClipboardList size={15} />
+                    </Button>
+                    <Button variant="ghost" size="icon" title="Republish documents to IV" onClick={() => openIvDocuments(c)}>
+                        <UploadCloud size={15} />
+                    </Button>
+                </div>
+            ),
+        },
+    ];
+
+    const showExports = activeTab === 'cases' && hasSearched && cases.length > 0;
 
     return (
         <div className="flex flex-col">
-            <PageHeader title="Case Management" icon={Briefcase} description="Browse cases, inspect inbox tasks, and delegate work." />
+            <PageHeader
+                title="Case Management"
+                icon={Briefcase}
+                description="Browse cases, inspect inbox tasks, and delegate work."
+                actions={showExports && (
+                    <>
+                        <Button variant="secondary" size="sm" onClick={exportCases} loading={exporting === 'plain'} disabled={!!exporting}>
+                            {exporting !== 'plain' && <Download size={14} />}
+                            Export Cases
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={exportCasesWithMovement} loading={exporting === 'movement'} disabled={!!exporting}>
+                            {exporting !== 'movement' && <Download size={14} />}
+                            Export with Movement Register
+                        </Button>
+                    </>
+                )}
+            />
 
             {/* Tabs */}
             <Tabs
@@ -619,9 +798,29 @@ const CasesPage = () => {
             {/* Cases Tab */}
             {activeTab === 'cases' && (
             <>
-            {/* Filters */}
+            {/* Search + filters */}
             <div className="mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
+                <form onSubmit={handleSearch} className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="relative flex-1 sm:max-w-md">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <Input
+                            value={caseNumber}
+                            onChange={(e) => setCaseNumber(e.target.value)}
+                            placeholder="Search case number..."
+                            className="pl-9 pr-8"
+                        />
+                        {caseNumber && (
+                            <button type="button" onClick={clearSearch} aria-label="Clear search" className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+                    <Button type="submit" disabled={!caseNumber.trim() || loading} loading={loading}>
+                        {!loading && <Search size={16} />}
+                        Search
+                    </Button>
+                </form>
+                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
                     {/* Office Type Filter */}
                     <div>
                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Office Type</label>
@@ -682,23 +881,13 @@ const CasesPage = () => {
                     {/* From Date Filter */}
                     <div>
                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">From Date</label>
-                        <input
-                            type="date"
-                            value={filterFromDate}
-                            onChange={(e) => setFilterFromDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy"
-                        />
+                        <DateInput value={filterFromDate} onChange={(e) => setFilterFromDate(e.target.value)} />
                     </div>
 
                     {/* To Date Filter */}
                     <div>
                         <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">To Date</label>
-                        <input
-                            type="date"
-                            value={filterToDate}
-                            onChange={(e) => setFilterToDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy"
-                        />
+                        <DateInput value={filterToDate} onChange={(e) => setFilterToDate(e.target.value)} />
                     </div>
 
                     {/* Clear Filters Button */}
@@ -706,7 +895,7 @@ const CasesPage = () => {
                         <div className="flex items-end">
                             <button
                                 onClick={handleClearFilters}
-                                className="w-full px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 flex items-center justify-center gap-1 transition-colors"
+                                className="w-full px-3 py-2 bg-surface border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 flex items-center justify-center gap-1 transition-colors"
                             >
                                 <X size={14} />
                                 Clear
@@ -716,70 +905,14 @@ const CasesPage = () => {
                 </div>
             </div>
 
-            {/* Search + export */}
-            <div className="flex flex-wrap items-center justify-end gap-4 mb-6">
-                {hasSearched && cases.length > 0 && (
-                    <div className="mr-auto flex flex-wrap items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={exportCases}
-                            disabled={!!exporting}
-                            className="flex items-center gap-1.5 px-3 py-2 border border-canopy/20 text-canopy bg-canopy-tint text-sm font-medium rounded-lg hover:bg-canopy-tint/70 transition-colors disabled:opacity-50"
-                        >
-                            {exporting === 'plain' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                            Export Cases
-                        </button>
-                        <button
-                            type="button"
-                            onClick={exportCasesWithMovement}
-                            disabled={!!exporting}
-                            className="flex items-center gap-1.5 px-3 py-2 border border-canopy/20 text-canopy bg-canopy-tint text-sm font-medium rounded-lg hover:bg-canopy-tint/70 transition-colors disabled:opacity-50"
-                        >
-                            {exporting === 'movement' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                            Export with Movement Register
-                        </button>
-                    </div>
-                )}
-                <div>
-
-                <form onSubmit={handleSearch} className="flex items-center gap-2">
-                    <div className="relative">
-                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            value={caseNumber}
-                            onChange={(e) => setCaseNumber(e.target.value)}
-                            placeholder="Search case number..."
-                            className="w-72 pl-9 pr-8 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy shadow-sm transition-colors"
-                        />
-                        {caseNumber && (
-                            <button type="button" onClick={clearSearch} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
-                                <X size={14} />
-                            </button>
-                        )}
-                    </div>
-                    <button
-                        type="submit"
-                        disabled={!caseNumber.trim() || loading}
-                        className="px-5 py-2.5 bg-canopy text-white rounded-lg text-sm font-semibold hover:bg-canopy-dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm transition-colors"
-                    >
-                        {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-                        Search
-                    </button>
-                </form>
-                </div>
-            </div>
-
-            {/* Results Table */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            {/* Results */}
+            <Card pad={false} className="overflow-hidden">
                 {!hasSearched ? (
-                    <div className="py-20 text-center">
-                        <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Search className="h-8 w-8 text-slate-400" />
-                        </div>
-                        <h3 className="text-lg font-medium text-slate-900">Search for Cases</h3>
-                        <p className="text-slate-500 max-w-sm mx-auto mt-1">Enter a case number above to find workflows, manage activities, and view logs.</p>
-                    </div>
+                    <EmptyState
+                        icon={Search}
+                        title="Search for cases"
+                        description="Enter a case number above, or apply filters and search."
+                    />
                 ) : (
                     <>
                         {/* Results Meta */}
@@ -792,127 +925,69 @@ const CasesPage = () => {
                             </div>
                         )}
 
-                        <div className="overflow-auto scrollbar-thin max-h-[70vh]">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-6 py-3 font-semibold text-slate-700 w-16">#</th>
-                                        <th className="px-6 py-3 font-semibold text-slate-700">Case Number</th>
-                                        <th className="px-6 py-3 font-semibold text-slate-700">Description</th>
-                                        <th className="px-6 py-3 font-semibold text-slate-700">Office / Dept</th>
-                                        <th className="px-6 py-3 font-semibold text-slate-700 text-center">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {loading ? (
-                                        [...Array(3)].map((_, i) => (
-                                            <tr key={i} className="animate-pulse">
-                                                <td className="px-6 py-2.5"><div className="h-4 bg-slate-100 rounded w-8"></div></td>
-                                                <td className="px-6 py-2.5"><div className="h-4 bg-slate-100 rounded w-32"></div></td>
-                                                <td className="px-6 py-2.5"><div className="h-4 bg-slate-100 rounded w-40"></div></td>
-                                                <td className="px-6 py-2.5"><div className="h-4 bg-slate-100 rounded w-24"></div></td>
-                                                <td className="px-6 py-2.5"><div className="h-4 bg-slate-100 rounded w-16 mx-auto"></div></td>
-                                            </tr>
-                                        ))
-                                    ) : cases.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
-                                                <p className="font-medium">No cases found</p>
-                                                <p className="text-xs mt-1">Try a different search term</p>
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        cases.map((c, idx) => (
-                                            <tr key={c.r_object_id || idx} className="hover:bg-canopy-tint/30 transition-colors group">
-                                                <td className="px-6 py-2.5 text-slate-400 font-mono text-xs">{(page - 1) * pageSize + idx + 1}</td>
-                                                <td className="px-6 py-2.5 font-medium text-slate-900">{c.object_name || '-'}</td>
-                                                <td className="px-6 py-2.5 text-slate-500 max-w-xs truncate" title={c.description}>{c.description || '-'}</td>
-                                                <td className="px-6 py-2.5 text-slate-500">
-                                                    <div className="flex flex-col">
-                                                        <span>{c.ho_ro}</span>
-                                                        <span className="text-xs text-slate-400">{c.department_name}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-2.5">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <button onClick={() => setDetailCase(c)} title="Case Details"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors">
-                                                            <FileText size={15} />
-                                                        </button>
-                                                        <button onClick={() => setMovementCase(c)} title="Movement Register"
-                                                            className="p-1.5 rounded-lg text-slate-400 hover:text-canopy hover:bg-canopy-tint transition-colors">
-                                                            <ClipboardList size={15} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                        <DataTable
+                            columns={caseColumns}
+                            rows={cases}
+                            rowKey={(c, i) => c.r_object_id || i}
+                            loading={loading}
+                            skeletonRows={3}
+                            stickyHeader
+                            empty={{
+                                icon: Search,
+                                title: 'No cases found',
+                                description: 'Try a different search term or widen the filters.',
+                            }}
+                        />
 
-                        {/* Pagination */}
                         {cases.length > 0 && (
-                            <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100 bg-slate-50/50 text-sm">
-                                <select
-                                    value={pageSize}
-                                    onChange={(e) => { const newSize = Number(e.target.value); setPageSize(newSize); setPage(1); if (activeSearch) fetchCases(activeSearch, 1, newSize); }}
-                                    className="text-xs border border-slate-200 rounded px-2 py-1.5 bg-white focus:ring-1 focus:ring-canopy outline-none"
-                                >
-                                    <option value={5}>5 per page</option>
-                                    <option value={10}>10 per page</option>
-                                    <option value={25}>25 per page</option>
-                                    <option value={50}>50 per page</option>
-                                </select>
-                                
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => handlePageChange(1)} disabled={page === 1 || loading} className="p-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-600"><ChevronsLeft size={16} /></button>
-                                    <button onClick={() => handlePageChange(page - 1)} disabled={page === 1 || loading} className="p-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-600"><ChevronLeft size={16} /></button>
-                                    <span className="px-3 py-1 bg-white border border-slate-200 rounded text-slate-700 font-medium min-w-[2rem] text-center">{page}</span>
-                                    <button onClick={() => handlePageChange(page + 1)} disabled={!hasNextPage || loading} className="p-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-600"><ChevronRight size={16} /></button>
-                                </div>
-                            </div>
+                            <Pagination
+                                page={page}
+                                pageSize={pageSize}
+                                hasNext={hasNextPage}
+                                rangeStart={rangeStart}
+                                rangeEnd={rangeEnd}
+                                loading={loading}
+                                onPageChange={handlePageChange}
+                                onPageSizeChange={(n) => {
+                                    setPageSize(n);
+                                    setPage(1);
+                                    if (activeSearch) fetchCases(activeSearch, 1, n);
+                                }}
+                            />
                         )}
                     </>
                 )}
-            </div>
+            </Card>
 
             {/* Workflow Master Modal */}
             {isWorkflowModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        
-                        {/* Modal Header */}
-                        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                                    <Briefcase className="text-canopy" size={24} />
-                                    Workflow Details
-                                </h2>
-                                {selectedCase && (
-                                    <p className="text-sm text-slate-500 mt-1">
-                                        Case: <span className="font-medium text-slate-900">{selectedCase.object_name}</span>
-                                    </p>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => setIsWorkflowModalOpen(false)}
-                                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
-                            >
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        {/* Modal Content */}
-                        <div className="flex-1 overflow-hidden flex flex-col md:flex-row h-full">
+                <Modal
+                    isOpen
+                    onClose={() => setIsWorkflowModalOpen(false)}
+                    size="4xl"
+                    title={
+                        <span className="flex flex-col gap-0.5">
+                            <span className="flex items-center gap-2">
+                                <Briefcase className="text-canopy" size={20} />
+                                Workflow Details
+                            </span>
+                            {selectedCase && (
+                                <span className="font-sans text-sm font-normal text-slate-500">
+                                    Case: <span className="font-medium text-slate-900">{selectedCase.object_name}</span>
+                                </span>
+                            )}
+                        </span>
+                    }
+                >
+                        {/* Modal Content — bleed to the panel edges so the workflow sidebar sits flush */}
+                        <div className="-m-5 flex min-h-[50vh] flex-col md:flex-row">
                             {loadingWorkflow ? (
-                                <div className="flex-1 flex flex-col items-center justify-center">
+                                <div className="flex-1 flex flex-col items-center justify-center py-16">
                                     <Loader2 size={48} className="animate-spin text-canopy mb-4" />
                                     <p className="text-slate-600 font-medium">Loading workflow topology...</p>
                                 </div>
                             ) : workflowData?.error ? (
-                                <div className="flex-1 flex flex-col items-center justify-center">
+                                <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
                                     <div className="w-20 h-20 bg-danger-tint rounded-full flex items-center justify-center mb-6">
                                         <AlertTriangle size={40} className="text-danger" />
                                     </div>
@@ -920,7 +995,7 @@ const CasesPage = () => {
                                     <p className="text-slate-600">{workflowData.error}</p>
                                 </div>
                             ) : !workflowData?.workflows || workflowData.workflows.length === 0 ? (
-                                <div className="flex-1 flex flex-col items-center justify-center">
+                                <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
                                     <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6">
                                         <Briefcase size={40} className="text-slate-400" />
                                     </div>
@@ -931,7 +1006,7 @@ const CasesPage = () => {
                                 <>
                                     {/* Sidebar for multiple workflows */}
                                     {workflowData.workflows.length > 1 && (
-                                        <div className="w-full md:w-64 border-r border-slate-200 bg-slate-50 overflow-y-auto">
+                                        <div className="w-full shrink-0 border-b border-slate-200 bg-slate-50 md:w-64 md:border-b-0 md:border-r">
                                             <div className="p-4 border-b border-slate-200">
                                                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Workflows ({workflowData.workflows.length})</h3>
                                             </div>
@@ -942,7 +1017,7 @@ const CasesPage = () => {
                                                         onClick={() => setActiveWorkflowIndex(idx)}
                                                         className={`w-full text-left p-3 rounded-lg text-sm transition-colors ${
                                                             activeWorkflowIndex === idx 
-                                                            ? 'bg-white shadow-sm ring-1 ring-slate-200 text-canopy font-medium' 
+                                                            ? 'bg-surface shadow-sm ring-1 ring-slate-200 text-canopy font-medium' 
                                                             : 'hover:bg-slate-200/50 text-slate-600'
                                                         }`}
                                                     >
@@ -958,7 +1033,7 @@ const CasesPage = () => {
                                     )}
 
                                     {/* Main Detail Area */}
-                                    <div className="flex-1 overflow-y-auto bg-white p-6 md:p-8">
+                                    <div className="min-w-0 flex-1 bg-surface p-5 md:p-8">
                                         {/* Active Workflow Header */}
                                         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-8 border-b border-slate-100 pb-8">
                                             <div>
@@ -979,8 +1054,8 @@ const CasesPage = () => {
                                                 </div>
                                             </div>
                                             
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex flex-col items-end mr-4">
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <div className="flex flex-col items-start md:items-end md:mr-4">
                                                     <span className="text-xs font-semibold text-slate-500 uppercase mb-1">Current State</span>
                                                     {getStatusBadge(activeWorkflow.r_runtime_state)}
                                                 </div>
@@ -988,7 +1063,7 @@ const CasesPage = () => {
                                                 <button
                                                     onClick={() => handleRestartWorkflow(activeWorkflow.r_object_id)}
                                                     disabled={actionLoading === `restart-${activeWorkflow.r_object_id}`}
-                                                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-lg shadow-sm transition-colors"
+                                                    className="flex items-center gap-2 px-4 py-2 bg-surface border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-lg shadow-sm transition-colors"
                                                 >
                                                     {actionLoading === `restart-${activeWorkflow.r_object_id}` ? (
                                                         <Loader2 size={16} className="animate-spin" />
@@ -1007,90 +1082,42 @@ const CasesPage = () => {
                                                 Activity History & Queue Items
                                             </h4>
                                             
-                                            <div className="border border-slate-200 rounded-lg overflow-auto scrollbar-thin max-h-[60vh]">
-                                                <table className="w-full text-left text-sm">
-                                                    <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                                        <tr>
-                                                            <th className="px-4 py-3 font-semibold text-slate-700 w-16 text-center">Seq</th>
-                                                            <th className="px-4 py-3 font-semibold text-slate-700">Activity Name</th>
-                                                            <th className="px-4 py-3 font-semibold text-slate-700">Performer</th>
-                                                            <th className="px-4 py-3 font-semibold text-slate-700">Status</th>
-                                                            <th className="px-4 py-3 font-semibold text-slate-700">Date</th>
-                                                            <th className="px-4 py-3 font-semibold text-slate-700 w-32 text-right">Actions</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-100">
-                                                        {activeWorkflow.workItems && activeWorkflow.workItems.length > 0 ? (
-                                                            activeWorkflow.workItems.map((item, i) => (
-                                                                <tr key={item.r_object_id || i} className="hover:bg-slate-50">
-                                                                    <td className="px-4 py-3 text-center text-slate-500 font-mono text-xs">{item.r_act_seqno}</td>
-                                                                    <td className="px-4 py-3 font-medium text-slate-900">{item.r_act_name}</td>
-                                                                    <td className="px-4 py-3 text-slate-600">{item.r_performer_name || '-'}</td>
-                                                                    <td className="px-4 py-3">{getStatusBadge(item.r_runtime_state || item.a_wi_status)}</td>
-                                                                    <td className="px-4 py-3 text-slate-600 text-xs">
-                                                                        {formatDateTime(item.r_creation_date, '-')}
-                                                                    </td>
-                                                                    <td className="px-4 py-3 text-right">
-                                                                        <div className="flex items-center justify-end gap-2">
-                                                                            <button
-                                                                                onClick={() => handleViewLogs(item)}
-                                                                                className="p-1.5 text-slate-400 hover:text-canopy hover:bg-canopy-tint rounded transition-colors"
-                                                                                title="View Logs"
-                                                                            >
-                                                                                <FileText size={16} />
-                                                                            </button>
-                                                                            
-                                                                            {(item.r_runtime_state === 'failed' || item.r_runtime_state === 'halted') && (
-                                                                                <button
-                                                                                    onClick={() => handleRetryActivity(activeWorkflow.r_object_id, item.r_object_id)}
-                                                                                    disabled={actionLoading === `retry-${item.r_object_id}`}
-                                                                                    className="p-1.5 text-slate-400 hover:text-canopy hover:bg-canopy-tint rounded transition-colors"
-                                                                                    title="Retry Activity"
-                                                                                >
-                                                                                    {actionLoading === `retry-${item.r_object_id}` ? (
-                                                                                        <Loader2 size={16} className="animate-spin" />
-                                                                                    ) : (
-                                                                                        <RefreshCw size={16} />
-                                                                                    )}
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            ))
-                                                        ) : (
-                                                            <tr>
-                                                                <td colSpan="6" className="px-4 py-8 text-center text-slate-400 italic">
-                                                                    No activities found for this workflow.
-                                                                </td>
-                                                            </tr>
-                                                        )}
-                                                    </tbody>
-                                                </table>
+                                            <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                                <DataTable
+                                                    columns={workItemColumns}
+                                                    rows={activeWorkflow.workItems || []}
+                                                    rowKey={(item, i) => item.r_object_id || i}
+                                                    empty={{ icon: Inbox, title: 'No activities found for this workflow.' }}
+                                                    stickyHeader
+                                                    maxHeight="60vh"
+                                                    className="p-3 md:p-0"
+                                                />
                                             </div>
                                         </div>
                                     </div>
                                 </>
                             )}
                         </div>
-                    </div>
-                </div>
+                </Modal>
             )}
 
             {/* Log Details Modal */}
             {logModalOpen && selectedLogItem && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                                <FileText className="text-slate-500" />
-                                Activity Log
-                            </h3>
-                            <button onClick={() => setLogModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className="bg-slate-900 rounded-lg p-4 font-mono text-xs text-slate-300 overflow-x-auto max-h-[60vh] overflow-y-auto">
+                <Modal
+                    isOpen
+                    onClose={() => setLogModalOpen(false)}
+                    size="xl"
+                    title={
+                        <span className="flex items-center gap-2">
+                            <FileText size={18} className="text-slate-500" />
+                            Activity Log
+                        </span>
+                    }
+                    footer={
+                        <button onClick={() => setLogModalOpen(false)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors">Close</button>
+                    }
+                >
+                        <div className="bg-canopy-tint rounded-lg p-4 font-mono text-xs text-ink overflow-x-auto">
                             <p className="mb-2 text-slate-500"># System Log for WorkItem: {selectedLogItem.r_object_id}</p>
                             <p className="mb-2 text-slate-500"># Activity: {selectedLogItem.r_act_name}</p>
                             <div className="space-y-1">
@@ -1106,11 +1133,7 @@ const CasesPage = () => {
                                 <span className="text-slate-500">... End of log</span>
                             </div>
                         </div>
-                        <div className="mt-4 flex justify-end">
-                            <button onClick={() => setLogModalOpen(false)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium">Close</button>
-                        </div>
-                    </div>
-                </div>
+                </Modal>
             )}
             </>
             )}
@@ -1120,6 +1143,99 @@ const CasesPage = () => {
 
             {/* Movement Register Modal */}
             {movementCase && <MovementRegisterModal caseItem={movementCase} onClose={() => setMovementCase(null)} />}
+
+            {/* Republish to IV — pick documents */}
+            {ivCase && (
+                <Modal
+                    isOpen
+                    onClose={closeIvDocuments}
+                    size="lg"
+                    title={
+                        <span className="flex items-center gap-2">
+                            <UploadCloud size={18} className="text-slate-500" />
+                            Republish to IV
+                        </span>
+                    }
+                    footer={
+                        <>
+                            <Button variant="secondary" size="sm" onClick={closeIvDocuments}>Close</Button>
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                disabled={ivSelected.size === 0 || ivBusy}
+                                onClick={() => republishDocs(ivDocs.filter((d) => ivSelected.has(d.id)))}
+                            >
+                                Republish selected{ivSelected.size > 0 ? ` (${ivSelected.size})` : ''}
+                            </Button>
+                        </>
+                    }
+                >
+                    <p className="mb-3 text-sm text-slate-600">
+                        Documents of case <span className="font-medium text-slate-900">{ivCase.object_name}</span>. Choose which ones to republish to the IV viewer.
+                    </p>
+                    {ivDocsLoading && (
+                        <div className="flex items-center gap-2 py-8 justify-center text-sm text-slate-500">
+                            <Loader2 size={16} className="animate-spin" /> Loading documents…
+                        </div>
+                    )}
+                    {!ivDocsLoading && ivDocsError && (
+                        <p className="py-6 text-center text-sm text-danger">{ivDocsError}</p>
+                    )}
+                    {!ivDocsLoading && !ivDocsError && ivDocs.length === 0 && (
+                        <p className="py-6 text-center text-sm text-slate-500">No documents found for this case.</p>
+                    )}
+                    {!ivDocsLoading && ivDocs.length > 0 && (
+                        <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
+                            <label className="flex items-center gap-3 px-3 py-2 bg-slate-50 text-xs font-medium text-slate-600">
+                                <input
+                                    type="checkbox"
+                                    checked={allIvSelected}
+                                    disabled={ivBusy}
+                                    onChange={() => setIvSelected(allIvSelected ? new Set() : new Set(ivDocs.map((d) => d.id)))}
+                                />
+                                Select all ({ivDocs.length})
+                            </label>
+                            {ivDocs.map((d) => {
+                                const st = ivStatus[d.id];
+                                return (
+                                    <div key={d.id} className="flex items-center gap-3 px-3 py-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={ivSelected.has(d.id)}
+                                            disabled={ivBusy}
+                                            onChange={() => toggleIvSelected(d.id)}
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                            <div className="truncate text-sm text-slate-900" title={d.name}>{d.name}</div>
+                                            <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
+                                                <span>{d.category || 'Document'}</span>
+                                                <span className="font-mono">{d.id}</span>
+                                                {d.modified && <span>{formatDateTime(d.modified, '')}</span>}
+                                            </div>
+                                            {st?.state === 'done' && (
+                                                <div className="text-xs text-canopy-dark">
+                                                    Republished{st.publicationId ? ` — publication ID ${st.publicationId}` : ''}
+                                                </div>
+                                            )}
+                                            {st?.state === 'error' && <div className="text-xs text-danger">{st.error}</div>}
+                                        </div>
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            disabled={ivBusy}
+                                            onClick={() => republishDocs([d])}
+                                        >
+                                            {st?.state === 'publishing'
+                                                ? <Loader2 size={14} className="animate-spin" />
+                                                : st?.state === 'error' ? 'Retry' : 'Republish'}
+                                        </Button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </Modal>
+            )}
         </div>
     );
 };

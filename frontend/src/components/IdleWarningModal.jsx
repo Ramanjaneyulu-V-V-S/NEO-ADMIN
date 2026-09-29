@@ -8,7 +8,7 @@ const IdleWarningModal = ({ isOpen, remainingTime, onContinue }) => {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 flex flex-col items-center text-center space-y-6">
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-md p-8 flex flex-col items-center text-center space-y-6">
         {/* Icon */}
         <div className="w-16 h-16 rounded-full bg-harvest/15 flex items-center justify-center">
           <AlertCircle size={32} className="text-harvest" />
@@ -31,7 +31,8 @@ const IdleWarningModal = ({ isOpen, remainingTime, onContinue }) => {
                 cy="50"
                 r="45"
                 fill="none"
-                stroke="#e2e8f0"
+                stroke="currentColor"
+                className="text-line"
                 strokeWidth="3"
               />
               <circle
@@ -39,12 +40,12 @@ const IdleWarningModal = ({ isOpen, remainingTime, onContinue }) => {
                 cy="50"
                 r="45"
                 fill="none"
-                stroke="#14532D"
+                stroke="currentColor"
                 strokeWidth="3"
                 strokeDasharray={`${Math.PI * 90}`}
                 strokeDashoffset={`${Math.PI * 90 * (1 - seconds / 30)}`}
                 strokeLinecap="round"
-                className="transition-[width] duration-1000 ease-linear"
+                className="text-canopy transition-[stroke-dashoffset] duration-1000 ease-linear"
               />
             </svg>
             <div className="absolute text-center">

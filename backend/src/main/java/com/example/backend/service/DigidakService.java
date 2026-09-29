@@ -998,6 +998,77 @@ public class DigidakService {
         }
     }
 
+    /**
+     * Quick lookup of Digidak letters, newest first. Every criterion is optional but at least one is
+     * required: letter (UID) number (partial match), office type with department/location, date range.
+     * Not scoped by inbox/outbox/status, so support can find any letter.
+     */
+    public Map<String, Object> searchDigidakLetters(String letterNumber, String hoRo, String location, String deptNames,
+                                                    String fromDate, String toDate, int page, int itemsPerPage) {
+        String term = letterNumber == null ? "" : letterNumber.trim();
+        boolean hasOffice = hoRo != null && !hoRo.isBlank();
+        boolean hasDates = (fromDate != null && !fromDate.isBlank()) || (toDate != null && !toDate.isBlank());
+        if (!term.isEmpty() && term.length() < 3) {
+            return buildErrorResponse("Enter at least 3 characters of the letter number", page, itemsPerPage);
+        }
+        if (term.isEmpty() && !hasOffice && !hasDates) {
+            return buildErrorResponse("Enter a letter number, or pick an office type or date range", page, itemsPerPage);
+        }
+
+        StringBuilder where = new StringBuilder("1 = 1");
+        if (!term.isEmpty()) {
+            where.append(" AND uid_number LIKE '%").append(term.replace("'", "''")).append("%'");
+        }
+
+        if (hasOffice) {
+            String officeType = hoRo.trim().toLowerCase();
+            if (!officeType.equals("ho") && !officeType.equals("ro") && !officeType.equals("te")) {
+                return buildErrorResponse("Unknown office type", page, itemsPerPage);
+            }
+            String prefix = "ecm_digidak_" + officeType + "_";
+            boolean isRoTe = !officeType.equals("ho");
+            List<String> codes = new ArrayList<>();
+            if (isRoTe) {
+                if (location != null && !location.isBlank()) codes.add(getLocationShortCode(location.trim()).toLowerCase());
+            } else if (deptNames != null && !deptNames.isBlank()) {
+                for (String name : deptNames.split(",")) codes.add(getDeptShortCode(name.trim()).toLowerCase());
+            }
+            if (codes.isEmpty()) {
+                where.append(" AND login_cgm_group LIKE '").append(prefix).append("%'");
+            } else {
+                where.append(" AND (");
+                for (int i = 0; i < codes.size(); i++) {
+                    if (i > 0) where.append(" OR ");
+                    where.append("login_cgm_group = '").append(prefix).append(codes.get(i).replace("'", "''")).append("_cgm'");
+                }
+                where.append(")");
+            }
+        }
+
+        if (fromDate != null && !fromDate.isBlank()) {
+            where.append(" AND r_creation_date >= DATE('").append(formatDateToDDMMYYYY(fromDate)).append("', 'dd/mm/yyyy')");
+        }
+        if (toDate != null && !toDate.isBlank()) {
+            where.append(" AND r_creation_date < DATE('").append(formatDateToDDMMYYYY(addOneDay(toDate))).append("', 'dd/mm/yyyy')");
+        }
+
+        int size = Math.max(1, Math.min(itemsPerPage, 50));
+        int pageNo = Math.max(1, page);
+        String dql = "SELECT r_object_id, uid_number, letter_subject, initiator, file_number, type_category, " +
+                     "status, r_creation_date, decision, languages, mode_of_receipt, priority, secrecy, " +
+                     "selected_region, login_region, entry_type, login_cgm_group " +
+                     "FROM cms_digidak_folder WHERE " + where + " " +
+                     "ORDER BY r_creation_date DESC ENABLE(RETURN_TOP " + (pageNo * size) + ")";
+        log.info("Digidak letter lookup — q: '{}', hoRo: {}, location: {}, deptNames: {}, from: {}, to: {}, page: {}",
+                 term, hoRo, location, deptNames, fromDate, toDate, pageNo);
+        try {
+            return executeDigidakDQL(dql, pageNo, size);
+        } catch (Exception e) {
+            log.error("Error in searchDigidakLetters", e);
+            return buildErrorResponse("Failed to search letters: " + e.getMessage(), pageNo, size);
+        }
+    }
+
     public List<Map<String, String>> getDigidakVerticals(String officeType, String location, String deptName) {
         String dql;
 

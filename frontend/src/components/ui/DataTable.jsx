@@ -23,6 +23,7 @@ import { EmptyState } from './EmptyState';
  * sort: { key, dir } | null,  onSortChange(next),
  * empty: { icon, title, description, action },
  * onRowClick?(row)
+ * rowClassName?(row, i) => string,  // extra classes on a row / folio card (e.g. edit highlight)
  * stickyHeader?: boolean,     // pin <thead> while the table body scrolls
  * maxHeight?: string,         // scroll-area cap when stickyHeader (default '70vh')
  */
@@ -36,6 +37,7 @@ export function DataTable({
     onSortChange,
     empty,
     onRowClick,
+    rowClassName,
     className = '',
     stickyHeader = false,
     maxHeight = '70vh',
@@ -121,8 +123,9 @@ export function DataTable({
                                       key={rowKey(row, i)}
                                       onClick={onRowClick ? () => onRowClick(row) : undefined}
                                       className={cn(
-                                          'group relative transition-colors hover:bg-canopy-tint/40',
-                                          onRowClick && 'cursor-pointer'
+                                          'group relative animate-fade-rise transition-colors hover:bg-canopy-tint/40',
+                                          onRowClick && 'cursor-pointer',
+                                          rowClassName?.(row, i)
                                       )}
                                   >
                                       {columns.map((col, ci) => (
@@ -150,7 +153,7 @@ export function DataTable({
             <div className="space-y-3 md:hidden">
                 {loading
                     ? Array.from({ length: Math.min(skeletonRows, 4) }).map((_, r) => (
-                          <div key={r} className="ledger-spine rounded-card border border-line bg-white p-4 pl-5">
+                          <div key={r} className="ledger-spine rounded-card border border-line bg-surface p-4 pl-5">
                               <div className="h-4 w-32 animate-pulse rounded bg-line/70" />
                               <div className="mt-3 h-3 w-full animate-pulse rounded bg-line/60" />
                               <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-line/60" />
@@ -169,8 +172,9 @@ export function DataTable({
                                   key={rowKey(row, i)}
                                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                                   className={cn(
-                                      'ledger-spine rounded-card border border-line bg-white p-4 pl-5 shadow-card',
-                                      onRowClick && 'cursor-pointer'
+                                      'ledger-spine animate-fade-rise rounded-card border border-line bg-surface p-4 pl-5 shadow-card',
+                                      onRowClick && 'cursor-pointer',
+                                      rowClassName?.(row, i)
                                   )}
                               >
                                   <div className="font-medium text-ink">

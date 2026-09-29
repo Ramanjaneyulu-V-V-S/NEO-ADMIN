@@ -103,3 +103,16 @@ export function leadingVerb(statement) {
 export function isReadOnlyStatement(statement) {
     return leadingVerb(statement) === 'SELECT';
 }
+
+/**
+ * Best-effort object type named in a statement's FROM clause (first
+ * identifier after FROM, ignoring alias/JOIN/WHERE). Lower-cased, or null.
+ * Used only to gate a UI affordance (show/hide the results grid's row-level
+ * Edit action) — never trusted for anything security-relevant.
+ */
+export function extractFromTarget(statement) {
+    const text = typeof statement === 'string' ? statement : statement?.text || '';
+    const stripped = text.replace(/--[^\n]*|\/\*[\s\S]*?\*\//g, ' ').trim();
+    const match = stripped.match(/\bFROM\s+([A-Za-z_][\w]*)/i);
+    return match ? match[1].toLowerCase() : null;
+}

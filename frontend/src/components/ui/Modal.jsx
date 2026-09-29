@@ -5,6 +5,10 @@ import { X } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
 
+// Stack of currently-open modals so Esc only closes the topmost one when modals nest
+// (e.g. Delegate Case inside Edit User Profile, Activity Log inside Workflow Details).
+const openStack = [];
+
 const SIZES = {
     sm: 'sm:max-w-sm',
     md: 'sm:max-w-md',
@@ -37,7 +41,13 @@ export function Modal({
 
     useEffect(() => {
         if (!isOpen) return;
-        const onKey = (e) => e.key === 'Escape' && onClose?.();
+        const token = {};
+        openStack.push(token);
+        const onKey = (e) => {
+            if (e.key !== 'Escape') return;
+            if (openStack[openStack.length - 1] !== token) return; // a modal above us owns Esc
+            onClose?.();
+        };
         document.addEventListener('keydown', onKey);
         const prev = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
@@ -45,6 +55,8 @@ export function Modal({
         const id = requestAnimationFrame(() => panelRef.current?.focus());
         return () => {
             document.removeEventListener('keydown', onKey);
+            const i = openStack.indexOf(token);
+            if (i !== -1) openStack.splice(i, 1);
             document.body.style.overflow = prev;
             cancelAnimationFrame(id);
         };
@@ -79,7 +91,7 @@ export function Modal({
                         aria-modal="true"
                         aria-label={typeof title === 'string' ? title : undefined}
                         className={cn(
-                            'flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-pop outline-none',
+                            'flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-surface shadow-pop outline-none',
                             'sm:max-h-[85dvh] sm:rounded-card',
                             SIZES[size] || SIZES.xl,
                             className
@@ -98,7 +110,7 @@ export function Modal({
                                 </button>
                             </div>
                         )}
-                        <div className="flex-1 overflow-y-auto scrollbar-thin p-5">{children}</div>
+                        <div className="flex-1 overflow-y-auto overscroll-contain scrollbar-thin p-5">{children}</div>
                         {footer && (
                             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-line bg-paper/50 px-5 py-3">
                                 {footer}

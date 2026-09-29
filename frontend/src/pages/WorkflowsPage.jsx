@@ -6,7 +6,7 @@ import {
     PlayCircle, AlertTriangle, AlertCircle, User, Calendar,
     Hash, ArrowRight, ArrowLeft, Inbox, List, Info, RotateCcw, Briefcase, ExternalLink
 } from 'lucide-react';
-import { useToast } from '../components/ui';
+import { useToast, DataTable } from '../components/ui';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
 import { formatDateTime, formatDate } from '../utils/datetime';
 
@@ -16,7 +16,7 @@ const getStatusInfo = (code) => {
     const map = {
         0: { label: 'Dormant', color: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400' },
         1: { label: 'Running', color: 'bg-canopy-tint text-canopy', dot: 'bg-canopy' },
-        2: { label: 'Finished', color: 'bg-canopy-tint text-canopy', dot: 'bg-canopy' },
+        2: { label: 'Finished', color: 'bg-tide/10 text-tide', dot: 'bg-tide' },
         3: { label: 'Halted', color: 'bg-harvest/15 text-harvest', dot: 'bg-harvest' },
         4: { label: 'Terminated', color: 'bg-danger-tint text-danger', dot: 'bg-danger' },
     };
@@ -29,8 +29,8 @@ const getWorkItemStatus = (state) => {
         const colors = {
             0: 'bg-slate-100 text-slate-600',
             1: 'bg-canopy-tint text-canopy',
-            2: 'bg-canopy-tint text-canopy',
-            3: 'bg-gray-100 text-gray-500',
+            2: 'bg-tide/10 text-tide',
+            3: 'bg-slate-100 text-slate-600',
             4: 'bg-harvest/15 text-harvest',
             5: 'bg-danger-tint text-danger',
         };
@@ -40,7 +40,7 @@ const getWorkItemStatus = (state) => {
     if (s === 'running' || s === 'active') return { label: 'Running', color: 'bg-canopy-tint text-canopy' };
     if (s === 'halted') return { label: 'Halted', color: 'bg-harvest/15 text-harvest' };
     if (s === 'failed') return { label: 'Failed', color: 'bg-danger-tint text-danger' };
-    if (s === 'finished' || s === 'completed') return { label: 'Finished', color: 'bg-canopy-tint text-canopy' };
+    if (s === 'finished' || s === 'completed') return { label: 'Finished', color: 'bg-tide/10 text-tide' };
     if (s === 'paused') return { label: 'Paused', color: 'bg-harvest/15 text-harvest' };
     return { label: state || 'Unknown', color: 'bg-slate-100 text-slate-600' };
 };
@@ -113,6 +113,19 @@ const WorkItemStatusBadge = ({ state }) => {
         </span>
     );
 };
+
+const QUEUE_COLUMNS = [
+    { key: 'name', header: 'Task Name', primary: true,
+      render: (q) => (
+          <>
+              <p className="font-medium text-slate-800">{q.name || '—'}</p>
+              <p className="text-[10px] font-mono text-slate-400 mt-0.5">{q.item_id}</p>
+          </>
+      ) },
+    { key: 'task_state', header: 'State', render: (q) => <WorkItemStatusBadge state={q.task_state} /> },
+    { key: 'sent_by', header: 'Sent By', render: (q) => <span className="text-slate-600">{q.sent_by || '—'}</span> },
+    { key: 'date_sent', header: 'Date Sent', mono: true, render: (q) => <span className="text-xs text-slate-500">{fmt(q.date_sent)}</span> },
+];
 
 const DetailRow = ({ icon: Icon, label, value, mono }) => (
     <div className="flex items-start gap-3 py-2.5 border-b border-slate-100 last:border-0">
@@ -345,7 +358,7 @@ const WorkflowsPage = () => {
         <div className="-m-4 flex flex-col overflow-hidden bg-slate-50 lg:h-[calc(100dvh-5.5rem)] lg:flex-row">
 
             {/* ═══════════════ LEFT PANEL ═══════════════ */}
-            <aside className={`w-full flex-col border-b border-slate-200 bg-white shadow-sm lg:w-80 lg:min-w-[280px] lg:border-b-0 lg:border-r ${mobileView === 'detail' ? 'hidden lg:flex' : 'flex'}`}>
+            <aside className={`w-full flex-col border-b border-slate-200 bg-surface shadow-sm lg:w-80 lg:min-w-[280px] lg:border-b-0 lg:border-r ${mobileView === 'detail' ? 'hidden lg:flex' : 'flex'}`}>
 
                 {/* Header */}
                 <div className="px-4 py-4 border-b border-slate-200 bg-gradient-to-r from-canopy/5 to-slate-50">
@@ -448,7 +461,7 @@ const WorkflowsPage = () => {
                                                 onClick={() => handleSelectCaseWorkflow(wf)}
                                                 className={`w-full text-left px-2.5 py-2 rounded-lg border transition-colors text-[10px] ${isActive
                                                     ? 'bg-canopy-tint border-canopy/20'
-                                                    : 'bg-white border-slate-100 hover:border-canopy/20 hover:bg-canopy-tint/50'
+                                                    : 'bg-surface border-slate-100 hover:border-canopy/20 hover:bg-canopy-tint/50'
                                                     }`}
                                             >
                                                 <div className="flex items-center justify-between gap-1">
@@ -511,7 +524,7 @@ const WorkflowsPage = () => {
                                         onClick={() => handleSelectFromList(wf)}
                                         className={`w-full text-left p-3 rounded-lg transition-colors group border ${isSelected
                                             ? 'bg-canopy/5 border-canopy/30 shadow-sm'
-                                            : 'bg-white border-transparent hover:border-slate-200 hover:bg-slate-50'
+                                            : 'bg-surface border-transparent hover:border-slate-200 hover:bg-slate-50'
                                             }`}
                                     >
                                         <div className="flex items-start justify-between gap-2">
@@ -590,7 +603,7 @@ const WorkflowsPage = () => {
             <main ref={detailRef} className={`flex-1 overflow-y-auto ${mobileView === 'list' ? 'hidden lg:block' : 'block'}`}>
 
                 {/* Mobile: back to list */}
-                <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur lg:hidden">
+                <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-200 bg-surface/95 px-4 py-2.5 backdrop-blur lg:hidden">
                     <button
                         onClick={handleBackToList}
                         className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-semibold text-canopy hover:bg-canopy-tint transition-colors"
@@ -667,7 +680,7 @@ const WorkflowsPage = () => {
                         )}
 
                         {/* ── Header banner ── */}
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-5">
+                        <div className="bg-surface rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-5">
                             <div className="px-5 py-4 bg-gradient-to-r from-canopy/8 to-slate-50 border-b border-slate-200">
                                 <div className="flex items-start justify-between gap-4 flex-wrap">
                                     <div>
@@ -692,7 +705,7 @@ const WorkflowsPage = () => {
                                         <button
                                             onClick={handleRefreshDetail}
                                             disabled={actionLoading === 'restart'}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-200 bg-white rounded-lg hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-slate-200 bg-surface rounded-lg hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
                                         >
                                             <RefreshCw size={13} className={loadingDetail ? 'animate-spin' : ''} /> Refresh
                                         </button>
@@ -732,7 +745,7 @@ const WorkflowsPage = () => {
                         </div>
 
                         {/* ── Tab bar ── */}
-                        <div className="flex flex-wrap items-center gap-1 mb-4 bg-white rounded-xl border border-slate-200 p-1 shadow-sm w-fit">
+                        <div className="flex flex-wrap items-center gap-1 mb-4 bg-surface rounded-xl border border-slate-200 p-1 shadow-sm w-fit">
                             {[
                                 { id: 'queue', label: 'Queue Items', count: queueItems.length, icon: Inbox },
                                 { id: 'variables', label: 'Variables', count: displayVariables.length, icon: Hash },
@@ -750,7 +763,7 @@ const WorkflowsPage = () => {
                                     {label}
                                     {count !== null && (
                                         <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${activeTab === id
-                                            ? 'bg-white/20 text-white'
+                                            ? 'bg-surface/20 text-white'
                                             : error ? 'bg-harvest/15 text-harvest' : 'bg-slate-100 text-slate-500'
                                             }`}>
                                             {count}
@@ -762,7 +775,7 @@ const WorkflowsPage = () => {
 
                         {/* ── Queue Items Tab ── */}
                         {activeTab === 'queue' && (
-                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="bg-surface rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                                 <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
                                     <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                         <div className="w-1 h-4 bg-canopy rounded-full" />
@@ -770,45 +783,21 @@ const WorkflowsPage = () => {
                                     </h3>
                                     <span className="text-xs text-slate-400">{queueItems.length} items</span>
                                 </div>
-                                <div className="overflow-auto scrollbar-thin max-h-[70vh]">
-                                    <table className="w-full text-sm text-left">
-                                        <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 z-10 shadow-sm">
-                                            <tr>
-                                                <th className="px-4 py-3">Task Name</th>
-                                                <th className="px-4 py-3">State</th>
-                                                <th className="px-4 py-3">Sent By</th>
-                                                <th className="px-4 py-3">Date Sent</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {queueItems.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan="4" className="px-4 py-12 text-center text-slate-400 italic text-sm">
-                                                        No queue items found for this workflow.
-                                                    </td>
-                                                </tr>
-                                            ) : queueItems.map((q, i) => (
-                                                <tr key={q.r_object_id || i} className="hover:bg-slate-50/70 transition-colors">
-                                                    <td className="px-4 py-3">
-                                                        <p className="font-medium text-slate-800">{q.name || '—'}</p>
-                                                        <p className="text-[10px] font-mono text-slate-400 mt-0.5">{q.item_id}</p>
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <WorkItemStatusBadge state={q.task_state} />
-                                                    </td>
-                                                    <td className="px-4 py-3 text-slate-600">{q.sent_by || '—'}</td>
-                                                    <td className="px-4 py-3 text-xs text-slate-500">{fmt(q.date_sent)}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                <DataTable
+                                    columns={QUEUE_COLUMNS}
+                                    rows={queueItems}
+                                    rowKey={(q, i) => q.r_object_id || i}
+                                    empty={{ icon: Inbox, title: 'No queue items found for this workflow.' }}
+                                    stickyHeader
+                                    maxHeight="70vh"
+                                    className="p-3 md:p-0"
+                                />
                             </div>
                         )}
 
                         {/* ── Process Error Tab ── */}
                         {activeTab === 'process-error' && hasPaused && (
-                            <div className="bg-white rounded-xl border border-harvest/25 shadow-sm overflow-hidden">
+                            <div className="bg-surface rounded-xl border border-harvest/25 shadow-sm overflow-hidden">
                                 <div className="px-5 py-3 border-b border-harvest/15 flex items-center justify-between bg-harvest/10">
                                     <h3 className="text-sm font-semibold text-harvest flex items-center gap-2">
                                         <div className="w-1 h-4 bg-harvest rounded-full" />
@@ -849,7 +838,7 @@ const WorkflowsPage = () => {
                                         const solution = getSuggestedSolution(rawError);
 
                                         return (
-                                            <div key={q.r_object_id || q.item_id || i} className="border border-harvest/15 rounded-lg overflow-hidden bg-white shadow-sm">
+                                            <div key={q.r_object_id || q.item_id || i} className="border border-harvest/15 rounded-lg overflow-hidden bg-surface shadow-sm">
                                                 <div className="bg-harvest/10/50 px-4 py-3 border-b border-harvest/15 flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
                                                         <p className="font-semibold text-slate-800 text-sm">{q.name || '—'}</p>
@@ -897,11 +886,11 @@ const WorkflowsPage = () => {
                                                         </div>
                                                     )}
 
-                                                    <div className="mt-3 bg-slate-900 rounded-lg p-4 border border-slate-800">
+                                                    <div className="mt-3 bg-canopy-tint rounded-lg p-4 border border-line">
                                                         <p className="text-[10px] font-bold text-danger/70 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                                                             <AlertCircle size={10} /> Full Technical Log
                                                         </p>
-                                                        <pre className="text-slate-300 text-[11px] font-mono leading-relaxed whitespace-pre-wrap break-words italic">
+                                                        <pre className="text-ink text-[11px] font-mono leading-relaxed whitespace-pre-wrap break-words italic">
                                                             {rawError || 'No specific error message was captured by the system for this paused state.'}
                                                         </pre>
                                                     </div>
@@ -923,7 +912,7 @@ const WorkflowsPage = () => {
 
                         {/* ── Variables Tab ── */}
                         {activeTab === 'variables' && (
-                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="bg-surface rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                                 <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
                                     <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                         <div className="w-1 h-4 bg-canopy rounded-full" />
@@ -958,7 +947,7 @@ const WorkflowsPage = () => {
 
                         {/* ── Raw Info Tab ── */}
                         {activeTab === 'info' && (
-                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="bg-surface rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                                 <div className="px-5 py-3 border-b border-slate-100">
                                     <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                                         <div className="w-1 h-4 bg-canopy rounded-full" />
@@ -979,7 +968,7 @@ const WorkflowsPage = () => {
 
                                     <div className="mt-5 border-t border-slate-100 pt-4">
                                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Full JSON Response</p>
-                                        <pre className="bg-slate-900 text-slate-300 rounded-lg p-4 text-[11px] font-mono overflow-x-auto max-h-64 overflow-y-auto">
+                                        <pre className="bg-canopy-tint text-ink rounded-lg p-4 text-[11px] font-mono overflow-x-auto max-h-64 overflow-y-auto">
                                             {JSON.stringify(
                                                 Object.fromEntries(
                                                     Object.entries(detailData).filter(([k]) => !['workItems', 'queueItems'].includes(k))

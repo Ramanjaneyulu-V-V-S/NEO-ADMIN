@@ -12,7 +12,7 @@ import EditUserProfileModal from '../components/EditUserProfileModal.jsx';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
 import { PageHeader, Tabs, DataTable, Pagination, Button, Input, Modal, useToast } from '../components/ui';
 import UserExportTab from './UserExportPage';
-import { USER_GRADES, DESIGNATION_OPTIONS, fetchDepartments, getLocations } from '../data/nabardMetadata.js';
+import { USER_GRADES, DESIGNATION_OPTIONS, DESIGNATION_OTHER, fetchDepartments, getLocations } from '../data/nabardMetadata.js';
 
 // ─── Fetch all users across pages (Documentum REST caps at 2000/page) ────────
 async function fetchAllUsers(officeTypeFilter, locationFilter, deptNames) {
@@ -46,6 +46,13 @@ const PRIVILEGE_OPTIONS = [
 // ─── Source label helper ──────────────────────────────────────────────────────
 const DM_SOURCE_LABELS = { 0: 'Local', 1: 'LDAP', 3: 'OTDS' };
 const DM_STATE_LABELS  = { 0: 'Active', 1: 'Inactive' };
+// Local = neutral (matches the "inline password" treatment elsewhere), LDAP
+// gets the new `tide` accent so it's no longer indistinguishable from OTDS.
+const DM_SOURCE_TONE_CLS = {
+    0: 'bg-slate-100 text-slate-600 border border-slate-200',
+    1: 'bg-tide/10 text-tide border border-tide/20',
+    3: 'bg-canopy-tint text-canopy border border-canopy/20',
+};
 
 // ─── Edit dm_user Modal ───────────────────────────────────────────────────────
 const EditDmUserModal = ({ user, isOpen, onClose, onSaved, onToast }) => {
@@ -112,26 +119,37 @@ const EditDmUserModal = ({ user, isOpen, onClose, onSaved, onToast }) => {
 
     if (!isOpen) return null;
 
-    const inputCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-white';
+    const inputCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-surface';
     const Lbl = ({ children }) => <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{children}</label>;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden max-h-[90vh]">
-                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                    <div>
-                        <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                            <UserCog size={16} className="text-canopy" />
-                            Edit Documentum User
-                        </h2>
-                        <p className="text-xs text-slate-400 mt-0.5 font-mono">{user?.user_name} · {user?.user_login_name}</p>
-                    </div>
-                    <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
-                        <X size={18} />
+        <Modal
+            isOpen
+            onClose={onClose}
+            size="lg"
+            title={
+                <span className="flex flex-col gap-0.5">
+                    <span className="flex items-center gap-2">
+                        <UserCog size={16} className="text-canopy" />
+                        Edit Documentum User
+                    </span>
+                    <span className="font-mono text-xs font-normal text-slate-400">{user?.user_name} · {user?.user_login_name}</span>
+                </span>
+            }
+            footer={
+                <>
+                    <button onClick={onClose}
+                        className="px-4 py-2 bg-surface border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
+                        Cancel
                     </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-6">
+                    <button type="submit" form="editDmUserForm" disabled={loading}
+                        className="px-4 py-2 bg-canopy text-white rounded-lg text-sm font-medium hover:bg-canopy-dark disabled:opacity-50 flex items-center gap-2 transition-colors">
+                        {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                        Save Changes
+                    </button>
+                </>
+            }
+        >
                     {error && <div className="mb-4 p-3 bg-danger-tint text-danger rounded-lg text-sm border border-danger-tint">{error}</div>}
                     <form id="editDmUserForm" onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-1">
@@ -167,21 +185,7 @@ const EditDmUserModal = ({ user, isOpen, onClose, onSaved, onToast }) => {
                             )}
                         </div>
                     </form>
-                </div>
-
-                <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-                    <button onClick={onClose}
-                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
-                        Cancel
-                    </button>
-                    <button type="submit" form="editDmUserForm" disabled={loading}
-                        className="px-4 py-2 bg-canopy text-white rounded-lg text-sm font-medium hover:bg-canopy-dark disabled:opacity-50 flex items-center gap-2 transition-colors">
-                        {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                        Save Changes
-                    </button>
-                </div>
-            </div>
-        </div>
+        </Modal>
     );
 };
 
@@ -265,24 +269,30 @@ const DmUserTab = ({ onToast }) => {
     const rangeEnd     = rangeStart + pageSize;
     const currentUsers = processed.slice(rangeStart, rangeEnd);
 
-    const handleSort = (key) => setSortConfig(c => ({
-        key, direction: c.key === key && c.direction === 'asc' ? 'desc' : 'asc',
-    }));
-
-    const SortIcon = ({ columnKey }) => {
-        if (sortConfig.key !== columnKey)
-            return <ArrowUpDown size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity ml-1" />;
-        return sortConfig.direction === 'asc'
-            ? <ArrowUp size={14} className="text-canopy ml-1" />
-            : <ArrowDown size={14} className="text-canopy ml-1" />;
-    };
-
-    const SortableHeader = ({ label, columnKey, className = '' }) => (
-        <th className={`px-4 py-3 font-semibold text-slate-700 cursor-pointer hover:bg-slate-100 transition-colors group select-none ${className}`}
-            onClick={() => handleSort(columnKey)}>
-            <div className="flex items-center">{label}<SortIcon columnKey={columnKey} /></div>
-        </th>
-    );
+    const dmColumns = [
+        { key: 'idx', header: '#', width: 'w-12', mono: true, card: 'hide',
+          render: (_u, idx) => <span className="text-slate-400 text-xs">{rangeStart + idx + 1}</span> },
+        { key: 'user_name', header: 'User Name', sortable: true, primary: true,
+          render: (u) => <span className="font-medium text-slate-900">{u.user_name}</span> },
+        { key: 'user_login_name', header: 'Login Name', sortable: true, mono: true, cardLabel: 'Login',
+          render: (u) => <span className="text-xs text-slate-500">{u.user_login_name || '-'}</span> },
+        { key: 'user_address', header: 'Email', sortable: true, cardLabel: 'Email',
+          render: (u) => <span className="text-xs text-slate-600">{u.user_address || '-'}</span> },
+        { key: 'user_source', header: 'Source', sortable: true, cardLabel: 'Source',
+          render: (u) => u.user_source !== undefined && u.user_source !== null ? (
+              <span className={`px-2 py-0.5 rounded text-xs font-medium ${DM_SOURCE_TONE_CLS[u.user_source] || 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                  {DM_SOURCE_LABELS[u.user_source] || u.user_source}
+              </span>
+          ) : '-' },
+        { key: 'actions', header: 'Actions', width: 'w-16', align: 'center', card: 'footer',
+          render: (u) => (
+              <button onClick={() => { setSelectedUser(u); setIsEditOpen(true); }}
+                  className="p-2 hover:bg-surface border border-transparent hover:border-slate-200 text-slate-400 hover:text-canopy hover:shadow-sm rounded-lg transition-[color,background-color,border-color,box-shadow]"
+                  title="Edit dm_user">
+                  <Edit2 size={16} />
+              </button>
+          ) },
+    ];
 
     return (
         <div className="flex flex-col flex-1 overflow-hidden">
@@ -305,65 +315,26 @@ const DmUserTab = ({ onToast }) => {
                 </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-lg shadow-sm flex-1 flex flex-col overflow-hidden">
-                <div className="overflow-x-auto flex-1">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                            <tr>
-                                <th className="px-4 py-3 font-semibold text-slate-700 w-12">#</th>
-                                <SortableHeader label="User Name"   columnKey="user_name" />
-                                <SortableHeader label="Login Name"  columnKey="user_login_name" />
-                                <SortableHeader label="Email"       columnKey="user_address" />
-                                <SortableHeader label="Source"      columnKey="user_source" />
-                                <th className="px-4 py-3 font-semibold text-slate-700 w-16 text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {loading ? (
-                                <tr><td colSpan="5" className="px-4 py-20 text-center">
-                                    <div className="flex flex-col items-center justify-center text-slate-500">
-                                        <Loader2 size={32} className="animate-spin text-canopy mb-3" />
-                                        <p className="text-sm font-medium">Loading Documentum users...</p>
-                                    </div>
-                                </td></tr>
-                            ) : currentUsers.length === 0 ? (
-                                <tr><td colSpan="5" className="px-4 py-16 text-center text-slate-500">
-                                    <div className="flex flex-col items-center justify-center">
-                                        <Users className="h-12 w-12 text-slate-200 mb-3" />
-                                        <p className="text-base font-medium text-slate-600">No users found</p>
-                                        <p className="text-sm mt-1">Try adjusting your search terms</p>
-                                    </div>
-                                </td></tr>
-                            ) : currentUsers.map((user, idx) => (
-                                <tr key={user.user_name || idx} className="hover:bg-canopy-tint/30 transition-colors group">
-                                    <td className="px-4 py-3 text-slate-400 font-mono text-xs">{rangeStart + idx + 1}</td>
-                                    <td className="px-4 py-3">
-                                        <span className="font-medium text-slate-900">{user.user_name}</span>
-                                    </td>
-                                    <td className="px-4 py-3 font-mono text-xs text-slate-500">{user.user_login_name || '-'}</td>
-                                    <td className="px-4 py-3 text-slate-600 text-xs">{user.user_address || '-'}</td>
-                                    <td className="px-4 py-3">
-                                        {user.user_source !== undefined && user.user_source !== null ? (
-                                            <span className="px-2 py-0.5 bg-canopy-tint text-canopy rounded text-xs font-medium border border-canopy/20">
-                                                {DM_SOURCE_LABELS[user.user_source] || user.user_source}
-                                            </span>
-                                        ) : '-'}
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        <button onClick={() => { setSelectedUser(user); setIsEditOpen(true); }}
-                                            className="p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-400 hover:text-canopy hover:shadow-sm rounded-lg transition-[color,background-color,border-color,box-shadow]"
-                                            title="Edit dm_user">
-                                            <Edit2 size={16} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+            <div className="bg-surface border border-slate-200 rounded-lg shadow-sm flex-1 flex flex-col overflow-hidden">
+                <DataTable
+                    columns={dmColumns}
+                    rows={currentUsers}
+                    rowKey={(u, idx) => u.user_name || idx}
+                    loading={loading}
+                    skeletonRows={8}
+                    sort={sortConfig.key ? { key: sortConfig.key, dir: sortConfig.direction } : null}
+                    onSortChange={(next) => {
+                        setSortConfig(next ? { key: next.key, direction: next.dir } : { key: 'user_name', direction: 'asc' });
+                        setCurrentPage(1);
+                    }}
+                    empty={{ icon: Users, title: 'No users found', description: 'Try adjusting your search terms' }}
+                    stickyHeader
+                    maxHeight="70vh"
+                    className="p-3 md:p-0"
+                />
 
                 {/* Pagination */}
-                <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50/50">
+                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50/50 sm:px-6 sm:py-4">
                     <div className="text-sm text-slate-500">
                         {totalItems > 0 ? (
                             <>Showing <span className="font-medium text-slate-900">{rangeStart + 1}</span> to <span className="font-medium text-slate-900">{Math.min(rangeEnd, totalItems)}</span> of <span className="font-medium text-slate-900">{totalItems}</span> results</>
@@ -371,18 +342,18 @@ const DmUserTab = ({ onToast }) => {
                     </div>
                     <div className="flex items-center gap-2">
                         <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1 || loading}
-                            className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-canopy disabled:opacity-40 disabled:hover:bg-transparent text-slate-500 transition-colors">
+                            className="p-2 border border-slate-200 rounded-lg hover:bg-surface hover:text-canopy disabled:opacity-40 disabled:hover:bg-transparent text-slate-500 transition-colors">
                             <ChevronsLeft size={16} />
                         </button>
                         <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || loading}
-                            className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-canopy disabled:opacity-40 disabled:hover:bg-transparent text-slate-500 transition-colors">
+                            className="p-2 border border-slate-200 rounded-lg hover:bg-surface hover:text-canopy disabled:opacity-40 disabled:hover:bg-transparent text-slate-500 transition-colors">
                             <ChevronLeft size={16} />
                         </button>
-                        <div className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 min-w-[3rem] text-center shadow-sm">
+                        <div className="px-4 py-1.5 bg-surface border border-slate-200 rounded-lg text-sm font-medium text-slate-700 min-w-[3rem] text-center shadow-sm">
                             {currentPage}
                         </div>
                         <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || loading || totalPages === 0}
-                            className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-canopy disabled:opacity-40 disabled:hover:bg-transparent text-slate-500 transition-colors">
+                            className="p-2 border border-slate-200 rounded-lg hover:bg-surface hover:text-canopy disabled:opacity-40 disabled:hover:bg-transparent text-slate-500 transition-colors">
                             <ChevronRight size={16} />
                         </button>
                     </div>
@@ -645,7 +616,7 @@ const CmsProfileTab = ({ onToast }) => {
     return (
         <div className="flex flex-col gap-4">
             {/* Per-column filters */}
-            <div className="rounded-card border border-line bg-white p-3 shadow-card">
+            <div className="rounded-card border border-line bg-surface p-3 shadow-card">
                 <div className="flex flex-wrap items-end gap-3">
                     {/* Global search — name, UIN, login name, department, designation */}
                     <div className="flex w-full flex-col gap-1 sm:w-64">
@@ -715,7 +686,7 @@ const CmsProfileTab = ({ onToast }) => {
             </div>
 
             {/* Table */}
-            <div className="overflow-hidden rounded-card border border-line bg-white shadow-card">
+            <div className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
                 <DataTable
                     columns={columns}
                     rows={currentUsers}
@@ -822,7 +793,7 @@ const FormField = ({ label, icon: Icon, required, error, hint, children }) => (
 
 const inputCls = (hasError) =>
     `w-full px-4 py-2.5 border rounded-xl text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy ${
-        hasError ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'
+        hasError ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'
     }`;
 
 
@@ -843,8 +814,8 @@ const StepIndicator = ({ step }) => (
                     <div className="flex flex-col items-center">
                         <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors duration-300 ${
                             done   ? 'bg-canopy border-canopy text-white' :
-                            active ? 'bg-white border-canopy text-canopy' :
-                                     'bg-white border-slate-200 text-slate-400'
+                            active ? 'bg-surface border-canopy text-canopy' :
+                                     'bg-surface border-slate-200 text-slate-400'
                         }`}>
                             {done ? <CheckCircle2 size={16} /> : s.num}
                         </div>
@@ -874,7 +845,7 @@ const SourcePasswordBlock = ({ form, handleChange, showPassword, setShowPassword
             </span>
         </label>
         <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-colors">
-            <div className="flex items-center bg-white">
+            <div className="flex items-center bg-surface">
                 <div className="relative flex-1">
                     <select
                         value={form.user_source}
@@ -921,7 +892,7 @@ const SourcePasswordBlock = ({ form, handleChange, showPassword, setShowPassword
                 <div className="border-t border-slate-200 bg-slate-50/60 p-4 space-y-3">
                     {/* Password */}
                     <div>
-                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-white focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-colors">
+                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-surface focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-colors">
                             <Key size={13} className="text-slate-400 shrink-0" />
                             <input type={showPassword ? 'text' : 'password'} value={form.otds_password}
                                 onChange={e => handleChange('otds_password', e.target.value)}
@@ -936,7 +907,7 @@ const SourcePasswordBlock = ({ form, handleChange, showPassword, setShowPassword
                     </div>
                     {/* Confirm Password */}
                     <div>
-                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-white focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-colors">
+                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-surface focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-colors">
                             <Key size={13} className="text-slate-400 shrink-0" />
                             <input type={showOtdsConfirm ? 'text' : 'password'} value={form.otds_confirm_pw}
                                 onChange={e => handleChange('otds_confirm_pw', e.target.value)}
@@ -979,6 +950,8 @@ const UserCreateTab = ({ onToast }) => {
     // Track which Hindi fields have been manually edited so auto-fill doesn't overwrite them
     const hindiTouched = useRef({ profile_hindi_user_name: false, profile_hindi_designation: false });
     const [checkingUin, setCheckingUin] = useState(false);
+    // True while the Designation field shows the free-text "Other" input instead of the dropdown.
+    const [designationCustom, setDesignationCustom] = useState(false);
 
     const checkUinExists = async (uin) => {
         const val = uin.trim();
@@ -1222,7 +1195,7 @@ const UserCreateTab = ({ onToast }) => {
                     <StepIndicator step={step} />
 
                     {/* Card */}
-                    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
 
                         {/* ── Step 1: Identity ── */}
                         {step === 1 && (
@@ -1308,7 +1281,7 @@ const UserCreateTab = ({ onToast }) => {
                                     {/* Summary card */}
                                     <div className="mt-2 p-4 bg-slate-50 border border-slate-200 rounded-xl">
                                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Review dm_user Creation:</p>
-                                        <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+                                        <div className="grid grid-cols-1 gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
                                             {[
                                                 ['User Name',   form.user_name],
                                                 ['Login Name',  form.user_login_name],
@@ -1343,9 +1316,24 @@ const UserCreateTab = ({ onToast }) => {
                                 <div className="p-6 space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                                         <FormField label="Designation" icon={Briefcase} required error={errors.profile_designation}>
-                                            <SelectField value={form.profile_designation}
-                                                onChange={v => handleChange('profile_designation', v)}
+                                            <SelectField value={designationCustom ? DESIGNATION_OTHER : form.profile_designation}
+                                                onChange={v => {
+                                                    if (v === DESIGNATION_OTHER) {
+                                                        setDesignationCustom(true);
+                                                        handleChange('profile_designation', '');
+                                                    } else {
+                                                        setDesignationCustom(false);
+                                                        handleChange('profile_designation', v);
+                                                    }
+                                                }}
                                                 options={DESIGNATION_OPTIONS} />
+                                            {designationCustom && (
+                                                <input type="text" value={form.profile_designation}
+                                                    onChange={e => handleChange('profile_designation', e.target.value)}
+                                                    placeholder="Enter designation"
+                                                    className={`mt-2 ${inputCls(errors.profile_designation)}`}
+                                                    autoFocus />
+                                            )}
                                         </FormField>
                                         <FormField label="Hindi Designation" icon={Briefcase} required error={errors.profile_hindi_designation}>
                                             <input type="text" value={form.profile_hindi_designation}
@@ -1456,12 +1444,12 @@ const UserCreateTab = ({ onToast }) => {
                         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2">
                                 <button type="button" onClick={handleReset}
-                                    className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-colors">
+                                    className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-surface transition-colors">
                                     Reset
                                 </button>
                                 {step > 1 && (
                                     <button type="button" onClick={goBack}
-                                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-white hover:border-slate-300 hover:shadow-sm transition-[color,background-color,border-color,box-shadow]">
+                                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-surface hover:border-slate-300 hover:shadow-sm transition-[color,background-color,border-color,box-shadow]">
                                         <ChevronLeft size={15} /> Back
                                     </button>
                                 )}
@@ -1603,7 +1591,7 @@ const UpdatePasswordTab = ({ onToast }) => {
     return (
         <div className="pb-6">
             <div className="w-full">
-                    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
 
                         {/* Header */}
                         <div className="px-6 py-5 border-b border-slate-100 bg-canopy-tint/50 flex items-center gap-3">
@@ -1627,7 +1615,7 @@ const UpdatePasswordTab = ({ onToast }) => {
                                         <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.user ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.user ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <Search size={15} className="ml-3 text-slate-400 shrink-0" />
                                     <input
                                         type="text"
@@ -1650,7 +1638,7 @@ const UpdatePasswordTab = ({ onToast }) => {
 
                                 {/* Dropdown */}
                                 {showDropdown && !selectedUser && (
-                                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                                    <div className="absolute z-20 left-0 right-0 mt-1 bg-surface border border-slate-200 rounded-xl shadow-lg overflow-hidden">
                                         {filtered.length === 0 ? (
                                             <div className="px-4 py-3 text-sm text-slate-400 text-center">No users found</div>
                                         ) : filtered.map((u, i) => (
@@ -1703,7 +1691,7 @@ const UpdatePasswordTab = ({ onToast }) => {
                                         <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.newPassword ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.newPassword ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <input
                                         type={showNew ? 'text' : 'password'}
                                         value={newPassword}
@@ -1742,7 +1730,7 @@ const UpdatePasswordTab = ({ onToast }) => {
                                         <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.confirmPassword ? 'border-danger/40 bg-danger-tint' : confirmPassword && confirmPassword === newPassword ? 'border-canopy/40 bg-canopy-tint/30' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.confirmPassword ? 'border-danger/40 bg-danger-tint' : confirmPassword && confirmPassword === newPassword ? 'border-canopy/40 bg-canopy-tint/30' : 'border-slate-200 bg-surface hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <input
                                         type={showConfirm ? 'text' : 'password'}
                                         value={confirmPassword}
@@ -1936,7 +1924,7 @@ const BulkPasswordTab = ({ onToast }) => {
             <div className="w-full space-y-4">
 
                     {/* Main card */}
-                    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
 
                         {/* Header */}
                         <div className="px-6 py-5 border-b border-slate-100 bg-canopy-tint/50 flex items-center gap-3">
@@ -1960,7 +1948,7 @@ const BulkPasswordTab = ({ onToast }) => {
                                         <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.users ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.users ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <Search size={15} className="ml-3 text-slate-400 shrink-0" />
                                     <input
                                         type="text"
@@ -1982,7 +1970,7 @@ const BulkPasswordTab = ({ onToast }) => {
 
                                 {/* Dropdown */}
                                 {showDropdown && (
-                                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden flex flex-col max-h-80">
+                                    <div className="absolute z-20 left-0 right-0 mt-1 bg-surface border border-slate-200 rounded-xl shadow-lg overflow-hidden flex flex-col max-h-80">
 
                                         {/* Add All checkbox header */}
                                         <label className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors shrink-0">
@@ -2081,7 +2069,7 @@ const BulkPasswordTab = ({ onToast }) => {
                                         <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.newPassword ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.newPassword ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <input
                                         type={showNew ? 'text' : 'password'}
                                         value={newPassword}
@@ -2118,7 +2106,7 @@ const BulkPasswordTab = ({ onToast }) => {
                                         <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.confirmPassword ? 'border-danger/40 bg-danger-tint' : confirmPassword && confirmPassword === newPassword ? 'border-canopy/40 bg-canopy-tint/30' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.confirmPassword ? 'border-danger/40 bg-danger-tint' : confirmPassword && confirmPassword === newPassword ? 'border-canopy/40 bg-canopy-tint/30' : 'border-slate-200 bg-surface hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <input
                                         type={showConfirm ? 'text' : 'password'}
                                         value={confirmPassword}
@@ -2166,7 +2154,7 @@ const BulkPasswordTab = ({ onToast }) => {
 
                     {/* Results card */}
                     {results.length > 0 && (
-                        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                        <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-semibold text-slate-900">Update Results</p>
@@ -2703,10 +2691,72 @@ const UserAccessTab = ({ onToast }) => {
         }
     };
 
+    const actionBtnCls = (danger) => `flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed md:mx-auto ${
+        danger ? 'bg-danger-tint hover:bg-danger-tint text-danger border border-danger/20' : 'bg-canopy hover:bg-canopy-dark text-white'
+    }`;
+    const accessColumns = [
+        { key: 'idx', header: '#', width: 'w-10', align: 'center', card: 'hide',
+          render: (_u, idx) => <span className="text-slate-400 text-xs">{(currentPage - 1) * PAGE_SIZE + idx + 1}</span> },
+        { key: 'name', header: 'Name', primary: true,
+          render: (u) => (
+              <div className="flex flex-wrap items-center gap-2 font-medium text-slate-800">
+                  {u.object_name || '—'}
+                  {localAdmins.has(u.object_name) && (
+                      <span className="px-1.5 py-0.5 text-xs bg-canopy-tint text-canopy rounded font-medium flex items-center gap-1">
+                          <Shield size={10} /> Local Admin
+                      </span>
+                  )}
+                  {cgmSects.has(u.object_name) && (
+                      <span className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded font-medium flex items-center gap-1">
+                          <Shield size={10} /> CGM Sect.
+                      </span>
+                  )}
+              </div>
+          ) },
+        { key: 'login', header: 'Login', mono: true, cardLabel: 'Login',
+          render: (u) => <span className="text-xs text-slate-500">{u.user_login_name || '—'}</span> },
+        { key: 'designation', header: 'Designation', cardLabel: 'Designation',
+          render: (u) => <span className="text-slate-600">{u.designation || '—'}</span> },
+        isRoTe
+            ? { key: 'location', header: 'Location', cardLabel: 'Location', render: (u) => <span className="text-slate-600">{u.location || '—'}</span> }
+            : { key: 'department', header: 'Department', cardLabel: 'Department', render: (u) => <span className="text-slate-600">{u.department_name || '—'}</span> },
+        ...(!isLocalAdmin ? [{ key: 'localAdmin', header: 'Local Admin', align: 'center', card: 'footer',
+          render: (u) => {
+              const isAdmin = localAdmins.has(u.object_name);
+              const inProgress = actionInProgress?.user === u.object_name;
+              const busy = inProgress && (actionInProgress?.action === 'markAdmin' || actionInProgress?.action === 'removeAdmin');
+              return isAdmin ? (
+                  <button onClick={() => handleRemoveLocalAdmin(u)} disabled={inProgress} title="Remove from Local Admin group" className={actionBtnCls(true)}>
+                      {busy ? <><Loader2 size={12} className="animate-spin" /> Removing…</> : <><X size={12} /> Remove Local Admin</>}
+                  </button>
+              ) : (
+                  <button onClick={() => handleMarkLocalAdmin(u)} disabled={inProgress} className={actionBtnCls(false)}>
+                      {busy ? <><Loader2 size={12} className="animate-spin" /> Marking…</> : <><Shield size={12} /> Mark as Local Admin</>}
+                  </button>
+              );
+          } }] : []),
+        { key: 'cgmSect', header: 'CGM Sect.', align: 'center', card: 'footer',
+          render: (u) => {
+              const isCgmSect = cgmSects.has(u.object_name);
+              const inProgress = actionInProgress?.user === u.object_name;
+              const busy = inProgress && (actionInProgress?.action === 'markCgm' || actionInProgress?.action === 'removeCgm');
+              if (loadingCgm) return <Loader2 size={12} className="animate-spin text-slate-400 md:mx-auto" />;
+              return isCgmSect ? (
+                  <button onClick={() => handleRemoveCGMSect(u)} disabled={inProgress} title="Remove CGM Sect. groups" className={actionBtnCls(true)}>
+                      {busy ? <><Loader2 size={12} className="animate-spin" /> Removing…</> : <><X size={12} /> Remove CGM Sect.</>}
+                  </button>
+              ) : (
+                  <button onClick={() => handleMarkCGMSect(u)} disabled={inProgress} className={actionBtnCls(false)}>
+                      {busy ? <><Loader2 size={12} className="animate-spin" /> Marking…</> : <><Shield size={12} /> Mark as CGM Sect.</>}
+                  </button>
+              );
+          } },
+    ];
+
     return (
         <div className="flex-1 flex flex-col overflow-hidden gap-4">
             {/* Filters */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-end gap-4 flex-wrap">
+            <div className="bg-surface border border-slate-200 rounded-xl p-4 shadow-sm flex items-end gap-4 flex-wrap">
                 <div className="min-w-[180px]">
                     <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
                         Office Type
@@ -2816,7 +2866,7 @@ const UserAccessTab = ({ onToast }) => {
                                 : <><Download size={13} /> Export <ChevronDown size={12} className={`transition-transform ${exportOpen ? 'rotate-180' : ''}`} /></>}
                         </button>
                         {exportOpen && (
-                            <div className="absolute right-0 top-full mt-1.5 w-56 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden z-30 text-sm">
+                            <div className="absolute right-0 top-full mt-1.5 w-56 bg-surface rounded-lg shadow-lg border border-slate-200 overflow-hidden z-30 text-sm">
                                 <button
                                     onClick={() => { setExportOpen(false); handleExport(); }}
                                     disabled={filtered.length === 0 || loading}
@@ -2847,7 +2897,7 @@ const UserAccessTab = ({ onToast }) => {
             </div>
 
             {/* Table */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
+            <div className="bg-surface border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
                 {!officeType && (
                     <div className="flex flex-col items-center justify-center flex-1 gap-2 text-slate-400 py-16">
                         <Shield size={36} strokeWidth={1.5} />
@@ -2861,126 +2911,21 @@ const UserAccessTab = ({ onToast }) => {
                     </div>
                 )}
 
-                {officeType && !loading && users.length === 0 && (
-                    <div className="flex flex-col items-center justify-center flex-1 gap-2 text-slate-400 py-16">
-                        <Users size={36} strokeWidth={1.5} />
-                        <p className="text-sm">No users found for {officeType}</p>
-                    </div>
-                )}
-
-                {officeType && !loading && users.length > 0 && (
+                {officeType && !loading && (
                     <>
-                        <div className="overflow-auto scrollbar-thin max-h-[70vh]">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-4 py-3 font-semibold text-slate-600 w-10 text-center">#</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-600">Name</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-600">Login</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-600">Designation</th>
-                                        {!isRoTe && <th className="px-4 py-3 font-semibold text-slate-600">Department</th>}
-                                        {isRoTe && <th className="px-4 py-3 font-semibold text-slate-600">Location</th>}
-                                        {!isLocalAdmin && <th className="px-4 py-3 font-semibold text-slate-600 text-center">Local Admin</th>}
-                                        <th className="px-4 py-3 font-semibold text-slate-600 text-center">CGM Sect.</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {paged.map((u, idx) => {
-                                        const isAdmin    = localAdmins.has(u.object_name);
-                                        const isCgmSect  = cgmSects.has(u.object_name);
-                                        const adminInProgress = actionInProgress?.user === u.object_name && (actionInProgress?.action === 'markAdmin' || actionInProgress?.action === 'removeAdmin');
-                                        const cgmInProgress   = actionInProgress?.user === u.object_name && (actionInProgress?.action === 'markCgm' || actionInProgress?.action === 'removeCgm');
-                                        const inProgress      = actionInProgress?.user === u.object_name;
-                                        return (
-                                        <tr key={u.user_login_name || idx} className="hover:bg-slate-50 transition-colors">
-                                            <td className="px-4 py-3 text-slate-400 text-center text-xs">
-                                                {(currentPage - 1) * PAGE_SIZE + idx + 1}
-                                            </td>
-                                            <td className="px-4 py-3 font-medium text-slate-800">
-                                                <div className="flex items-center gap-2">
-                                                    {u.object_name || '—'}
-                                                    {isAdmin && (
-                                                        <span className="px-1.5 py-0.5 text-xs bg-canopy-tint text-canopy rounded font-medium flex items-center gap-1">
-                                                            <Shield size={10} /> Local Admin
-                                                        </span>
-                                                    )}
-                                                    {isCgmSect && (
-                                                        <span className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded font-medium flex items-center gap-1">
-                                                            <Shield size={10} /> CGM Sect.
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-500 font-mono text-xs">{u.user_login_name || '—'}</td>
-                                            <td className="px-4 py-3 text-slate-600">{u.designation || '—'}</td>
-                                            {!isRoTe && <td className="px-4 py-3 text-slate-600">{u.department_name || '—'}</td>}
-                                            {isRoTe && <td className="px-4 py-3 text-slate-600">{u.location || '—'}</td>}
-                                            {!isLocalAdmin && <td className="px-4 py-3 text-center">
-                                                {isAdmin ? (
-                                                    <button
-                                                        onClick={() => handleRemoveLocalAdmin(u)}
-                                                        disabled={inProgress}
-                                                        title="Remove from Local Admin group"
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-tint hover:bg-danger-tint text-danger border border-danger/20 text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
-                                                    >
-                                                        {adminInProgress
-                                                            ? <><Loader2 size={12} className="animate-spin" /> Removing…</>
-                                                            : <><X size={12} /> Remove Local Admin</>
-                                                        }
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => handleMarkLocalAdmin(u)}
-                                                        disabled={inProgress}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
-                                                    >
-                                                        {adminInProgress
-                                                            ? <><Loader2 size={12} className="animate-spin" /> Marking…</>
-                                                            : <><Shield size={12} /> Mark as Local Admin</>
-                                                        }
-                                                    </button>
-                                                )}
-                                            </td>}
-                                            <td className="px-4 py-3 text-center">
-                                                {loadingCgm ? (
-                                                    <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
-                                                        <Loader2 size={12} className="animate-spin" />
-                                                    </div>
-                                                ) : isCgmSect ? (
-                                                    <button
-                                                        onClick={() => handleRemoveCGMSect(u)}
-                                                        disabled={inProgress}
-                                                        title="Remove CGM Sect. groups"
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-tint hover:bg-danger-tint text-danger border border-danger/20 text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
-                                                    >
-                                                        {cgmInProgress
-                                                            ? <><Loader2 size={12} className="animate-spin" /> Removing…</>
-                                                            : <><X size={12} /> Remove CGM Sect.</>
-                                                        }
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => handleMarkCGMSect(u)}
-                                                        disabled={inProgress}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
-                                                    >
-                                                        {cgmInProgress
-                                                            ? <><Loader2 size={12} className="animate-spin" /> Marking…</>
-                                                            : <><Shield size={12} /> Mark as CGM Sect.</>
-                                                        }
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+                        <DataTable
+                            columns={accessColumns}
+                            rows={paged}
+                            rowKey={(u, idx) => u.user_login_name || idx}
+                            empty={{ icon: Users, title: `No users found for ${officeType}` }}
+                            stickyHeader
+                            maxHeight="70vh"
+                            className="p-3 md:p-0"
+                        />
 
                         {/* Pagination */}
                         {totalPages > 1 && (
-                            <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-white text-xs text-slate-500">
+                            <div className="px-4 py-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-surface text-xs text-slate-500">
                                 <span>Showing {start}–{end} of {filtered.length}</span>
                                 <div className="flex items-center gap-1">
                                     <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}
@@ -3022,6 +2967,9 @@ const AlternateCgmTab = ({ onToast }) => {
     const [loadingAltCgm,    setLoadingAltCgm]    = useState(false);
     const [departments,      setDepartments]      = useState([]);
     const [searchQuery,      setSearchQuery]      = useState('');
+    const [filterDept,       setFilterDept]       = useState('');
+    // '' = all, '__any' / '__none' = has / has no Alternate CGM assignment, else a dept code
+    const [filterAltCgm,     setFilterAltCgm]     = useState('');
     const [currentPage,      setCurrentPage]      = useState(1);
     // user being managed in the modal (null = closed)
     const [managingUser,     setManagingUser]     = useState(null);
@@ -3104,23 +3052,103 @@ const AlternateCgmTab = ({ onToast }) => {
         } finally { setActionInProgress(null); }
     };
 
+    // Only departments that actually have users in this list
+    const deptFilterOptions = useMemo(() => {
+        const codes = [...new Set(users.map(u => u.department_short_code).filter(Boolean))];
+        return codes
+            .map(code => {
+                const dept = departments.find(d => d.shortCode.toLowerCase() === code.toLowerCase());
+                const sameAsCode = !dept || dept.name.toLowerCase() === code.toLowerCase();
+                return { value: code, label: sameAsCode ? (dept?.name || code).toUpperCase() : `${dept.name} (${code})` };
+            })
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [users, departments]);
+
+    // Departments that at least one listed user is Alternate CGM for, plus the any/none shortcuts
+    const altCgmFilterOptions = useMemo(() => {
+        const codes = new Set();
+        users.forEach(u => (alternateCgmMap.get(u.object_name) || []).forEach(c => codes.add(c)));
+        const deptOptions = [...codes]
+            .map(code => {
+                const dept = departments.find(d => d.shortCode.toLowerCase() === code);
+                const sameAsCode = !dept || dept.name.toLowerCase() === code;
+                return { value: code, label: sameAsCode ? code.toUpperCase() : `${dept.name} (${code})` };
+            })
+            .sort((a, b) => a.label.localeCompare(b.label));
+        return [
+            { value: '__any',  label: 'Any department assigned' },
+            { value: '__none', label: 'None assigned' },
+            ...deptOptions,
+        ];
+    }, [users, alternateCgmMap, departments]);
+
     const filtered = useMemo(() => {
         const q = searchQuery.toLowerCase();
-        return users.filter(u =>
-            !q || [u.object_name, u.user_login_name, u.uin, u.designation, u.department_name]
-                .some(f => (f || '').toLowerCase().includes(q))
-        );
-    }, [users, searchQuery]);
+        return users.filter(u => {
+            if (filterDept && (u.department_short_code || '').toLowerCase() !== filterDept.toLowerCase()) return false;
+            if (filterAltCgm) {
+                const assigned = alternateCgmMap.get(u.object_name) || [];
+                if (filterAltCgm === '__any' && assigned.length === 0) return false;
+                if (filterAltCgm === '__none' && assigned.length > 0) return false;
+                if (filterAltCgm !== '__any' && filterAltCgm !== '__none' && !assigned.includes(filterAltCgm)) return false;
+            }
+            return !q || [u.object_name, u.user_login_name, u.uin, u.designation, u.department_name]
+                .some(f => (f || '').toLowerCase().includes(q));
+        });
+    }, [users, searchQuery, filterDept, filterAltCgm, alternateCgmMap]);
 
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const paged      = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
     const rangeStart = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
     const rangeEnd   = Math.min(currentPage * PAGE_SIZE, filtered.length);
 
+    const altCgmColumns = [
+        { key: 'idx', header: '#', width: 'w-10', align: 'center', mono: true, card: 'hide',
+          render: (_u, idx) => <span className="text-slate-400 text-xs">{(currentPage - 1) * PAGE_SIZE + idx + 1}</span> },
+        { key: 'name', header: 'Name', primary: true,
+          render: (u) => (
+              <>
+                  <div className="font-medium text-slate-900">{u.object_name || '—'}</div>
+                  <div className="text-xs text-slate-500 group-hover:text-canopy transition-colors">{u.user_login_name}</div>
+              </>
+          ) },
+        { key: 'uin', header: 'UIN', mono: true, cardLabel: 'UIN',
+          render: (u) => <span className="text-xs text-slate-600">{u.uin || '—'}</span> },
+        { key: 'designation', header: 'Designation', cardLabel: 'Designation',
+          render: (u) => <span className="text-slate-600">{u.designation || '—'}</span> },
+        { key: 'department', header: 'Department', mono: true, cardLabel: 'Department',
+          render: (u) => <span className="text-xs text-slate-600">{u.department_short_code || <span className="text-slate-400">—</span>}</span> },
+        { key: 'altCgm', header: 'Alternate CGM Depts.', cardLabel: 'Alt. CGM',
+          render: (u) => {
+              const assignedCodes = alternateCgmMap.get(u.object_name) || [];
+              if (loadingAltCgm) return <Loader2 size={13} className="animate-spin text-slate-300" />;
+              if (assignedCodes.length === 0) return <span className="text-xs text-slate-400">—</span>;
+              return (
+                  <div className="flex flex-wrap gap-1">
+                      {assignedCodes.map(code => (
+                          <span key={code} className="px-2 py-0.5 bg-harvest/15 text-harvest border border-harvest/25 rounded-full text-xs font-medium">
+                              {code.toUpperCase()}
+                          </span>
+                      ))}
+                  </div>
+              );
+          } },
+        { key: 'manage', header: 'Manage', width: 'w-20', align: 'center', card: 'footer',
+          render: (u) => (
+              <button
+                  onClick={() => { setManagingUser(u); setModalDeptSelect(''); }}
+                  className="p-2 hover:bg-surface border border-transparent hover:border-slate-200 text-slate-400 hover:text-canopy hover:shadow-sm rounded-lg transition-[color,background-color,border-color,box-shadow]"
+                  title="Manage Alternate CGM departments"
+              >
+                  <Edit2 size={15} />
+              </button>
+          ) },
+    ];
+
     return (
         <div className="flex-1 flex flex-col overflow-hidden gap-4">
             {/* Filters bar */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-end gap-4 flex-wrap">
+            <div className="bg-surface border border-slate-200 rounded-xl p-4 shadow-sm flex items-end gap-4 flex-wrap">
                 <div className="flex-1 min-w-[220px]">
                     <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Search</label>
                     <div className="relative">
@@ -3137,6 +3165,38 @@ const AlternateCgmTab = ({ onToast }) => {
                                 className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded">
                                 <X size={13} />
                             </button>
+                        )}
+                    </div>
+                </div>
+                <div className="flex min-w-[220px] flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Department</label>
+                    <div className="flex items-center gap-1">
+                        <div className="flex-1">
+                            <CustomSelect value={filterDept}
+                                onChange={v => { setFilterDept(v); setCurrentPage(1); }}
+                                placeholder="All departments" options={deptFilterOptions} />
+                        </div>
+                        {filterDept && (
+                            <Button size="icon" variant="ghost" title="Clear department filter"
+                                onClick={() => { setFilterDept(''); setCurrentPage(1); }}>
+                                <X size={14} />
+                            </Button>
+                        )}
+                    </div>
+                </div>
+                <div className="flex min-w-[220px] flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Alternate CGM</label>
+                    <div className="flex items-center gap-1">
+                        <div className="flex-1">
+                            <CustomSelect value={filterAltCgm}
+                                onChange={v => { setFilterAltCgm(v); setCurrentPage(1); }}
+                                placeholder="All users" options={altCgmFilterOptions} />
+                        </div>
+                        {filterAltCgm && (
+                            <Button size="icon" variant="ghost" title="Clear Alternate CGM filter"
+                                onClick={() => { setFilterAltCgm(''); setCurrentPage(1); }}>
+                                <X size={14} />
+                            </Button>
                         )}
                     </div>
                 </div>
@@ -3176,7 +3236,9 @@ const AlternateCgmTab = ({ onToast }) => {
                                 {assignedCodes.length === 0 ? (
                                     <p className="text-sm text-slate-400 italic py-2">No alternate CGM departments assigned.</p>
                                 ) : (
-                                    <div className="space-y-2 max-h-52 overflow-y-auto overscroll-contain pr-1 scrollbar-thin">
+                                    /* Chains to the modal body once it ends; the modal body is
+                                       the contained boundary, so nothing leaks to the page. */
+                                    <div className="space-y-2 max-h-52 overflow-y-auto pr-1 scrollbar-thin">
                                         {assignedCodes.map(code => {
                                             const deptObj = departments.find(d => d.shortCode.toLowerCase() === code);
                                             const isRemovingThis = inProgress && actionInProgress.action === 'remove' && actionInProgress.deptCode === code;
@@ -3189,7 +3251,7 @@ const AlternateCgmTab = ({ onToast }) => {
                                                     <button
                                                         onClick={() => handleRemoveAltCgm(u, code)}
                                                         disabled={inProgress}
-                                                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-danger bg-white border border-danger/20 hover:bg-danger-tint rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-danger bg-surface border border-danger/20 hover:bg-danger-tint rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         {isRemovingThis ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
                                                         {isRemovingThis ? 'Removing…' : 'Remove'}
@@ -3230,97 +3292,37 @@ const AlternateCgmTab = ({ onToast }) => {
             </Modal>
 
             {/* Table */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
-                {loading ? (
-                    <div className="flex items-center justify-center flex-1 py-16">
-                        <Loader2 size={24} className="animate-spin text-canopy" />
-                    </div>
-                ) : users.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center flex-1 gap-2 text-slate-400 py-16">
-                        <Users size={36} strokeWidth={1.5} />
-                        <p className="text-sm">No Grade-F users found</p>
-                    </div>
-                ) : (
-                    <>
-                        <div className="overflow-auto scrollbar-thin max-h-[70vh]">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-4 py-3 font-semibold text-slate-700 w-10 text-center">#</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700">Name</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700">UIN</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700">Designation</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700">Department</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700">Alternate CGM Depts.</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700 w-20 text-center">Manage</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {paged.map((u, idx) => {
-                                        const assignedCodes = alternateCgmMap.get(u.object_name) || [];
-                                        return (
-                                            <tr key={u.user_login_name || idx} className="hover:bg-canopy-tint/40 transition-colors group">
-                                                <td className="px-4 py-3 text-slate-400 font-mono text-xs text-center">
-                                                    {(currentPage - 1) * PAGE_SIZE + idx + 1}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="font-medium text-slate-900">{u.object_name || '—'}</div>
-                                                    <div className="text-xs text-slate-500 group-hover:text-canopy transition-colors">{u.user_login_name}</div>
-                                                </td>
-                                                <td className="px-4 py-3 text-slate-600 font-mono text-xs">{u.uin || '—'}</td>
-                                                <td className="px-4 py-3 text-slate-600">{u.designation || '—'}</td>
-                                                <td className="px-4 py-3 text-slate-600 font-mono text-xs">{u.department_short_code || <span className="text-slate-400">—</span>}</td>
-                                                <td className="px-4 py-3">
-                                                    {loadingAltCgm ? (
-                                                        <Loader2 size={13} className="animate-spin text-slate-300" />
-                                                    ) : assignedCodes.length === 0 ? (
-                                                        <span className="text-xs text-slate-400">—</span>
-                                                    ) : (
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {assignedCodes.map(code => (
-                                                                <span key={code} className="px-2 py-0.5 bg-harvest/15 text-harvest border border-harvest/25 rounded-full text-xs font-medium">
-                                                                    {code.toUpperCase()}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <button
-                                                        onClick={() => { setManagingUser(u); setModalDeptSelect(''); }}
-                                                        className="p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-400 hover:text-canopy hover:shadow-sm rounded-lg transition-[color,background-color,border-color,box-shadow]"
-                                                        title="Manage Alternate CGM departments"
-                                                    >
-                                                        <Edit2 size={15} />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+            <div className="bg-surface border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
+                <DataTable
+                    columns={altCgmColumns}
+                    rows={paged}
+                    rowKey={(u, idx) => u.user_login_name || idx}
+                    loading={loading}
+                    skeletonRows={8}
+                    empty={{ icon: Users, title: 'No Grade-F users found' }}
+                    stickyHeader
+                    maxHeight="70vh"
+                    className="p-3 md:p-0"
+                />
 
-                        {/* Pagination */}
-                        {totalPages > 1 && (
-                            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50/50 text-sm text-slate-500">
-                                <span>Showing <span className="font-medium text-slate-900">{rangeStart}</span> to <span className="font-medium text-slate-900">{rangeEnd}</span> of <span className="font-medium text-slate-900">{filtered.length}</span> results</span>
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                                        className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-canopy disabled:opacity-40 text-slate-500 transition-colors">
-                                        <ChevronLeft size={16} />
-                                    </button>
-                                    <div className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 min-w-[3rem] text-center shadow-sm">
-                                        {currentPage}
-                                    </div>
-                                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                                        className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-canopy disabled:opacity-40 text-slate-500 transition-colors">
-                                        <ChevronRight size={16} />
-                                    </button>
-                                </div>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50/50 text-sm text-slate-500 sm:px-6 sm:py-4">
+                        <span>Showing <span className="font-medium text-slate-900">{rangeStart}</span> to <span className="font-medium text-slate-900">{rangeEnd}</span> of <span className="font-medium text-slate-900">{filtered.length}</span> results</span>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                                className="p-2 border border-slate-200 rounded-lg hover:bg-surface hover:text-canopy disabled:opacity-40 text-slate-500 transition-colors">
+                                <ChevronLeft size={16} />
+                            </button>
+                            <div className="px-4 py-1.5 bg-surface border border-slate-200 rounded-lg text-sm font-medium text-slate-700 min-w-[3rem] text-center shadow-sm">
+                                {currentPage}
                             </div>
-                        )}
-                    </>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                                className="p-2 border border-slate-200 rounded-lg hover:bg-surface hover:text-canopy disabled:opacity-40 text-slate-500 transition-colors">
+                                <ChevronRight size={16} />
+                            </button>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

@@ -38,7 +38,7 @@ const PANEL_MAX_H = 240;
 const EMPTY = '__cs_empty__';
 
 const panelCls =
-    'z-[99999] flex flex-col overflow-hidden bg-white border border-line rounded-lg shadow-pop ' +
+    'z-[99999] flex flex-col overflow-hidden bg-surface border border-line rounded-lg shadow-pop ' +
     'data-[state=open]:animate-panel-in data-[state=closed]:animate-panel-out';
 
 const optionCls = (disabled, isSel, highlightAttr) =>
@@ -128,10 +128,10 @@ const CustomSelect = ({
         disabled && 'border-line bg-paper text-slate-400 cursor-not-allowed',
         !disabled &&
             invalid &&
-            'border-danger bg-white cursor-pointer ring-2 ring-danger/20 data-[state=open]:ring-danger/30',
+            'border-danger bg-surface cursor-pointer ring-2 ring-danger/20 data-[state=open]:ring-danger/30',
         !disabled &&
             !invalid &&
-            'border-line bg-white hover:border-slate-300 cursor-pointer data-[state=open]:border-canopy data-[state=open]:ring-2 data-[state=open]:ring-canopy/20',
+            'border-line bg-surface hover:border-slate-300 cursor-pointer data-[state=open]:border-canopy data-[state=open]:ring-2 data-[state=open]:ring-canopy/20',
         'data-[placeholder]:text-slate-400',
         className,
     );
@@ -189,8 +189,14 @@ const CustomSelect = ({
                                     className="w-full py-2 text-body text-ink bg-transparent focus:outline-none"
                                 />
                             </div>
+                            {/* No `overscroll-contain`: this panel floats over a page that is
+                                still scrollable (Popover, unlike Select, does not lock the body).
+                                Containing it means that once the list reaches its last option the
+                                wheel is swallowed and the page underneath freezes. Chaining is
+                                safe here — Radix repositions the panel against its trigger while
+                                the page moves. */}
                             <Command.List
-                                className="overflow-y-auto overscroll-contain scrollbar-thin"
+                                className="overflow-y-auto scrollbar-thin"
                                 style={{ maxHeight: PANEL_MAX_H }}
                             >
                                 <Command.Empty className="px-3 py-2 text-body text-slate-400">
@@ -267,6 +273,9 @@ const CustomSelect = ({
                         maxHeight: `min(${PANEL_MAX_H}px, var(--radix-select-content-available-height))`,
                     }}
                 >
+                    {/* Radix Select locks body scroll while open, so there is nothing behind
+                        this panel for the wheel to chain to — `overscroll-contain` is kept
+                        only to stop the rubber-band on trackpads. */}
                     <RSelect.Viewport className="overflow-y-auto overscroll-contain scrollbar-thin">
                         {options.map((opt, i) => (
                             <RSelect.Item

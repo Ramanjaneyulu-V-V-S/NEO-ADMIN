@@ -5,8 +5,7 @@ import { Lock, Loader2, ArrowRight, Mail, Eye, EyeOff } from 'lucide-react';
 import api from '../api/axios';
 import nabardLogo from '../assets/nabard-logo.svg';
 import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
-
-const EASE_SMOOTH = [0.32, 0.72, 0, 1];
+import { EASE_SMOOTH } from '../utils/motion';
 
 // Determine repository based on environment
 const getDefaultRepository = () => {
@@ -203,24 +202,25 @@ const LoginPage = () => {
 
     return (
         <div className="min-h-[100dvh] flex font-sans text-ink">
-            {/* Left Side - Brand Section */}
-            <div className="hidden lg:flex w-[45%] bg-canopy relative flex-col justify-between p-12 text-white overflow-hidden">
+            {/* Left Side - Brand Section — fixed brand green/white so the NABARD
+                lockup reads identically in every theme (see `brand` in tailwind.config.js) */}
+            <div className="hidden lg:flex w-[45%] bg-brand relative flex-col justify-between p-12 text-brand-foreground overflow-hidden">
                 {/* Background Pattern */}
-                <div className="absolute inset-0 opacity-10" 
+                <div className="absolute inset-0 opacity-10"
                      style={{
                          backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
                          backgroundSize: '32px 32px'
                      }}>
                 </div>
-                
+
                 {/* Decorative Circles */}
-                <div className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full border border-white/10" />
-                <div className="absolute -bottom-10 -left-10 w-64 h-64 rounded-full border border-white/10" />
+                <div className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full border border-brand-foreground/10" />
+                <div className="absolute -bottom-10 -left-10 w-64 h-64 rounded-full border border-brand-foreground/10" />
 
                 <div className="relative z-10">
                     <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-white p-2 shadow-card backdrop-blur-sm">
-                            <img src={nabardLogo} alt="NABARD" className="h-7 w-7" />
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-foreground p-2 shadow-pop">
+                            <img src={nabardLogo} alt="NABARD" className="h-full w-full object-contain" />
                         </div>
                         <span className="font-display text-2xl font-medium tracking-tight">NEO Admin</span>
                     </div>
@@ -230,20 +230,51 @@ const LoginPage = () => {
                     <p className="font-display text-display-lg font-medium leading-tight">
                         A registry of record for NABARD.
                     </p>
-                    <p className="mt-3 text-sm text-white/70">
+                    <p className="mt-3 text-sm text-brand-foreground/70">
                         Cases, workflows, users and groups — one console for the people who keep them in order.
                     </p>
                 </div>
             </div>
 
             {/* Right Side - Login Form */}
-            <div className="flex-1 bg-paper flex flex-col justify-center items-center p-8 relative">
+            <div className="flex-1 bg-paper flex flex-col justify-center items-center p-8 relative overflow-hidden">
+                {/* Same dotted texture as the brand panel, echoed here in `ink` at low
+                    opacity — ties the two halves together instead of leaving this side
+                    a flat, empty wall (most noticeable in light mode). */}
+                <div
+                    className="pointer-events-none absolute inset-0 opacity-[0.08]"
+                    style={{
+                        backgroundImage: 'radial-gradient(circle at 2px 2px, rgb(var(--c-ink)) 1px, transparent 0)',
+                        backgroundSize: '32px 32px',
+                    }}
+                />
+                {/* Decorative rings, mirrored from the brand panel's bottom-left pair —
+                    gives this side the same "designed" quality instead of bare paper. */}
+                <div className="absolute -bottom-24 -right-24 w-96 h-96 rounded-full border border-canopy/10" />
+                <div className="absolute -bottom-10 -right-10 w-64 h-64 rounded-full border border-canopy/10" />
+                {/* Brand-tinted halo, centred directly behind the card (the flex layout
+                    centres the card at 50/50 of this panel) rather than floating above
+                    it. Alpha-based against `canopy` — a tint-vs-paper colour diff is a
+                    few RGB values apart in light mode and effectively invisible, while
+                    an alpha glow shows up the same way in every theme. */}
+                <div
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                        background: 'radial-gradient(ellipse 48% 52% at 50% 50%, rgb(var(--c-canopy) / 0.20) 0%, rgb(var(--c-canopy) / 0.08) 48%, transparent 76%)',
+                    }}
+                />
                 <motion.div
                     initial={reduceMotion ? false : { opacity: 0, y: 15 }}
                     animate={reduceMotion ? false : { opacity: 1, y: 0 }}
                     transition={{ duration: 0.25, ease: EASE_SMOOTH }}
-                    className="w-full max-w-md bg-white rounded-card border border-line shadow-card p-8 md:p-10"
+                    className="relative w-full max-w-md bg-surface rounded-card border border-line shadow-[0_30px_80px_-25px_rgb(var(--c-canopy)/0.35)] p-8 md:p-10"
                 >
+                    {/* Full NABARD emblem on a fixed light backing (not the theme-aware
+                        card surface) — the mark itself is dark line-art, so on a dark-mode
+                        card it would wash out the same way the old small badge used to. */}
+                    <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-brand-foreground p-3 shadow-pop lg:hidden">
+                        <img src={nabardLogo} alt="NABARD" className="h-full w-full object-contain" />
+                    </div>
                     <div className="ledger-spine pl-4 mb-8">
                         <h2 className="font-display text-display font-medium text-ink">Sign in</h2>
                         <p className="mt-1 text-sm text-slate-500">Use your NEO credentials.</p>

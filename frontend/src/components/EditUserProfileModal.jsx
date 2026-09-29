@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../api/axios';
-import { X, Save, Loader2, User, Building2, MapPin, Tag, Layers, AlertCircle, ArrowRightLeft, Users } from 'lucide-react';
-import { USER_GRADES, DESIGNATION_OPTIONS, getLocations, fetchDepartments, RO_LOCATIONS, TE_LOCATIONS, DDM_DISTRICTS } from '../data/nabardMetadata.js';
+import { Save, Loader2, User, Building2, MapPin, Tag, Layers, AlertCircle, ArrowRightLeft, Users } from 'lucide-react';
+import {
+    USER_GRADES, DESIGNATION_OPTIONS, DESIGNATION_OTHER, getLocations, fetchDepartments, RO_LOCATIONS, TE_LOCATIONS, DDM_DISTRICTS,
+    DESIGNATION_GRADE_MAPPING, DDM_DESIGNATION_OPTIONS, DDM_GRADE_DESIGNATION_MAPPING, GRADE_DESIGNATION_MAPPING,
+} from '../data/nabardMetadata.js';
+import { syncUserGroups } from '../utils/userGroupSync.js';
 import { Modal } from './ui';
 import CustomSelect from './ui/CustomSelect.jsx';
 
@@ -10,49 +14,7 @@ const USER_GRADE_OPTIONS = [
     ...USER_GRADES.map(g => ({ value: g.value, label: g.label, level: g.gradeLevel })),
 ];
 
-// Designation to User Grade mapping
-const DESIGNATION_GRADE_MAPPING = {
-    'DA': 'group_b',      // Group B
-    'AM': 'grade_a',      // Grade A
-    'MGR': 'grade_b',     // Grade B
-    'AGM': 'grade_c',     // Grade C
-    'DGM': 'grade_d',     // Grade D
-    'GM': 'grade_e',      // Grade E
-    'GM(OIC)': 'grade_e(oic)', // Grade E (OIC)
-    'CGM': 'grade_f',     // Grade F
-    'DDM GRADE B': 'grade_b', // DDM users (Grade B)
-    'DDM GRADE C': 'grade_c', // DDM users (Grade C)
-    'DDM GRADE D': 'grade_d', // DDM users (Grade D)
-};
-
-// Designation options shown for DDM users (department = DDM, office type RO/TE)
-const DDM_DESIGNATION_OPTIONS = [
-    { value: '', label: '— Select designation —' },
-    { value: 'DDM GRADE B', label: 'DDM GRADE B' },
-    { value: 'DDM GRADE C', label: 'DDM GRADE C' },
-    { value: 'DDM GRADE D', label: 'DDM GRADE D' },
-];
-
-// User Grade to Designation mapping for DDM users (keeps the DDM-only dropdown consistent)
-const DDM_GRADE_DESIGNATION_MAPPING = {
-    'grade_b': 'DDM GRADE B',
-    'grade_c': 'DDM GRADE C',
-    'grade_d': 'DDM GRADE D',
-};
-
-// User Grade to Designation mapping (reverse mapping)
-const GRADE_DESIGNATION_MAPPING = {
-    'group_b': 'DA',
-    'grade_a': 'AM',
-    'grade_b': 'MGR',
-    'grade_c': 'AGM',
-    'grade_d': 'DGM',
-    'grade_e': 'GM',
-    'grade_e(oic)': 'GM(OIC)',
-    'grade_f': 'CGM',
-};
-
-const inputCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-white';
+const inputCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-surface';
 const readonlyCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm bg-slate-50 text-slate-500 cursor-default font-mono';
 const disabledSelectCls = 'w-full px-3 py-2 border border-line rounded-lg text-sm bg-slate-100 text-slate-400 cursor-not-allowed appearance-none';
 
@@ -62,7 +24,7 @@ const Label = ({ children, required }) => (
     </label>
 );
 
-const errorCls = 'w-full px-3 py-2 border border-danger/70 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-danger/70/20 focus:border-danger bg-white';
+const errorCls = 'w-full px-3 py-2 border border-danger/70 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-danger/70/20 focus:border-danger bg-surface';
 
 const SelectWrapper = ({ children }) => (
     <div className="relative">
@@ -82,6 +44,10 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
     const [error, setError] = useState(null);
     const [errors, setErrors] = useState({});
     const [designationChanged, setDesignationChanged] = useState(false);
+    // True while the Designation field shows the free-text "Other" input instead
+    // of the dropdown value — set on load if the stored designation isn't one of
+    // the known options, and toggled when the user picks "Other" manually.
+    const [designationCustom, setDesignationCustom] = useState(false);
     const [gradeChanged, setGradeChanged] = useState(false);
     const originalGroupInfoRef = useRef({ officeType: '', roShortCode: '', deptCodes: [], designation: '', location: '', departmentName: '', deptShortCode: '' });
     const hindiTouched = useRef({});
@@ -256,6 +222,13 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
             is_active:                   profile.is_active              ?? false,
         };
         setForm(finalForm);
+        // DDM designations are a fixed 3-value grade-linked set (no "Other" row there) —
+        // only flag a custom/free-text designation for the general (non-DDM) dropdown.
+        const isDDMDesignation = isDDMProfile && isROTE;
+        setDesignationCustom(
+            !isDDMDesignation && !!finalForm.designation &&
+            !DESIGNATION_OPTIONS.some(o => o.value === finalForm.designation)
+        );
         setIsRetiring(officeType === 'RETIRED');
         setError(null);
         setErrors({});
@@ -868,261 +841,8 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
 
             await api.patch(`/users/profiles/${user.r_object_id}`, payload);
 
-            // Use payload's department codes as single source of truth for group management
-            const payloadDeptCodes = isHO
-                ? (payload.department_short_code_multi || [])
-                : (payload.department_short_code_multi || []);
-
-            const getGroups = (offType, roCode, codes) => {
-                const groups = [];
-                if (offType === 'HO') {
-                    for (const c of codes) if (c) groups.push(`ecm_ho_${c.toLowerCase()}`);
-                } else if (['RO', 'TE'].includes(offType) && roCode) {
-                    const ro = roCode.toLowerCase();
-                    if (codes.length > 0) groups.push(`ecm_${ro}`);
-                    for (const c of codes) if (c) groups.push(`ecm_${ro}_${c.toLowerCase()}`);
-                }
-                return groups;
-            };
-
-            const getDigidakGroups = (offType, roCode, codes) => {
-                const groups = [];
-                if (offType === 'HO') {
-                    for (const c of codes) {
-                        if (c) {
-                            groups.push(`ecm_digidak_ho_${c.toLowerCase()}_cgm`);
-                            groups.push(`ecm_digidak_ho_${c.toLowerCase()}_cgm_ps`);
-                        }
-                    }
-                } else if (['RO', 'TE'].includes(offType) && roCode) {
-                    const ro = roCode.toLowerCase();
-                    for (const c of codes) {
-                        if (c) {
-                            groups.push(`ecm_digidak_${offType.toLowerCase()}_${ro}_${c.toLowerCase()}_cgm`);
-                        }
-                    }
-                }
-                return groups;
-            };
-
             const memberName = user.user_login_name;
-            if (!memberName || !memberName.trim()) {
-                console.error('Cannot perform group updates: user_login_name is missing', user);
-                throw new Error('User login name is required for group management');
-            }
-
-            const old = originalGroupInfoRef.current;
-            const newRoShortCode = (form.ro_short_code || '').toLowerCase();
-            const wasDDMBefore = old.deptCodes.length === 0;
-
-            if (isDDMUser) {
-                // DDM-specific group management: handle ecm_digidak_ro_<code>_ddm groups
-                const oldRoCode = (old.roShortCode || '').toLowerCase();
-
-
-                // If transitioning FROM standard departments TO DDM, remove all department-related groups
-                if (!wasDDMBefore) {
-                    // Query all current groups and remove any non-DDM, non-superuser groups
-                    api.get(`/groups/by-user?username=${encodeURIComponent(memberName)}`)
-                        .then(groupsResponse => {
-                            const currentGroups = Array.isArray(groupsResponse.data) ? groupsResponse.data : [];
-
-                            for (const groupObj of currentGroups) {
-                                const groupName = groupObj.group_name || groupObj.name;
-                                // Keep only dm_superusers_dynamic and DDM groups (if any)
-                                if (groupName &&
-                                    groupName !== 'dm_superusers_dynamic' &&
-                                    !groupName.includes('_ddm')) {
-                                    api.delete(`/groups/${groupName}/members/${encodeURIComponent(memberName)}`).catch(err => {
-                                        console.error(`Failed to remove ${groupName}:`, err.response?.data || err.message);
-                                    });
-                                }
-                            }
-                        })
-                        .catch(err => {
-                            console.error('Failed to query user groups:', err.message);
-                            // Fallback: try to remove calculated groups if query fails
-                            const oldGroups = getGroups(old.officeType, old.roShortCode, old.deptCodes);
-                            const oldDigidakGroups = getDigidakGroups(old.officeType, old.roShortCode, old.deptCodes);
-                            const allOldGroups = [...oldGroups, ...oldDigidakGroups];
-                            for (const g of allOldGroups) {
-                                api.delete(`/groups/${g}/members/${encodeURIComponent(memberName)}`).catch(() => {});
-                            }
-                        });
-                }
-
-                // Always ensure user is in the current DDM group (handles both new DDM and missed prior adds)
-                if (newRoShortCode) {
-                    api.post(`/groups/ecm_digidak_ro_${newRoShortCode}_ddm/members`, { memberName, memberType: 'user' }).catch(err => {
-                        console.warn(`Failed to add DDM group: ${err.message}`);
-                    });
-                }
-
-                // Cleanup non-DDM groups for any DDM user (whether changing district or not)
-                // Query all current groups and remove any non-DDM, non-superuser groups
-                const cleanupNonDDMGroups = () => {
-                    api.get(`/groups/by-user?username=${encodeURIComponent(memberName)}`)
-                        .then(groupsResponse => {
-                            const currentGroups = Array.isArray(groupsResponse.data) ? groupsResponse.data : [];
-
-                            for (const groupObj of currentGroups) {
-                                const groupName = groupObj.group_name || groupObj.name;
-                                // Keep only dm_superusers_dynamic and DDM groups
-                                if (groupName &&
-                                    groupName !== 'dm_superusers_dynamic' &&
-                                    !groupName.includes('_ddm')) {
-                                    api.delete(`/groups/${groupName}/members/${encodeURIComponent(memberName)}`).catch(err => {
-                                        console.error(`Failed to remove ${groupName}:`, err.response?.data || err.message);
-                                    });
-                                }
-                            }
-                        })
-                        .catch(err => {
-                            console.error('Failed to query user groups:', err.message);
-                        });
-                };
-
-                // If location changed and user was DDM before, remove from old DDM group and clean up
-                if (wasDDMBefore && oldRoCode && oldRoCode !== newRoShortCode) {
-                    // Remove from old DDM group
-                    api.delete(`/groups/ecm_digidak_ro_${oldRoCode}_ddm/members/${encodeURIComponent(memberName)}`).catch(err => {
-                        console.warn(`Failed to remove old DDM group: ${err.message}`);
-                    });
-                    cleanupNonDDMGroups();
-                } else if (wasDDMBefore) {
-                    // User was already DDM, just ensure non-DDM groups are removed
-                    cleanupNonDDMGroups();
-                }
-            } else {
-                // Standard group management for non-DDM users
-                // If user was DDM before, remove the old DDM group
-                if (wasDDMBefore) {
-                    const oldRoCode = (old.roShortCode || '').toLowerCase();
-                    if (oldRoCode) {
-                        api.delete(`/groups/ecm_digidak_ro_${oldRoCode}_ddm/members/${encodeURIComponent(memberName)}`).catch(err => {
-                            console.warn(`Failed to remove DDM group: ${err.message}`);
-                        });
-                    }
-                }
-
-                // Use payloadDeptCodes as single source of truth (exact data sent to backend)
-                const newDeptCodes = payloadDeptCodes;
-
-                const oldGroups = getGroups(old.officeType, old.roShortCode, old.deptCodes);
-                const newGroups = getGroups(form.office_type, newRoShortCode, newDeptCodes);
-
-                // Compute which departments were removed and which were added
-                const oldDeptCodesLower = old.deptCodes.map(c => c.toLowerCase());
-                const newDeptCodesLower = newDeptCodes.map(c => c.toLowerCase());
-                const removedDepts = oldDeptCodesLower.filter(d => !newDeptCodesLower.includes(d));
-                const addedDepts = newDeptCodesLower.filter(d => !oldDeptCodesLower.includes(d));
-
-                // A location (RO/TE short code) or office-type change re-scopes every
-                // region-prefixed group, so the department diff alone is not enough:
-                // the user must fully vacate the old region's ecm_* groups and join the
-                // new region's. When only departments changed at the same location, keep
-                // the narrow per-department behaviour.
-                const oldRoCodeLower = (old.roShortCode || '').toLowerCase();
-                const scopeChanged =
-                    old.officeType !== form.office_type ||
-                    (['RO', 'TE'].includes(form.office_type) && oldRoCodeLower !== newRoShortCode);
-
-                // Only remove groups for departments that were actually removed
-                for (const g of oldGroups) {
-                    const deptMatch = g.match(/ecm_ho_([a-z]+)/) || g.match(/ecm_([a-z]+)_([a-z]+)/);
-                    let shouldRemove = scopeChanged;
-
-                    if (!shouldRemove && form.office_type === 'HO' && deptMatch) {
-                        const dept = deptMatch[1];
-                        shouldRemove = removedDepts.includes(dept);
-                    } else if (!shouldRemove && ['RO', 'TE'].includes(form.office_type) && deptMatch) {
-                        const dept = deptMatch[2];
-                        shouldRemove = removedDepts.includes(dept);
-                    }
-
-                    if (shouldRemove) {
-                        api.delete(`/groups/${g}/members/${encodeURIComponent(memberName)}`).catch(err => {
-                            console.error(`Failed to remove ${g}:`, err.response?.data || err.message);
-                        });
-                    }
-                }
-
-                // Only add groups for departments that were actually added
-                for (const g of newGroups) {
-                    const deptMatch = g.match(/ecm_ho_([a-z]+)/) || g.match(/ecm_([a-z]+)_([a-z]+)/);
-                    let shouldAdd = scopeChanged;
-
-                    if (!shouldAdd && form.office_type === 'HO' && deptMatch) {
-                        const dept = deptMatch[1];
-                        shouldAdd = addedDepts.includes(dept);
-                    } else if (!shouldAdd && ['RO', 'TE'].includes(form.office_type) && deptMatch) {
-                        const dept = deptMatch[2];
-                        shouldAdd = addedDepts.includes(dept);
-                    }
-
-                    if (shouldAdd) {
-                        api.post(`/groups/${g}/members`, { memberName, memberType: 'user' }).catch(err => {
-                            console.error(`Failed to add ${g}:`, err.response?.data || err.message);
-                        });
-                    }
-                }
-            }
-
-            // ── CGM group management based on designation change or location change (skip for DDM users) ──────────
-            if (!isDDMUser) {
-                const getCgmGroup = (offType, roCode, deptCodes) => {
-                    if (offType === 'HO') {
-                        const dc = (deptCodes[0] || '').toLowerCase();
-                        return dc ? `ecm_digidak_ho_${dc}_cgm` : '';
-                    } else if (['RO', 'TE'].includes(offType) && roCode) {
-                        return `ecm_digidak_${offType.toLowerCase()}_${roCode.toLowerCase()}_cgm`;
-                    }
-                    return '';
-                };
-
-                // Use payloadDeptCodes as single source of truth (exact data sent to backend)
-                const newDeptCodes = payloadDeptCodes;
-
-                const oldDesignation = (old.designation || '').toUpperCase();
-                const newDesignation = (form.designation || '').toUpperCase();
-                const wasCGM = oldDesignation === 'CGM';
-                const isCGM  = newDesignation === 'CGM';
-                const oldRoCode = (old.roShortCode || '').toLowerCase();
-                const locationChanged = oldRoCode !== newRoShortCode;
-
-                if (isCGM && !wasCGM) {
-                    // Designation changed TO CGM — add CGM group
-                    const cgmGroup = getCgmGroup(form.office_type, newRoShortCode, newDeptCodes);
-                    if (cgmGroup) {
-                        api.post(`/groups/${cgmGroup}/members`, { memberName, memberType: 'user' }).catch(err => {
-                            console.error(`Failed to add ${cgmGroup}:`, err.response?.data || err.message);
-                        });
-                    }
-                } else if (wasCGM && !isCGM) {
-                    // Designation changed FROM CGM — remove old CGM group
-                    const cgmGroup = getCgmGroup(old.officeType, old.roShortCode, old.deptCodes);
-                    if (cgmGroup) {
-                        api.delete(`/groups/${cgmGroup}/members/${encodeURIComponent(memberName)}`).catch(err => {
-                            console.error(`Failed to remove ${cgmGroup}:`, err.response?.data || err.message);
-                        });
-                    }
-                } else if (isCGM && locationChanged) {
-                    // Location changed while user is CGM — remove old location's CGM group, add new one
-                    const oldCgmGroup = getCgmGroup(old.officeType, old.roShortCode, old.deptCodes);
-                    const newCgmGroup = getCgmGroup(form.office_type, newRoShortCode, newDeptCodes);
-
-                    if (oldCgmGroup && oldCgmGroup !== newCgmGroup) {
-                        api.delete(`/groups/${oldCgmGroup}/members/${encodeURIComponent(memberName)}`).catch(err => {
-                            console.error(`Failed to remove ${oldCgmGroup}:`, err.response?.data || err.message);
-                        });
-                    }
-                    if (newCgmGroup && oldCgmGroup !== newCgmGroup) {
-                        api.post(`/groups/${newCgmGroup}/members`, { memberName, memberType: 'user' }).catch(err => {
-                            console.error(`Failed to add ${newCgmGroup}:`, err.response?.data || err.message);
-                        });
-                    }
-                }
-            }
+            await syncUserGroups({ old: originalGroupInfoRef.current, form, payload, memberName });
 
             onUpdate();
             onClose();
@@ -1147,8 +867,9 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
     const isROTE    = ['RO', 'TE'].includes(form.office_type);
     const isDDMUser = form.department_name === 'DDM' && isROTE;
 
-    // Delegate case modal
-    const DelegateCaseModal = () => {
+    // Delegate case modal — plain render function (not a nested component) so the Modal
+    // keeps its identity across parent re-renders and doesn't replay its enter animation.
+    const renderDelegateCaseModal = () => {
         if (!delegateTask) return null;
         const caseName   = pf(delegateTask, 'object_name') || delegateTask.caseName || '—';
         const deptName   = pf(delegateTask, 'department_name') || delegateTask.department_name || '';
@@ -1189,24 +910,37 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
             }
         }
         return (
-            <div className="fixed inset-0 z-[9995] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
-                                <ArrowRightLeft size={17} className="text-white" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-bold text-slate-900">Delegate Case</p>
-                                <p className="text-xs text-slate-500 font-mono">{caseName}</p>
-                            </div>
-                        </div>
+            <Modal
+                isOpen
+                onClose={() => setDelegateTask(null)}
+                size="md"
+                title={
+                    <span className="flex items-center gap-3">
+                        <span className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
+                            <ArrowRightLeft size={17} className="text-white" />
+                        </span>
+                        <span className="flex flex-col">
+                            <span>Delegate Case</span>
+                            <span className="font-mono text-xs font-normal text-slate-500">{caseName}</span>
+                        </span>
+                    </span>
+                }
+                footer={
+                    <>
                         <button onClick={() => setDelegateTask(null)}
-                            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                            <X size={18} />
+                            className="px-4 py-2 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                            Cancel
                         </button>
-                    </div>
-                    <div className="p-6 space-y-4">
+                        <button
+                            onClick={handleDelegateConfirm}
+                            disabled={!delegateSelectedUser || !!delegatingCaseId}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors">
+                            {delegatingCaseId ? <><Loader2 size={12} className="animate-spin" /> Delegating…</> : <><ArrowRightLeft size={12} /> Delegate</>}
+                        </button>
+                    </>
+                }
+            >
+                    <div className="space-y-4">
                         <div className="text-xs text-slate-500 space-y-1">
                             {isRoTe && locLabel && (
                                 <div>Location: <span className="font-semibold text-slate-700">{locLabel}</span> <span className="text-slate-400">({offType})</span></div>
@@ -1240,20 +974,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                             )}
                         </div>
                     </div>
-                    <div className="flex items-center justify-end gap-2 px-6 pb-5">
-                        <button onClick={() => setDelegateTask(null)}
-                            className="px-4 py-2 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleDelegateConfirm}
-                            disabled={!delegateSelectedUser || !!delegatingCaseId}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors">
-                            {delegatingCaseId ? <><Loader2 size={12} className="animate-spin" /> Delegating…</> : <><ArrowRightLeft size={12} /> Delegate</>}
-                        </button>
-                    </div>
-                </div>
-            </div>
+            </Modal>
         );
     };
 
@@ -1271,7 +992,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
             footer={
                 <>
                     <button onClick={onClose}
-                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
+                        className="px-4 py-2 bg-surface border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
                         Cancel
                     </button>
                     <button type="submit" form="editProfileForm" disabled={loading || loadingForm || checkingInbox || checkingOfficeInbox || checkingDeptInbox || checkingLocationInbox || checkingRetiredInbox || (isSuperAdmin && showPendingBlock) || showOfficeBlock || showDeptBlock || showLocationBlock || showRetiredBlock}
@@ -1282,7 +1003,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                 </>
             }
         >
-            <DelegateCaseModal />
+            {renderDelegateCaseModal()}
             {error && (
                 <div className="mb-4 p-3 bg-danger-tint text-danger rounded-lg text-sm border border-danger-tint">{error}</div>
             )}
@@ -1307,11 +1028,17 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                 <div className="space-y-1">
                                     <Label required>Designation</Label>
                                     <CustomSelect
-                                        value={form.designation}
+                                        value={designationCustom ? DESIGNATION_OTHER : form.designation}
                                         invalid={!!errors.designation}
                                         onChange={newDesignation => {
                                             lastManualChangeRef.current = 'designation';
-                                            set('designation', newDesignation);
+                                            if (newDesignation === DESIGNATION_OTHER) {
+                                                setDesignationCustom(true);
+                                                set('designation', '');
+                                            } else {
+                                                setDesignationCustom(false);
+                                                set('designation', newDesignation);
+                                            }
                                             setErrors(p => ({ ...p, designation: undefined }));
                                             // Track if designation was actually changed from original
                                             setDesignationChanged(newDesignation !== originalGroupInfoRef.current.designation);
@@ -1320,6 +1047,16 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                         }}
                                         options={isDDMUser ? DDM_DESIGNATION_OPTIONS : DESIGNATION_OPTIONS}
                                     />
+                                    {!isDDMUser && designationCustom && (
+                                        <input type="text" value={form.designation}
+                                            onChange={e => {
+                                                set('designation', e.target.value);
+                                                setErrors(p => ({ ...p, designation: undefined }));
+                                            }}
+                                            placeholder="Enter designation"
+                                            className={errors.designation ? errorCls : inputCls}
+                                            autoFocus />
+                                    )}
                                     {errors.designation && <p className="text-xs text-danger">{errors.designation}</p>}
                                     {designationChanged && <p className="text-xs text-harvest font-medium mt-1">💡 User grade has been auto-updated based on designation</p>}
                                 </div>
@@ -1776,7 +1513,7 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
                                             checked={isRetiring}
                                             onChange={e => handleRetiredChange(e.target.checked)}
                                             disabled={checkingRetiredInbox} />
-                                        <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-canopy/20 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-transform peer-checked:bg-canopy peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
+                                        <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-canopy/20 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white dark:after:bg-slate-600 after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-transform peer-checked:bg-canopy peer-checked:after:translate-x-full peer-checked:after:border-white dark:peer-checked:after:bg-white"></div>
                                     </label>
                                 </div>
 

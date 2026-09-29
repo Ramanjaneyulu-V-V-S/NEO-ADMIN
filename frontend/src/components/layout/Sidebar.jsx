@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { GitBranch, Users, Briefcase, Database, Network, FolderCog, Building2, FileBarChart2 } from 'lucide-react';
+import { GitBranch, Users, Briefcase, Database, Network, FolderCog, Building2, FileBarChart2, UploadCloud, Mail } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../../api/axios';
 import { cn } from '../../utils/cn';
@@ -51,6 +51,7 @@ const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
     const allNavItems = [
         { name: 'User Management',        path: '/dashboard/users',     icon: Users,        roles: null, section: 'Records' },
         { name: 'Cases',        path: '/dashboard/cases',     icon: Briefcase,    roles: null, section: 'Records' },
+        { name: 'Digidak',      path: '/dashboard/digidak',   icon: Mail,         roles: null, section: 'Records' },
         { name: 'Reports',      path: '/dashboard/reports',   icon: FileBarChart2, roles: null, section: 'Records' },
         { name: 'Workflows',    path: '/dashboard/workflows', icon: GitBranch,    roles: null, section: 'Records', hideForLocalAdmin: true },
         { name: 'NABARD Department Management',  path: '/dashboard/departments', icon: Building2,  roles: ['Super Admin'], section: 'Configuration' },
@@ -59,6 +60,7 @@ const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
         { name: 'Metadata',     path: '/dashboard/metadata',  icon: FolderCog,    roles: null, section: 'Configuration' },
         { name: 'SFS',          path: '/dashboard/sfs',       icon: FolderCog,    roles: null, section: 'Configuration', showOnlyForHRMD: true },
         { name: 'Query',        path: '/dashboard/query',     icon: Database,     roles: null, section: 'Tools', hideForLocalAdmin: true },
+        { name: 'IV Republish', path: '/dashboard/iv-republish', icon: UploadCloud, roles: null, section: 'Tools' },
     ];
 
     const navItems = allNavItems.filter(item => {
@@ -99,16 +101,17 @@ const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
     return (
         <>
             {/* Mobile backdrop */}
-            {isOpen && (
-                <div
-                    className="fixed inset-0 z-30 bg-ink/40 lg:hidden"
-                    onClick={onClose}
-                    aria-hidden="true"
-                />
-            )}
+            <div
+                className={cn(
+                    'fixed inset-0 z-30 bg-ink/40 transition-opacity duration-300 lg:hidden',
+                    isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+                )}
+                onClick={onClose}
+                aria-hidden="true"
+            />
             <aside
                 className={cn(
-                    'fixed left-0 top-0 z-40 flex h-[100dvh] w-64 flex-col border-r border-line bg-white font-sans transition-transform duration-300 ease-smooth lg:translate-x-0',
+                    'fixed left-0 top-0 z-40 flex h-[100dvh] w-64 flex-col border-r border-line bg-surface font-sans transition-transform duration-300 ease-smooth lg:translate-x-0',
                     isOpen ? 'translate-x-0' : '-translate-x-full'
                 )}
             >
@@ -122,7 +125,7 @@ const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 space-y-5 overflow-y-auto px-3 pb-6 scrollbar-thin">
+                <nav className="flex-1 space-y-5 overflow-y-auto overscroll-contain px-3 pb-6 scrollbar-thin">
                     {SECTIONS.map(section => {
                         const items = navItems.filter(i => i.section === section);
                         if (items.length === 0) return null;
@@ -140,7 +143,7 @@ const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
                                             cn(
                                                 'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-body font-medium transition-colors',
                                                 isActive
-                                                    ? 'bg-canopy-tint text-canopy before:absolute before:-left-3 before:top-1 before:bottom-1 before:w-[3px] before:rounded-full before:bg-canopy'
+                                                    ? 'bg-canopy-tint text-canopy before:absolute before:-left-3 before:top-1 before:bottom-1 before:w-[3px] before:animate-spine-grow before:rounded-full before:bg-canopy'
                                                     : 'text-slate-600 hover:bg-paper hover:text-ink'
                                             )
                                         }

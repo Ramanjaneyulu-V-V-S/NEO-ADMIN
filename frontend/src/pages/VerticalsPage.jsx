@@ -6,7 +6,7 @@ import {
     UserCheck, UsersRound, Star, ClipboardList, ArrowRightLeft,
 } from 'lucide-react';
 import { RO_LOCATIONS, TE_LOCATIONS, getLocations, fetchDepartments } from '../data/nabardMetadata.js';
-import { PageHeader, Tabs, useToast } from '../components/ui';
+import { PageHeader, Tabs, Modal, useToast } from '../components/ui';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
 
     return (
         <div ref={containerRef} className="relative">
-            <div className={`border rounded-xl bg-white transition-colors ${
+            <div className={`border rounded-xl bg-surface transition-colors ${
                 isOpen ? 'border-canopy ring-2 ring-canopy/20' : 'border-slate-200'
             } ${disabled ? 'bg-slate-100' : ''}`}>
                 <div className="p-2 flex flex-wrap gap-1 min-h-10">
@@ -102,12 +102,12 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
             </div>
 
             {isOpen && !disabled && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-slate-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
                     {showSelectAll && options.length > 0 && (
                         <button
                             type="button"
                             onClick={toggleAll}
-                            className="w-full text-left px-4 py-2 text-sm font-medium text-canopy hover:bg-slate-100 transition-colors flex items-center gap-2 border-b border-slate-200 sticky top-0 bg-white z-10"
+                            className="w-full text-left px-4 py-2 text-sm font-medium text-canopy hover:bg-slate-100 transition-colors flex items-center gap-2 border-b border-slate-200 sticky top-0 bg-surface z-10"
                         >
                             <Check size={16} className={`flex-shrink-0 ${allSelected ? 'text-canopy' : 'opacity-0'}`} />
                             <span>{allSelected ? 'Clear all' : selectAllLabel}</span>
@@ -117,7 +117,7 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
                         <button
                             type="button"
                             onClick={() => onChange([])}
-                            className="w-full text-left px-4 py-2 text-sm font-medium text-canopy hover:bg-slate-100 transition-colors flex items-center gap-2 border-b border-slate-200 sticky top-0 bg-white z-10"
+                            className="w-full text-left px-4 py-2 text-sm font-medium text-canopy hover:bg-slate-100 transition-colors flex items-center gap-2 border-b border-slate-200 sticky top-0 bg-surface z-10"
                         >
                             <X size={16} className="flex-shrink-0" />
                             <span>{clearLabel} ({value.length})</span>
@@ -146,7 +146,7 @@ const MultiSelectUsers = ({ value = [], onChange, disabled, placeholder, options
 };
 
 const Card = ({ children, className = '' }) => (
-    <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm p-5 ${className}`}>
+    <div className={`bg-surface rounded-2xl border border-slate-200 shadow-sm p-5 ${className}`}>
         {children}
     </div>
 );
@@ -157,7 +157,7 @@ const SectionTitle = ({ children }) => (
 
 const MemberTag = ({ type }) => (
     <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-        type === 'user' ? 'bg-canopy-tint text-canopy' : 'bg-canopy-tint text-canopy'
+        type === 'user' ? 'bg-canopy-tint text-canopy' : 'bg-tide/10 text-tide'
     }`}>{type}</span>
 );
 
@@ -252,23 +252,23 @@ const VerticalCreationTab = ({ setToast }) => {
                 />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                     <Label icon={Tag}>Vertical Full Name <span className="text-danger">*</span></Label>
                     <input type="text" value={verticalFullName} onChange={e => setVerticalFullName(e.target.value)}
                         placeholder="e.g. Digital Initiatives and Technology"
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-white" />
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-surface" />
                 </div>
 
                 <div>
                     <Label icon={Tag}>Vertical Shortcode <span className="text-danger">*</span></Label>
                     <input type="text" value={verticalShortcode} onChange={e => setVerticalShortcode(e.target.value)}
                         placeholder="e.g. DIT"
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-white" />
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-surface" />
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                     <Label icon={Tag}>Group Name <span className="normal-case font-normal text-slate-400">(auto-filled)</span></Label>
                     <input type="text" readOnly value={groupName}
@@ -728,7 +728,7 @@ const AddMembersTab = ({ setToast }) => {
                                     clearLabel="Clear selection"
                                     disabled={!officeType || users.length === 0}
                                     placeholder={!officeType ? '— Select office type first —' : users.length === 0 ? 'No users found' : 'Search and select users...'}
-                                    options={users.map(u => ({ value: u.user_login_name, label: `${u.object_name} (${u.user_login_name})` }))}
+                                    options={users.filter(u => u.object_name?.trim() && u.user_login_name?.trim()).map(u => ({ value: u.user_login_name, label: `${u.object_name} (${u.user_login_name})` }))}
                                 />
                                 {usersAlreadyInGroup.length > 0 && (
                                     <p className="text-xs text-harvest mt-2 flex items-center gap-1">
@@ -1315,7 +1315,9 @@ const RemoveMembersTab = ({ setToast }) => {
     };
 
     // ── Delegate Case Modal ──────────────────────────────────────────────────
-    const DelegateCaseModal = () => {
+    // Plain render function (not a nested component) so the Modal keeps its identity
+    // across parent re-renders and doesn't replay its enter animation on every keystroke.
+    const renderDelegateCaseModal = () => {
         if (!delegateTask) return null;
         const caseName   = pfield(delegateTask, 'object_name') || delegateTask.caseName || '—';
         const deptName   = pfield(delegateTask, 'department_name') || '';
@@ -1327,27 +1329,37 @@ const RemoveMembersTab = ({ setToast }) => {
         const locLabel   = isRoTe ? (allLocs.find(l => l.shortCode === roCode)?.location || roCode.toUpperCase()) : null;
         const deptShortCode = isRoTe ? parts[3] : parts[1] || '';
         return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
-                                <ArrowRightLeft size={17} className="text-white" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-bold text-slate-900">Delegate Case</p>
-                                <p className="text-xs text-slate-500 font-mono">{caseName}</p>
-                            </div>
-                        </div>
+            <Modal
+                isOpen
+                onClose={() => setDelegateTask(null)}
+                size="md"
+                title={
+                    <span className="flex items-center gap-3">
+                        <span className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm">
+                            <ArrowRightLeft size={17} className="text-white" />
+                        </span>
+                        <span className="flex flex-col">
+                            <span>Delegate Case</span>
+                            <span className="font-mono text-xs font-normal text-slate-500">{caseName}</span>
+                        </span>
+                    </span>
+                }
+                footer={
+                    <>
                         <button onClick={() => setDelegateTask(null)}
-                            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
-                            <X size={18} />
+                            className="px-4 py-2 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                            Cancel
                         </button>
-                    </div>
-
-                    {/* Body */}
-                    <div className="p-6 space-y-4">
+                        <button
+                            onClick={handleDelegateConfirm}
+                            disabled={!delegateSelectedUser || !!delegatingCaseId}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors">
+                            {delegatingCaseId ? <><Loader2 size={12} className="animate-spin" /> Delegating…</> : <><ArrowRightLeft size={12} /> Delegate</>}
+                        </button>
+                    </>
+                }
+            >
+                    <div className="space-y-4">
                         <div className="text-xs text-slate-500 space-y-1">
                             {isRoTe && locLabel && (
                                 <div>Location: <span className="font-semibold text-slate-700">{locLabel}</span> <span className="text-slate-400">({offType})</span></div>
@@ -1378,68 +1390,37 @@ const RemoveMembersTab = ({ setToast }) => {
                             )}
                         </div>
                     </div>
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-end gap-2 px-6 pb-5">
-                        <button onClick={() => setDelegateTask(null)}
-                            className="px-4 py-2 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleDelegateConfirm}
-                            disabled={!delegateSelectedUser || !!delegatingCaseId}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-canopy hover:bg-canopy-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold rounded-lg transition-colors">
-                            {delegatingCaseId ? <><Loader2 size={12} className="animate-spin" /> Delegating…</> : <><ArrowRightLeft size={12} /> Delegate</>}
-                        </button>
-                    </div>
-                </div>
-            </div>
+            </Modal>
         );
     };
 
     // ── Vertical Head Assignment Modal ──────────────────────────────────────────
-    const VerticalHeadModal = () => {
+    const closeVerticalHeadModal = () => {
+        setShowVerticalHeadModal(false);
+        setVerticalHeadUser(null);
+        setSelectedNewHead('');
+    };
+
+    const renderVerticalHeadModal = () => {
         if (!showVerticalHeadModal || !verticalHeadUser) return null;
         return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden">
-                    {/* Header */}
-                    <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50">
-                        <h2 className="text-lg font-bold text-slate-900">Assign New Vertical Head</h2>
-                        <p className="text-xs text-slate-500 mt-1">
+            <Modal
+                isOpen
+                onClose={() => { if (!updatingHead) closeVerticalHeadModal(); }}
+                size="sm"
+                closeOnBackdrop={false}
+                title={
+                    <span className="flex flex-col gap-0.5">
+                        <span>Assign New Vertical Head</span>
+                        <span className="font-sans text-xs font-normal text-slate-500">
                             {verticalHeadUser.name} is a vertical head. Assign a new head before removing.
-                        </p>
-                    </div>
-
-                    {/* Content */}
-                    <div className="px-6 py-5 space-y-4">
-                        <div>
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-2">
-                                Select New Vertical Head <span className="text-danger">*</span>
-                            </label>
-                            <Select
-                                value={selectedNewHead}
-                                onChange={setSelectedNewHead}
-                                placeholder="— Select new head —"
-                                options={availableHeads.map((user) => ({ value: user.name, label: user.name }))}
-                            />
-                        </div>
-
-                        <div className="p-3 bg-canopy-tint border border-canopy/20 rounded-lg">
-                            <p className="text-xs text-canopy">
-                                <strong>Note:</strong> The selected user will be assigned as the new vertical head before {verticalHeadUser.name} is removed from the vertical.
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-100 bg-slate-50">
+                        </span>
+                    </span>
+                }
+                footer={
+                    <>
                         <button
-                            onClick={() => {
-                                setShowVerticalHeadModal(false);
-                                setVerticalHeadUser(null);
-                                setSelectedNewHead('');
-                            }}
+                            onClick={closeVerticalHeadModal}
                             disabled={updatingHead}
                             className="px-4 py-2 text-slate-600 text-sm font-medium hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-40">
                             Cancel
@@ -1460,16 +1441,36 @@ const RemoveMembersTab = ({ setToast }) => {
                                 </>
                             )}
                         </button>
+                    </>
+                }
+            >
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-2">
+                                Select New Vertical Head <span className="text-danger">*</span>
+                            </label>
+                            <Select
+                                value={selectedNewHead}
+                                onChange={setSelectedNewHead}
+                                placeholder="— Select new head —"
+                                options={availableHeads.map((user) => ({ value: user.name, label: user.name }))}
+                            />
+                        </div>
+
+                        <div className="p-3 bg-canopy-tint border border-canopy/20 rounded-lg">
+                            <p className="text-xs text-canopy">
+                                <strong>Note:</strong> The selected user will be assigned as the new vertical head before {verticalHeadUser.name} is removed from the vertical.
+                            </p>
+                        </div>
                     </div>
-                </div>
-            </div>
+            </Modal>
         );
     };
 
     return (
         <div className="space-y-5">
-            <DelegateCaseModal />
-            <VerticalHeadModal />
+            {renderDelegateCaseModal()}
+            {renderVerticalHeadModal()}
             <Card className="space-y-4">
                 <SectionTitle>Select Group</SectionTitle>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1634,7 +1635,7 @@ const RemoveMembersTab = ({ setToast }) => {
                                                     </button>
                                                     <button
                                                         onClick={() => { setPendingRemove(null); setInboxTasks([]); setInboxTotal(0); }}
-                                                        className="px-4 py-2 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-white transition-colors">
+                                                        className="px-4 py-2 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-surface transition-colors">
                                                         Cancel
                                                     </button>
                                                 </div>

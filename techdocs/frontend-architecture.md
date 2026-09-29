@@ -25,7 +25,7 @@ backend under **`/neoadminBackend/api`** (see §10). Client state persisted in `
 the authenticated user (`user`), the OTDS bearer token (`token`), and DQL query history
 (`queryHistory`).
 
-Light mode only — `index.css` forces `color-scheme: light`.
+Light and dark themes (plus "system", the default) — see §7.1 *Theming*.
 
 ---
 
@@ -103,7 +103,8 @@ frontend/
     main.jsx                     # createRoot + <StrictMode>, imports index.css
     App.jsx                      # <Router basename="/neoadmin/">, route table
     index.css                    # Google Fonts @import (Fraunces / IBM Plex Sans / Mono),
-                                 #   forced light mode, .ledger-spine, .scrollbar-thin,
+                                 #   light / dark colour tokens (--c-*), .ledger-spine,
+                                 #   .scrollbar-thin, theme-switch crossfade,
                                  #   prefers-reduced-motion reset
     api/
       axios.js                   # shared axios instance + Bearer request interceptor
@@ -308,19 +309,36 @@ Summary:
 
 ### 7.1 Colour tokens (`theme.extend.colors`)
 
-| Token | Hex | Role |
-|---|---|---|
-| `canopy` / `canopy-dark` / `canopy-tint` | `#14532D` / `#0E3D21` / `#EAEFE9` | primary — buttons, active nav, links, focus ring, table row band |
-| `harvest` | `#B45309` | single warm accent — secondary CTA, warnings |
-| `ink` | `#1A2E1F` | body text (warm near-black) |
-| `paper` | `#F6F7F4` | app background |
-| `line` | `#E2E5DE` | hairlines, borders, dividers |
-| `danger` / `danger-tint` | `#B42318` / `#FEF3F2` | destructive actions, errors |
-| `info` / `info-tint` | `#1E5F8C` / `#EFF6FB` | informational only, sparingly |
-| `success` / tint | `#14532D` / `#EAEFE9` | success |
+| Token | Light hex | Dark hex | Role |
+|---|---|---|---|
+| `canopy` / `canopy-dark` / `canopy-tint` | `#14532D` / `#0E3D21` / `#EAEFE9` | `#52B072` / `#5CBD7C` / `#203829` | primary — buttons, active nav, links, focus ring, table row band |
+| `harvest` | `#B45309` | `#E9A35C` | single warm accent — secondary CTA, warnings |
+| `ink` | `#1A2E1F` | `#E8EDE9` | body text |
+| `paper` | `#F6F7F4` | `#0F1512` | app background |
+| `surface` | `#FFFFFF` | `#1A231D` | cards, inputs, modals, table bodies (`bg-white` is retired) |
+| `line` | `#E2E5DE` | `#2E3A32` | hairlines, borders, dividers |
+| `danger` / `danger-tint` | `#B42318` / `#FEF3F2` | `#F47A70` / `#482926` | destructive actions, errors |
+| `info` / `info-tint` | `#1E5F8C` / `#EFF6FB` | `#5DA6D8` / `#1E3448` | informational only, sparingly |
+| `success` / tint | = canopy / canopy-tint | | success |
+| `white` | `#FFFFFF` | `#0E1A12` | text / decor **on** accent fills only (`text-white` on a canopy button) |
 
-Cards are pure `#FFFFFF`. Neutral greys use Tailwind `slate-*` (muted text = `slate-500`).
+Neutral greys use Tailwind `slate-*` (muted text = `slate-500`); in dark mode the scale is
+remapped to an inverted, green-biased ramp so `text-slate-500` stays mid-grey and
+`bg-slate-50` / `border-slate-200` become raised surfaces / hairlines.
 Status is a token + a text label — never a rainbow of hues. **No hard-coded hex in components.**
+
+**Theming.** Every colour in `tailwind.config.js` is `rgb(var(--c-<token>) / <alpha-value>)`;
+the RGB triplets live in `index.css` in three blocks — bare `:root` (light),
+`@media (prefers-color-scheme: dark) :root:not([data-theme="light"])`, and
+`:root[data-theme="dark"]`. So existing markup flips with no `dark:` classes (`darkMode` is
+enabled as `[data-theme="dark"]` for the rare role-change exception). `hooks/useTheme.js`
+owns the preference (`light` | `dark` | `system`, key `localStorage.theme`, stamped on
+`<html data-theme>`; `system` stamps nothing and follows the OS). A 4-line inline script in
+`index.html` applies the stored value before first paint. UI: a Sun / Moon button in the
+`Topbar` flips light ↔ dark; "Use system theme" in the profile dropdown resets. A switch
+crossfades every colour over 0.35s (`.theme-switching` on `<html>`, stamped by the hook for
+one switch only; skipped under `prefers-reduced-motion`). Every dark text pairing clears
+WCAG AA 4.5:1 on `surface`.
 
 ### 7.2 Typography (Google Fonts `@import` in `index.css`)
 

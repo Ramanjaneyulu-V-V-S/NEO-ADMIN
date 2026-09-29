@@ -3,6 +3,10 @@ import CodeMirror from '@uiw/react-codemirror';
 import { sql } from '@codemirror/lang-sql';
 import { EditorView, Decoration } from '@codemirror/view';
 import { StateField, StateEffect, RangeSetBuilder } from '@codemirror/state';
+// Both are hard dependencies of @codemirror/lang-sql (already installed), not new packages.
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { tags as t } from '@lezer/highlight';
+import useTheme from '../../hooks/useTheme';
 
 // The editor height is user-adjustable (drag handle, bottom-right) and remembered
 // across sessions.
@@ -22,19 +26,21 @@ function storedHeight() {
 }
 
 /**
- * Field-ledger palette — mirrors the tokens in `frontend/tailwind.config.js`.
- * CodeMirror themes take colour values, not Tailwind classes, so the few we
- * need are named here rather than scattered as literals through the component.
+ * Field-ledger palette — reads the same CSS custom properties as
+ * `tailwind.config.js` (defined in index.css), so the editor flips with the
+ * app theme live. CodeMirror themes take colour values, not Tailwind classes,
+ * so the few we need are named here. `alpha` gives the translucent forms.
  */
+const tok = (name, alpha) =>
+    alpha == null ? `rgb(var(--c-${name}))` : `rgb(var(--c-${name}) / ${alpha})`;
 const C = {
-    ink: '#1A2E1F',
-    paper: '#F6F7F4',
-    line: '#E2E5DE',
-    canopy: '#14532D',
-    canopyTint: '#EAEFE9',
-    harvest: '#B45309',
-    info: '#1E5F8C',
-    slate: '#64748B',
+    ink: tok('ink'),
+    paper: tok('paper'),
+    surface: tok('surface'),
+    line: tok('line'),
+    canopy: tok('canopy'),
+    canopyTint: tok('canopy-tint'),
+    slate: tok('slate-500'),
 };
 
 // ── Active-statement highlight (Step / Run-all marker) ───────────────────────
@@ -63,11 +69,11 @@ const highlightField = StateField.define({
     provide: (f) => EditorView.decorations.from(f),
 });
 
-const ledgerTheme = EditorView.theme({
+const ledgerThemeSpec = {
     '&': {
         height: '100%',
         fontSize: '13px',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: C.surface,
         color: C.ink,
         border: `1px solid ${C.line}`,
         borderRadius: '10px',
@@ -95,20 +101,43 @@ const ledgerTheme = EditorView.theme({
         borderBottomLeftRadius: '10px',
         fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
     },
-    '.cm-activeLine': { backgroundColor: `${C.canopyTint}66` },
-    '.cm-activeLineGutter': { backgroundColor: `${C.canopyTint}` },
+    '.cm-activeLine': { backgroundColor: tok('canopy-tint', 0.4) },
+    '.cm-activeLineGutter': { backgroundColor: C.canopyTint },
     '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
-        backgroundColor: `${C.info}22`,
+        backgroundColor: `${tok('info', 0.38)} !important`,
     },
     '.cm-dql-active': {
-        backgroundColor: `${C.harvest}1F`,
+        backgroundColor: tok('harvest', 0.28),
+        boxShadow: `inset 0 0 0 1px ${tok('harvest', 0.55)}`,
         borderRadius: '2px',
     },
     '&.cm-editor.cm-focused .cm-matchingBracket': {
-        backgroundColor: `${C.canopyTint}`,
-        outline: `1px solid ${C.canopy}55`,
+        backgroundColor: C.canopyTint,
+        outline: `1px solid ${tok('canopy', 0.33)}`,
     },
-}, { dark: false });
+};
+
+// One theme per mode: the spec is identical (CSS variables); `dark` flags the
+// editor so the dark-only highlight style below takes over from CodeMirror's
+// light defaults (which are purple / dark-red and unreadable on a dark ground).
+const THEMES = {
+    light: EditorView.theme(ledgerThemeSpec, { dark: false }),
+    dark: EditorView.theme(ledgerThemeSpec, { dark: true }),
+};
+
+// Dark-mode syntax colours from the ledger tokens. `themeType: 'dark'` means it
+// is only active while the dark theme is on — light keeps CodeMirror's defaults.
+const ledgerDarkHighlight = HighlightStyle.define(
+    [
+        { tag: [t.keyword, t.operatorKeyword, t.modifier], color: C.canopy, fontWeight: '500' },
+        { tag: [t.string, t.special(t.string)], color: tok('harvest') },
+        { tag: [t.number, t.bool, t.null, t.atom], color: tok('info') },
+        { tag: [t.comment, t.lineComment, t.blockComment], color: C.slate, fontStyle: 'italic' },
+        { tag: [t.typeName, t.className, t.standard(t.name), t.function(t.variableName)], color: tok('canopy-dark') },
+        { tag: [t.operator, t.punctuation], color: tok('slate-600') },
+    ],
+    { themeType: 'dark' },
+);
 
 /**
  * DQL editor built on CodeMirror 6.
@@ -132,6 +161,7 @@ export default function DqlEditor({
     const viewRef = useRef(null);
     const wrapRef = useRef(null);
     const initialHeight = useMemo(() => storedHeight(), []);
+    const { resolved } = useTheme();
 
     // Remember the editor height after the user drags the resize handle.
     const persistHeight = () => {
@@ -157,6 +187,7 @@ export default function DqlEditor({
             sql(),
             EditorView.lineWrapping,
             highlightField,
+            syntaxHighlighting(ledgerDarkHighlight),
             EditorView.domEventHandlers({
                 keydown: (event) => {
                     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
@@ -189,7 +220,7 @@ export default function DqlEditor({
                 value={value}
                 height="100%"
                 style={{ height: '100%' }}
-                theme={ledgerTheme}
+                theme={THEMES[resolved] || THEMES.light}
                 extensions={extensions}
                 editable={!disabled}
                 readOnly={disabled}

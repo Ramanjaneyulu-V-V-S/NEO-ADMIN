@@ -8,7 +8,7 @@ export function Card({ spine = false, pad = true, className = '', children, ...r
     return (
         <div
             className={cn(
-                'rounded-card border border-line bg-white shadow-card',
+                'rounded-card border border-line bg-surface shadow-card',
                 spine && 'ledger-spine',
                 pad && 'p-5',
                 className

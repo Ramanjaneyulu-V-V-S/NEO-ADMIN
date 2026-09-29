@@ -142,7 +142,7 @@ export default function DepartmentPage() {
                                     className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-5 py-3 text-body font-medium transition-colors
                                         ${dmdSelection === opt
                                             ? 'border-canopy bg-canopy-tint text-canopy'
-                                            : 'border-line bg-white text-slate-600 hover:border-slate-300'}`}
+                                            : 'border-line bg-surface text-slate-600 hover:border-slate-300'}`}
                                 >
                                     <input
                                         type="radio"

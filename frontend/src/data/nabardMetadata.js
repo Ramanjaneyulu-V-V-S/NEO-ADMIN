@@ -3,6 +3,10 @@ import api from '../api/axios';
 // Nabard metadata: departments, locations, and grades for cascading dropdowns
 
 // ─── Designation Options ──────────────────────────────────────────────────────
+// Sentinel value for the "type your own" row appended below — never sent to the
+// backend as-is; consumers swap it for a free-text input bound to the same field.
+export const DESIGNATION_OTHER = '__other__';
+
 export const DESIGNATION_OPTIONS = [
     { value: '',         hindi: '',              label: '— Select designation —' },
     { value: 'DA',       hindi: 'विस',           label: 'DA' },
@@ -17,6 +21,7 @@ export const DESIGNATION_OPTIONS = [
     { value: 'CHAIRMAN', hindi: 'अध्यक्ष',      label: 'CHAIRMAN' },
     { value: 'Young Professional', hindi: 'युवा प्रोफेशनल',  label: 'Young Professional' },
     { value: 'Project Manager',    hindi: 'परियोजना प्रबंधक', label: 'Project Manager' },
+    { value: DESIGNATION_OTHER,    hindi: '',              label: 'Other (type manually)' },
 ];
 
 export const HO_DEPARTMENTS = [
@@ -976,6 +981,74 @@ export const USER_GRADES = [
   { label: 'Grade E (OIC)',value: 'grade_e(oic)',   gradeLevel: 5 },
   { label: 'Grade F',      value: 'grade_f',        gradeLevel: 6 },
 ];
+
+// ─── Designation ↔ Grade mapping ─────────────────────────────────────────────
+// Single source of truth for the auto-fill logic in EditUserProfileModal and
+// the Query results grid's inline "designation" editor — both call
+// deriveFromDesignation() below instead of duplicating these tables.
+
+// Designation to User Grade mapping
+export const DESIGNATION_GRADE_MAPPING = {
+    'DA': 'group_b',      // Group B
+    'AM': 'grade_a',      // Grade A
+    'MGR': 'grade_b',     // Grade B
+    'AGM': 'grade_c',     // Grade C
+    'DGM': 'grade_d',     // Grade D
+    'GM': 'grade_e',      // Grade E
+    'GM(OIC)': 'grade_e(oic)', // Grade E (OIC)
+    'CGM': 'grade_f',     // Grade F
+    'DDM GRADE B': 'grade_b', // DDM users (Grade B)
+    'DDM GRADE C': 'grade_c', // DDM users (Grade C)
+    'DDM GRADE D': 'grade_d', // DDM users (Grade D)
+};
+
+// Designation options shown for DDM users (department = DDM, office type RO/TE)
+export const DDM_DESIGNATION_OPTIONS = [
+    { value: '', label: '— Select designation —' },
+    { value: 'DDM GRADE B', label: 'DDM GRADE B' },
+    { value: 'DDM GRADE C', label: 'DDM GRADE C' },
+    { value: 'DDM GRADE D', label: 'DDM GRADE D' },
+];
+
+// User Grade to Designation mapping for DDM users (keeps the DDM-only dropdown consistent)
+export const DDM_GRADE_DESIGNATION_MAPPING = {
+    'grade_b': 'DDM GRADE B',
+    'grade_c': 'DDM GRADE C',
+    'grade_d': 'DDM GRADE D',
+};
+
+// User Grade to Designation mapping (reverse mapping)
+export const GRADE_DESIGNATION_MAPPING = {
+    'group_b': 'DA',
+    'grade_a': 'AM',
+    'grade_b': 'MGR',
+    'grade_c': 'AGM',
+    'grade_d': 'DGM',
+    'grade_e': 'GM',
+    'grade_e(oic)': 'GM(OIC)',
+    'grade_f': 'CGM',
+};
+
+/**
+ * Grade/Level/Hindi-designation that a Designation change should auto-fill,
+ * mirroring EditUserProfileModal's designation→grade useEffect. Returns
+ * `null` for a field when there's nothing to derive (e.g. an unmapped
+ * designation) — callers should leave that field as-is rather than clear it.
+ * @param {string} designation
+ * @param {boolean} isDDMUser - true when department_name === 'DDM' and office_type is RO/TE
+ * @returns {{ user_grade: string|null, grade_level: number|null, hindi_designation: string|null }}
+ */
+export function deriveFromDesignation(designation, isDDMUser) {
+    const mappedGrade = DESIGNATION_GRADE_MAPPING[designation];
+    const gradeObj = USER_GRADES.find(g => g.value === mappedGrade);
+    const designationObj = DESIGNATION_OPTIONS.find(o => o.value === designation)
+        || (isDDMUser ? DDM_DESIGNATION_OPTIONS.find(o => o.value === designation) : null);
+    return {
+        user_grade: mappedGrade ?? null,
+        grade_level: gradeObj ? gradeObj.gradeLevel : null,
+        hindi_designation: designationObj?.hindi ?? null,
+    };
+}
 
 /**
  * Returns the department list for the given office_type + location combination.

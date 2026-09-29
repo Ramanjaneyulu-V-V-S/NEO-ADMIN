@@ -19,7 +19,7 @@ const MainLayout = () => {
     if (!hasAccess) {
         return (
             <div className="flex min-h-[100dvh] items-center justify-center bg-paper px-4 font-sans text-ink">
-                <div className="w-full max-w-md rounded-card border border-line bg-white p-8 text-center shadow-card">
+                <div className="w-full max-w-md rounded-card border border-line bg-surface p-8 text-center shadow-card">
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-danger-tint">
                         <ShieldAlert size={28} className="text-danger" />
                     </div>
@@ -45,7 +45,15 @@ const MainLayout = () => {
             <div className="min-h-[100dvh] bg-paper font-sans text-ink">
                 <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
                 <Topbar onMenuClick={() => setIsSidebarOpen(true)} />
-                <main className="min-h-[100dvh] overflow-x-hidden pt-14 lg:pl-64">
+                {/* `overflow-x-clip`, not `-hidden`. `hidden` makes this a scroll
+                    container: it can be scrolled programmatically — by focus, by
+                    `scrollIntoView`, by a wheel chained out of a floating panel —
+                    with no scrollbar to show it and no way for the user to scroll
+                    back, so the whole column silently slides under the fixed
+                    sidebar. `hidden` also forces the unset axis to `auto`, making
+                    this a second vertical scroller competing with the document.
+                    `clip` clips at exactly the same edge and is not a scrollport. */}
+                <main className="min-h-[100dvh] overflow-x-clip pt-14 lg:pl-64">
                     <div className="flex min-h-[calc(100dvh-3.5rem)] w-full flex-col p-4">
                         <Outlet />
                     </div>

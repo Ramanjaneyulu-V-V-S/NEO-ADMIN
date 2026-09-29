@@ -979,7 +979,7 @@ public class UserService {
     public List<Map<String, Object>> getUsersByDeptShortCode(String shortCode, String officeType) {
         String safe = shortCode.replace("'", "''");
         String dql  = "SELECT r_object_id, object_name, user_login_name, office_type, department_short_code, department_short_code_multi FROM cms_user_profile"
-                    + " WHERE ANY department_short_code_multi = '" + safe + "'";
+                    + " WHERE object_name IS NOT NULL AND object_name != ' ' AND ANY department_short_code_multi = '" + safe + "'";
 
         // Filter by office type if provided
         if (officeType != null && !officeType.isBlank()) {
@@ -1018,7 +1018,7 @@ public class UserService {
     public List<Map<String, Object>> getUsersByLocation(String location, String officeType) {
         String safe = location.replace("'", "''");
         String dql  = "SELECT r_object_id, object_name, user_login_name, department_short_code_multi, office_type FROM cms_user_profile"
-                    + " WHERE location = '" + safe + "'";
+                    + " WHERE object_name IS NOT NULL AND object_name != ' ' AND location = '" + safe + "'";
 
         // Filter by office type if provided (RO or TE)
         if (officeType != null && !officeType.isBlank()) {

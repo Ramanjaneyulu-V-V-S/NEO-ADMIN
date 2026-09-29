@@ -3,10 +3,32 @@ import api from '../api/axios';
 import {
     ClipboardList, Loader2, User, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { PageHeader, useToast } from '../components/ui';
+import { PageHeader, useToast, DataTable } from '../components/ui';
+import { caseStatusPillCls } from '../utils/statusTone';
 
 const USERS_PAGE_SIZE = 2000;
 const TASKS_PAGE_SIZE = 50;
+
+const priorityPillCls = (priority) =>
+    priority === 'High'   ? 'bg-danger-tint text-danger' :
+    priority === 'Medium' ? 'bg-harvest/15 text-harvest' :
+    'bg-slate-100 text-slate-600';
+
+const TASK_COLUMNS = [
+    { key: 'caseName', header: 'Case Name', primary: true,
+      render: (task) => <span className="font-medium text-slate-800">{task.caseName || '—'}</span> },
+    { key: 'description', header: 'Description',
+      render: (task) => <span className="block max-w-xs truncate text-slate-600" title={task.description}>{task.description || '—'}</span> },
+    { key: 'status', header: 'Status',
+      render: (task) => task.status
+          ? <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${caseStatusPillCls(task.status)}`}>{task.status}</span>
+          : '—' },
+    { key: 'initiator', header: 'Initiator', render: (task) => <span className="text-slate-600">{task.initiator || '—'}</span> },
+    { key: 'priority', header: 'Priority',
+      render: (task) => task.priority
+          ? <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${priorityPillCls(task.priority)}`}>{task.priority}</span>
+          : '—' },
+];
 
 async function fetchAllUsers() {
     let page = 1;
@@ -86,7 +108,7 @@ const InboxPage = () => {
         [allUsers, searchQuery]
     );
 
-    const inputCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-white';
+    const inputCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-surface';
 
     const start = total === 0 ? 0 : (page - 1) * TASKS_PAGE_SIZE + 1;
     const end   = Math.min(page * TASKS_PAGE_SIZE, total);
@@ -96,7 +118,7 @@ const InboxPage = () => {
             <PageHeader title="Case Inbox" icon={ClipboardList} description="View the workflow inbox for any user." />
 
             {/* User selector */}
-            <div className="bg-white border border-line rounded-card p-5 shadow-card mb-5">
+            <div className="bg-surface border border-line rounded-card p-5 shadow-card mb-5">
                 <h2 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                     <User size={15} className="text-canopy" />
                     Select User
@@ -115,7 +137,7 @@ const InboxPage = () => {
                         <Loader2 size={15} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />
                     )}
                     {showDropdown && filteredUsers.length > 0 && (
-                        <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                        <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-surface border border-slate-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
                             {filteredUsers.slice(0, 100).map(u => (
                                 <button
                                     key={u.r_object_id || u.user_login_name}
@@ -133,7 +155,7 @@ const InboxPage = () => {
             </div>
 
             {/* Tasks panel */}
-            <div className="bg-white border border-line rounded-card shadow-card flex flex-col overflow-hidden min-h-[420px]">
+            <div className="bg-surface border border-line rounded-card shadow-card flex flex-col overflow-hidden min-h-[420px]">
 
                 {/* Panel header */}
                 <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-3">
@@ -171,46 +193,20 @@ const InboxPage = () => {
                     )}
 
                     {selectedUser && !loadingTasks && tasks.length > 0 && (
-                        <table className="w-full text-left text-sm">
-                            <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
-                                <tr>
-                                    {['Case Name', 'Description', 'Status', 'Initiator', 'Priority'].map(h => (
-                                        <th key={h} className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                                            {h}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {tasks.map((task, idx) => (
-                                    <tr key={task.objectId || idx} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-4 py-3 font-medium text-slate-800">{task.caseName || '—'}</td>
-                                        <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{task.description || '—'}</td>
-                                        <td className="px-4 py-3">
-                                            {task.status
-                                                ? <span className="px-2 py-0.5 text-xs rounded-full bg-canopy-tint text-canopy font-medium">{task.status}</span>
-                                                : '—'}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600">{task.initiator || '—'}</td>
-                                        <td className="px-4 py-3">
-                                            {task.priority
-                                                ? <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                                                    task.priority === 'High'   ? 'bg-danger-tint text-danger' :
-                                                    task.priority === 'Medium' ? 'bg-harvest/15 text-harvest' :
-                                                    'bg-slate-100 text-slate-600'
-                                                  }`}>{task.priority}</span>
-                                                : '—'}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        <DataTable
+                            columns={TASK_COLUMNS}
+                            rows={tasks}
+                            rowKey={(task, idx) => task.objectId || idx}
+                            stickyHeader
+                            maxHeight="62vh"
+                            className="p-3 md:p-0"
+                        />
                     )}
                 </div>
 
                 {/* Pagination footer */}
                 {selectedUser && !loadingTasks && total > TASKS_PAGE_SIZE && (
-                    <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between bg-white">
+                    <div className="px-5 py-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-surface">
                         <span className="text-xs text-slate-500">
                             Showing {start}–{end} of {total}
                         </span>

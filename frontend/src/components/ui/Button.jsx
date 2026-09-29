@@ -4,7 +4,7 @@ import { Spinner } from './Spinner';
 
 const VARIANTS = {
     primary: 'bg-canopy text-white hover:bg-canopy-dark disabled:bg-canopy/50',
-    secondary: 'bg-white text-ink border border-line hover:bg-paper disabled:text-slate-400',
+    secondary: 'bg-surface text-ink border border-line hover:bg-paper disabled:text-slate-400',
     ghost: 'bg-transparent text-slate-600 hover:bg-canopy-tint hover:text-canopy disabled:text-slate-300',
     danger: 'bg-danger text-white hover:brightness-95 disabled:bg-danger/50',
     accent: 'bg-harvest text-white hover:brightness-95 disabled:bg-harvest/50',

@@ -51,7 +51,7 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
             <div ref={containerRef} className="relative">
                 <div
                     onClick={() => setIsOpen(!isOpen)}
-                    className="w-full border border-line rounded-lg bg-white p-2 cursor-pointer hover:border-slate-300 transition-colors flex items-center gap-2 min-h-10"
+                    className="w-full border border-line rounded-lg bg-surface p-2 cursor-pointer hover:border-slate-300 transition-colors flex items-center gap-2 min-h-10"
                 >
                     {selectedValues.length === 0 ? (
                         <span className="text-slate-400 text-sm">{placeholder}</span>
@@ -77,7 +77,7 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
                 </div>
 
                 {isOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-line rounded-lg shadow-lg z-10 animate-panel-in">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-line rounded-lg shadow-lg z-10 animate-panel-in">
                         <div className="p-3 border-b border-slate-100">
                             <div className="relative">
                                 <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />

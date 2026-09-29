@@ -7,10 +7,11 @@ import {
 import axios from '../api/axios';
 import useQueryHistory from '../hooks/useQueryHistory';
 import useQueryFavorites from '../hooks/useQueryFavorites';
-import { splitStatements, statementAtOffset, leadingVerb } from '../utils/dql';
+import { splitStatements, statementAtOffset, leadingVerb, extractFromTarget } from '../utils/dql';
 import { PageHeader, Button, Badge, CustomSelect, useToast } from '../components/ui';
 import DqlEditor from '../components/query/DqlEditor';
 import ResultsGrid from '../components/query/ResultsGrid';
+import { syncUserGroups } from '../utils/userGroupSync.js';
 
 const LIMIT_OPTIONS = [
     { value: 100, label: '100' },
@@ -23,7 +24,24 @@ const LIMIT_OPTIONS = [
 const PLACEHOLDER = `SELECT r_object_id, object_name FROM dm_user WHERE user_state = 0;
 SELECT r_object_id, object_name, r_creation_date FROM dm_cabinet;`;
 
-const panelCls = 'z-[99999] w-[22rem] max-w-[90vw] rounded-lg border border-line bg-white shadow-pop';
+const panelCls = 'z-[99999] w-[22rem] max-w-[90vw] rounded-lg border border-line bg-surface shadow-pop';
+
+// cms_user_profile fields editable directly in the grid, and how — see
+// ResultsGrid.jsx's editorKindFor()/fieldEditors doc for the kinds.
+// 'text'/'boolean' are single-cell PATCHes (handleSaveCell below).
+// 'designation'/'location' are grouped edits — every field of a kind
+// shares one popover and one handleSaveGroup call, which also runs the
+// same group-membership sync EditUserProfileModal.jsx does on submit
+// (see syncUserGroups, userGroupSync.js).
+const FIELD_EDITORS = {
+    uin: 'text', user_email_address: 'text', primary_mobile_number: 'text',
+    hindi_user_name: 'text', hindi_designation: 'text', user_role: 'text',
+    is_active: 'boolean',
+    designation: 'designation', user_grade: 'designation', grade_level: 'designation',
+    office_type: 'location', location: 'location', ro_short_code: 'location',
+    department_name: 'location',
+};
+const REQUIRED_TEXT_FIELDS = new Set(['uin', 'user_email_address', 'hindi_user_name', 'hindi_designation']);
 
 function upsert(arr, idx, patch) {
     const copy = arr.slice();
@@ -55,12 +73,16 @@ const QueryPage = () => {
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState([]); // per-statement { status, rowCount, error }
     const [activeResult, setActiveResult] = useState({ columns: [], rows: [] });
+    const [activeObjectType, setActiveObjectType] = useState(null);
     const [hasRun, setHasRun] = useState(false);
     const [highlightRange, setHighlightRange] = useState(null);
     const [stepIndex, setStepIndex] = useState(0);
     const [runId, setRunId] = useState(0);
 
     const abortRef = useRef(null);
+    // Last statement actually executed — lets a successful edit re-run the
+    // same query to refresh the grid, independent of where the caret is now.
+    const lastRunRef = useRef(null);
 
     const statements = useMemo(() => splitStatements(query), [query]);
     const currentStatement = useMemo(
@@ -88,10 +110,15 @@ const QueryPage = () => {
             const dql = (typeof statement === 'string' ? statement : statement?.text || '').trim();
             if (!dql) return { ok: false, error: 'Empty statement' };
 
+            lastRunRef.current = { statement, idx };
+
             if (statement && statement.from != null) {
                 setHighlightRange({ from: statement.from, to: statement.to });
             }
             setResults((prev) => upsert(prev, idx, { status: 'running', error: null }));
+            // Drop the previous statement's rows immediately — otherwise the grid
+            // keeps showing stale data underneath the "running…" badge above it.
+            setActiveResult({ columns: [], rows: [] });
 
             const controller = new AbortController();
             abortRef.current = controller;
@@ -108,6 +135,7 @@ const QueryPage = () => {
                 }
                 const rows = data.rows || [];
                 setActiveResult({ columns: data.columns || [], rows });
+                setActiveObjectType(extractFromTarget(statement));
                 setResults((prev) => upsert(prev, idx, { status: 'ok', rowCount: rows.length, error: null }));
                 return { ok: true, rows: rows.length };
             } catch (err) {
@@ -123,6 +151,97 @@ const QueryPage = () => {
         },
         [resultLimit],
     );
+
+    // Single-field inline save from the results grid itself — reuses the same
+    // PATCH endpoint as EditUserProfileModal, but for one whitelisted "plain
+    // data" or boolean field at a time (see FIELD_EDITORS above). Updates the
+    // grid's local row state directly instead of re-running the query, so
+    // sort/filter/page position survives the edit.
+    const handleSaveCell = useCallback(async (row, col, newValue) => {
+        try {
+            await axios.patch(`/users/profiles/${row.r_object_id}`, { [col]: newValue });
+            setActiveResult((prev) => ({
+                ...prev,
+                rows: prev.rows.map((r) => (r.r_object_id === row.r_object_id ? { ...r, [col]: newValue } : r)),
+            }));
+            toast.success(`${col} updated`);
+            return true;
+        } catch (err) {
+            toast.error(err.response?.data?.message || `Failed to update ${col}`);
+            return false;
+        }
+    }, [toast]);
+
+    // Snapshot of a row's current group-relevant fields, in the shape
+    // syncUserGroups()/EditUserProfileModal.jsx's originalGroupInfoRef uses —
+    // deptCodes empty for a DDM profile, same as the modal's initForm().
+    const buildOldGroupInfo = (row) => {
+        const isDDMProfile = row.department_name === 'DDM';
+        const multiCodes = Array.isArray(row.department_short_code_multi)
+            ? row.department_short_code_multi
+            : (row.department_short_code ? [row.department_short_code] : []);
+        return {
+            officeType: row.office_type || '',
+            roShortCode: row.ro_short_code || '',
+            deptCodes: isDDMProfile ? [] : multiCodes,
+            designation: row.designation || '',
+            location: row.location || '',
+            departmentName: row.department_name || '',
+            deptShortCode: row.department_short_code || '',
+        };
+    };
+
+    // Grouped inline save from the results grid — 'designation' or 'location'
+    // fields (see FIELD_EDITORS above). PATCHes just that group's fields, then
+    // runs the same client-side group-membership sync
+    // EditUserProfileModal.jsx's handleSubmit does, so a moved user comes out
+    // correctly (de-)provisioned instead of silently under-provisioned.
+    const handleSaveGroup = useCallback(async (kind, row, draft) => {
+        if (!row.user_login_name) {
+            toast.error('user_login_name is required to edit this field — add it to the SELECT');
+            return false;
+        }
+        const old = buildOldGroupInfo(row);
+        let payload;
+        let form;
+        if (kind === 'designation') {
+            payload = {
+                designation: draft.designation,
+                user_grade: draft.user_grade,
+                grade_level: draft.grade_level,
+                hindi_designation: draft.hindi_designation,
+            };
+            form = { ...row, ...payload };
+        } else {
+            payload = {
+                office_type: draft.office_type,
+                location: draft.location,
+                ro_short_code: draft.ro_short_code,
+                department_name: draft.department_name,
+                department_short_code: draft.department_short_code,
+                department_short_code_multi: draft.department_short_code_multi,
+            };
+            form = { ...row, ...payload };
+        }
+        try {
+            await axios.patch(`/users/profiles/${row.r_object_id}`, payload);
+            const { settled } = await syncUserGroups({ old, form, payload, memberName: row.user_login_name });
+            const results = await Promise.allSettled(settled);
+            if (results.some((r) => r.value?.ok === false)) {
+                toast.error('Saved, but one or more group updates failed — check the user\'s groups');
+            } else {
+                toast.success(`${kind === 'designation' ? 'Designation' : 'Location'} updated`);
+            }
+            setActiveResult((prev) => ({
+                ...prev,
+                rows: prev.rows.map((r) => (r.r_object_id === row.r_object_id ? { ...r, ...payload } : r)),
+            }));
+            return true;
+        } catch (err) {
+            toast.error(err.response?.data?.message || `Failed to update ${kind}`);
+            return false;
+        }
+    }, [toast]);
 
     // History stores the full editor buffer as-run (all statements, as typed),
     // not each executed statement. Deduped by exact text in the hook.
@@ -197,7 +316,7 @@ const QueryPage = () => {
         <div className="flex flex-1 flex-col">
             <PageHeader title="Query" icon={Database} description="Run read-only DQL against the repository." />
 
-            <div className="mb-4 rounded-card border border-line bg-white p-4 shadow-card">
+            <div className="mb-4 rounded-card border border-line bg-surface p-4 shadow-card">
                 <DqlEditor
                     value={query}
                     onChange={setQuery}
@@ -307,9 +426,13 @@ const QueryPage = () => {
                     loading={loading}
                     runId={runId}
                     emptyLabel={loading ? 'Running…' : 'No rows returned'}
+                    fieldEditors={activeObjectType === 'cms_user_profile' ? FIELD_EDITORS : {}}
+                    requiredColumns={REQUIRED_TEXT_FIELDS}
+                    onSaveCell={activeObjectType === 'cms_user_profile' ? handleSaveCell : undefined}
+                    onSaveGroup={activeObjectType === 'cms_user_profile' ? handleSaveGroup : undefined}
                 />
             ) : (
-                <div className="rounded-card border border-line bg-white py-16 text-center text-slate-400 shadow-card">
+                <div className="rounded-card border border-line bg-surface py-16 text-center text-slate-400 shadow-card">
                     <Database className="mx-auto mb-2 h-10 w-10 text-slate-300" />
                     <p className="text-body">Write DQL above and press Run (⌘/Ctrl+Enter)</p>
                 </div>

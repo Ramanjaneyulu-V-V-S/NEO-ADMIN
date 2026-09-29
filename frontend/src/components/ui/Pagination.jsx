@@ -50,7 +50,7 @@ export function Pagination({
                         <select
                             value={pageSize}
                             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                            className="rounded border border-line bg-white px-1.5 py-1 text-caption"
+                            className="rounded border border-line bg-surface px-1.5 py-1 text-caption"
                         >
                             {pageSizes.map((s) => (
                                 <option key={s} value={s}>
@@ -88,7 +88,7 @@ function PagerButton({ onClick, disabled, label, children }) {
             onClick={onClick}
             disabled={disabled}
             aria-label={label}
-            className="rounded border border-line bg-white p-1.5 text-slate-600 transition-colors hover:bg-paper disabled:opacity-40"
+            className="rounded border border-line bg-surface p-1.5 text-slate-600 transition-colors hover:bg-paper disabled:opacity-40"
         >
             {children}
         </button>

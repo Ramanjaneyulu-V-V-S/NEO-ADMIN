@@ -1,6 +1,9 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
+import { EASE_SMOOTH } from '../../utils/motion';
 
 const ToastContext = createContext(null);
 
@@ -16,6 +19,7 @@ let seq = 0;
 export function ToastProvider({ children }) {
     const [toasts, setToasts] = useState([]);
     const timers = useRef(new Map());
+    const reduceMotion = usePrefersReducedMotion();
 
     const dismiss = useCallback((id) => {
         setToasts((list) => list.filter((t) => t.id !== id));
@@ -64,30 +68,36 @@ export function ToastProvider({ children }) {
                 aria-live="polite"
                 aria-atomic="false"
             >
-                {toasts.map((t) => {
-                    const tone = TONES[t.type] || TONES.info;
-                    const Icon = tone.icon;
-                    return (
-                        <div
-                            key={t.id}
-                            role="status"
-                            className={cn(
-                                'pointer-events-auto flex w-full max-w-md items-start gap-2.5 rounded-lg border px-3.5 py-2.5 text-body shadow-pop animate-toast-in',
-                                tone.cls
-                            )}
-                        >
-                            <Icon size={16} className="mt-0.5 shrink-0" />
-                            <span className="flex-1 text-ink">{t.message}</span>
-                            <button
-                                onClick={() => dismiss(t.id)}
-                                aria-label="Dismiss"
-                                className="shrink-0 text-slate-400 transition-colors hover:text-ink"
+                <AnimatePresence>
+                    {toasts.map((t) => {
+                        const tone = TONES[t.type] || TONES.info;
+                        const Icon = tone.icon;
+                        return (
+                            <motion.div
+                                key={t.id}
+                                role="status"
+                                initial={reduceMotion ? false : { opacity: 0, y: -8 }}
+                                animate={reduceMotion ? false : { opacity: 1, y: 0 }}
+                                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+                                transition={{ duration: 0.18, ease: EASE_SMOOTH }}
+                                className={cn(
+                                    'pointer-events-auto flex w-full max-w-md items-start gap-2.5 rounded-lg border px-3.5 py-2.5 text-body shadow-pop',
+                                    tone.cls
+                                )}
                             >
-                                <X size={14} />
-                            </button>
-                        </div>
-                    );
-                })}
+                                <Icon size={16} className="mt-0.5 shrink-0" />
+                                <span className="flex-1 text-ink">{t.message}</span>
+                                <button
+                                    onClick={() => dismiss(t.id)}
+                                    aria-label="Dismiss"
+                                    className="shrink-0 text-slate-400 transition-colors hover:text-ink"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </motion.div>
+                        );
+                    })}
+                </AnimatePresence>
             </div>
         </ToastContext.Provider>
     );

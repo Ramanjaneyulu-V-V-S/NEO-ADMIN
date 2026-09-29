@@ -1,8 +1,9 @@
 import { forwardRef } from 'react';
 import { cn } from '../../utils/cn';
 
-const base =
-    'w-full rounded-lg border border-line bg-white px-3 text-body text-ink placeholder:text-slate-400 ' +
+/** Shared control shell — also used by `DateInput`. */
+export const base =
+    'w-full rounded-lg border border-line bg-surface px-3 text-body text-ink placeholder:text-slate-400 ' +
     'transition-colors focus:outline-none focus:border-canopy focus:ring-2 focus:ring-canopy/20 ' +
     'disabled:cursor-not-allowed disabled:bg-paper disabled:text-slate-400';
 

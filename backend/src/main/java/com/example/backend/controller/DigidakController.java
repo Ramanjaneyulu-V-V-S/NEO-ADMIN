@@ -83,6 +83,20 @@ public class DigidakController {
                 language, modeOfReceipt, priority, secrecy, status, typeCategory, entryType, receivedFrom, region, export, page, size);
     }
 
+    /** Quick letter lookup — letter number and/or office type, department/location, date range. */
+    @GetMapping("/search")
+    public Map<String, Object> searchLetters(
+            @RequestParam(defaultValue = "") String q,
+            @RequestParam(defaultValue = "") String hoRo,
+            @RequestParam(defaultValue = "") String location,
+            @RequestParam(defaultValue = "") String deptNames,
+            @RequestParam(defaultValue = "") String fromDate,
+            @RequestParam(defaultValue = "") String toDate,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return digidakService.searchDigidakLetters(q, hoRo, location, deptNames, fromDate, toDate, page, size);
+    }
+
     @GetMapping("/{digidakId}/movement")
     public java.util.List<Map<String, Object>> getDigidakMovement(@PathVariable String digidakId) {
         return digidakService.getDigidakMovement(digidakId);

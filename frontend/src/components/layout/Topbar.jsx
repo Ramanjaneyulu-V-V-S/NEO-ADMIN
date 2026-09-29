@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LogOut, ChevronDown, Menu } from 'lucide-react';
+import { LogOut, ChevronDown, Menu, Sun, Moon, MonitorSmartphone } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '../../utils/cn';
 import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
-
-const EASE_SMOOTH = [0.32, 0.72, 0, 1];
+import useTheme from '../../hooks/useTheme';
+import { EASE_SMOOTH } from '../../utils/motion';
 
 const CRUMBS = {
     users: 'User Management',
@@ -27,6 +27,7 @@ const Topbar = ({ onMenuClick = () => {} }) => {
     const location = useLocation();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const reduceMotion = usePrefersReducedMotion();
+    const { theme, setTheme, resolved } = useTheme();
     const dropdownRef = useRef(null);
     const [user] = useState(() => {
         try {
@@ -60,8 +61,12 @@ const Topbar = ({ onMenuClick = () => {} }) => {
     const initials = userName ? userName.charAt(0).toUpperCase() : 'U';
     const crumb = CRUMBS[location.pathname.split('/').filter(Boolean).pop()] || '';
 
+    const isDark = resolved === 'dark';
+    const toggleLabel = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+    const ThemeIcon = isDark ? Sun : Moon;
+
     return (
-        <header className="fixed left-0 right-0 top-0 z-20 flex h-14 items-center justify-between border-b border-line bg-white/90 px-4 shadow-card backdrop-blur sm:px-6 lg:left-64">
+        <header className="fixed left-0 right-0 top-0 z-20 flex h-14 items-center justify-between border-b border-line bg-surface/90 px-4 shadow-card backdrop-blur sm:px-6 lg:left-64">
             <div className="flex min-w-0 items-center gap-3">
                 <button
                     onClick={onMenuClick}
@@ -76,6 +81,28 @@ const Topbar = ({ onMenuClick = () => {} }) => {
                     </span>
                 )}
             </div>
+
+            <div className="flex items-center gap-1">
+            <button
+                type="button"
+                onClick={() => setTheme(isDark ? 'light' : 'dark')}
+                aria-label={toggleLabel}
+                title={toggleLabel}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-paper hover:text-ink"
+            >
+                <AnimatePresence mode="wait" initial={false}>
+                    <motion.span
+                        key={resolved}
+                        className="flex"
+                        initial={reduceMotion ? false : { opacity: 0, rotate: -40 }}
+                        animate={reduceMotion ? false : { opacity: 1, rotate: 0 }}
+                        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, rotate: 40 }}
+                        transition={{ duration: 0.15, ease: EASE_SMOOTH }}
+                    >
+                        <ThemeIcon size={18} />
+                    </motion.span>
+                </AnimatePresence>
+            </button>
 
             <div className="relative" ref={dropdownRef}>
                 <button
@@ -98,7 +125,7 @@ const Topbar = ({ onMenuClick = () => {} }) => {
                         animate={reduceMotion ? false : { opacity: 1, y: 0 }}
                         exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
                         transition={{ duration: 0.15, ease: EASE_SMOOTH }}
-                        className="absolute right-0 top-full mt-2 w-72 overflow-hidden rounded-card border border-line bg-white text-body shadow-pop"
+                        className="absolute right-0 top-full mt-2 w-72 overflow-hidden rounded-card border border-line bg-surface text-body shadow-pop"
                     >
                         <div className="border-b border-line bg-paper/60 p-4">
                             <p className="font-medium text-ink">{userName}</p>
@@ -116,6 +143,16 @@ const Topbar = ({ onMenuClick = () => {} }) => {
                             </div>
                         )}
                         <div className="border-t border-line p-2">
+                            {theme !== 'system' && (
+                                <button
+                                    type="button"
+                                    onClick={() => setTheme('system')}
+                                    className="flex w-full items-center justify-center gap-2 rounded-lg p-2 text-slate-600 transition-colors hover:bg-canopy-tint hover:text-canopy"
+                                >
+                                    <MonitorSmartphone size={15} />
+                                    Use system theme
+                                </button>
+                            )}
                             <button
                                 onClick={handleLogout}
                                 className="flex w-full items-center justify-center gap-2 rounded-lg p-2 font-medium text-danger transition-colors hover:bg-danger-tint"
@@ -127,6 +164,7 @@ const Topbar = ({ onMenuClick = () => {} }) => {
                     </motion.div>
                 )}
                 </AnimatePresence>
+            </div>
             </div>
         </header>
     );

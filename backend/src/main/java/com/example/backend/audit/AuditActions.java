@@ -56,6 +56,7 @@ final class AuditActions {
             // ─── Workflows ───────────────────────────────────────────
             Map.entry("WorkflowController#restartWorkflow",           "Restart workflow"),
             Map.entry("WorkflowController#retryActivity",             "Retry workflow activity"),
+            Map.entry("IvController#publishToIv",                     "Republish document to IV"),
 
             // ─── Cases ───────────────────────────────────────────────
             Map.entry("DelegateController#delegateCase",              "Delegate case"),

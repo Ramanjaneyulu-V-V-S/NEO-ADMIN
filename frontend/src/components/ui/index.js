@@ -1,5 +1,6 @@
 export { Button } from './Button';
 export { Input, Textarea } from './Input';
+export { DateInput } from './DateInput';
 export { Field, Label } from './Field';
 export { FormGrid } from './FormGrid';
 export { Card } from './Card';

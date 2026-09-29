@@ -181,14 +181,14 @@ const GroupsPage = () => {
                 icon={Users}
                 description="Documentum groups and their members."
                 actions={
-                    <form onSubmit={handleSearch} className="flex items-center gap-2">
-                        <div className="relative">
+                    <form onSubmit={handleSearch} className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                        <div className="relative min-w-0 flex-1 sm:flex-none">
                             <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                             <Input
                                 value={groupName}
                                 onChange={(e) => setGroupName(e.target.value)}
                                 placeholder="Filter by group name…"
-                                className="w-56 pl-9 pr-8"
+                                className="w-full pl-9 pr-8 sm:w-56"
                             />
                             {groupName && (
                                 <button
