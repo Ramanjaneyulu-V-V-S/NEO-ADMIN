@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 /**
@@ -33,7 +33,7 @@ const useIdleTimeout = (warningTime = 30000, logoutTime = 1800000) => {
     clearTimers();
     localStorage.removeItem('user');
     navigate('/login', { replace: true });
-  }, [navigate]);
+  };
 
   const startCountdown = () => {
     showWarningRef.current = true;
@@ -66,11 +66,10 @@ const useIdleTimeout = (warningTime = 30000, logoutTime = 1800000) => {
     setShowWarning(false);
     lastActivityRef.current = Date.now();
     resetIdleTimer();
-  }, [resetIdleTimer]);
+  };
 
   useEffect(() => {
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
-    let lastActivityTime = Date.now();
 
     const handleActivity = () => {
       // While the warning is up, require an explicit "Continue Session" click.

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import toast from 'react-hot-toast';
 import api from '../api/axios';
 import { Save, Loader2, User, Building2, MapPin, Tag, Layers, AlertCircle, ArrowRightLeft, Users } from 'lucide-react';
 import {
@@ -8,7 +7,7 @@ import {
     DESIGNATION_GRADE_MAPPING, DDM_DESIGNATION_OPTIONS, DDM_GRADE_DESIGNATION_MAPPING, GRADE_DESIGNATION_MAPPING,
 } from '../data/nabardMetadata.js';
 import { syncUserGroups } from '../utils/userGroupSync.js';
-import { Modal } from './ui';
+import { Modal, useToast } from './ui';
 import CustomSelect from './ui/CustomSelect.jsx';
 
 const USER_GRADE_OPTIONS = [
@@ -40,6 +39,7 @@ const SelectWrapper = ({ children }) => (
 );
 
 const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
+    const toast = useToast();
     const [form, setForm] = useState({});
     const [loading, setLoading] = useState(false);
     const [loadingForm, setLoadingForm] = useState(false);
@@ -844,13 +844,18 @@ const EditUserProfileModal = ({ user, isOpen, onClose, onUpdate }) => {
             await api.patch(`/users/profiles/${user.r_object_id}`, payload);
 
             const memberName = user.user_login_name;
-            await syncUserGroups({ old: originalGroupInfoRef.current, form, payload, memberName });
+            const { settled } = await syncUserGroups({ old: originalGroupInfoRef.current, form, payload, memberName });
 
-            if (groupFailures.length > 0) {
-                toast(
-                    `Profile saved, but group sync failed: could not ${groupFailures.join('; ')}. Profile and groups may be out of sync.`,
-                    { icon: '⚠️', duration: 5000 }
-                );
+            // syncUserGroups keeps adding calls as earlier ones resolve, so drain until the list stops growing.
+            let results = [];
+            let seen = -1;
+            while (seen !== settled.length) {
+                seen = settled.length;
+                results = await Promise.allSettled(settled);
+            }
+            const failed = results.filter(r => r.status === 'rejected' || r.value?.ok === false).length;
+            if (failed > 0) {
+                toast.error(`Profile saved, but ${failed} group update${failed > 1 ? 's' : ''} failed. Profile and groups may be out of sync.`);
             }
 
             onUpdate();

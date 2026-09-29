@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import toast from 'react-hot-toast';
 import axios from '../api/axios';
 import {
     Users, UserPlus, Search, Trash2, Loader2, UsersRound, User
