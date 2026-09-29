@@ -1,29 +1,257 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ------------------------------------------------------------------ */
+/* "Field ledger" colour tokens                                         */
+/*                                                                      */
+/* Every Tailwind colour in tailwind.config.js reads one of these        */
+/* space-separated RGB triplets, so the whole palette flips between      */
+/* light and dark without touching markup.                               */
+/*                                                                      */
+/* Three states:                                                         */
+/*   - bare :root                → light (the canonical values)          */
+/*   - prefers-color-scheme:dark → dark, unless the user chose light     */
+/*   - [data-theme="dark"]       → dark, whatever the OS says            */
+/* The attribute is stamped pre-paint by the inline script in            */
+/* index.html and kept in sync by hooks/useTheme.js.                     */
+/* ------------------------------------------------------------------ */
+
 :root {
-  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  color-scheme: light;
+
+  --c-canopy: 20 83 45; /* #14532D primary */
+  --c-canopy-dark: 14 61 33; /* #0E3D21 primary hover */
+  --c-canopy-tint: 234 239 233; /* #EAEFE9 active nav, row band */
+  --c-harvest: 180 83 9; /* #B45309 warm accent */
+  /* Categorical/nominal accents — for status-domain badges with 3+ values
+     that would otherwise collapse onto the same 1-2 semantic tones. Not a
+     substitute for `canopy` primary actions. Sourced from two mountain-lake
+     palettes. */
+  --c-plum: 107 76 122; /* #6B4C7A dusk sky purple */
+  --c-tide: 27 107 120; /* #1B6B78 lake teal/navy */
+  --c-coral: 193 80 46; /* #C1502E dusk coral glow */
+  --c-clay: 140 59 59; /* #8C3B3B daytime terracotta */
+  --c-moss: 107 107 35; /* #6B6B23 daytime olive/mustard */
+  --c-ink: 26 46 31; /* #1A2E1F body text */
+  --c-paper: 246 247 244; /* #F6F7F4 app background */
+  --c-surface: 255 255 255; /* #FFFFFF cards, inputs, modals */
+  --c-line: 226 229 222; /* #E2E5DE hairlines */
+  --c-danger: 180 35 24; /* #B42318 */
+  --c-danger-tint: 254 243 242; /* #FEF3F2 */
+  --c-info: 30 95 140; /* #1E5F8C */
+  --c-info-tint: 239 246 251; /* #EFF6FB */
+  --c-on-accent: 255 255 255; /* text on canopy / harvest / danger fills */
+  /* Theme-invariant brand pair — same value in light, dark and system-dark.
+     Reserved for the login hero panel/lockup, where the NABARD brand green
+     and its logo chip must read identically regardless of theme (unlike
+     `canopy`, which intentionally brightens in dark mode for in-UI accents). */
+  --c-brand: 20 83 45; /* #14532D — fixed brand green */
+  --c-on-brand: 255 255 255; /* #FFFFFF — fixed light text/chip on the brand panel */
+  --c-shadow: 26 46 31; /* ink-tinted drop shadows */
+  --c-scroll: 195 204 195; /* scrollbar thumb */
+  --c-scroll-hover: 167 179 167;
+
+  /* Neutral scale — Tailwind slate, unchanged in light */
+  --c-slate-50: 248 250 252;
+  --c-slate-100: 241 245 249;
+  --c-slate-200: 226 232 240;
+  --c-slate-300: 203 213 225;
+  --c-slate-400: 148 163 184;
+  --c-slate-500: 100 116 139;
+  --c-slate-600: 71 85 105;
+  --c-slate-700: 51 65 85;
+  --c-slate-800: 30 41 59;
+  --c-slate-900: 15 23 42;
+}
+
+/* Dark set — green-biased, not a naive invert. Every text pairing clears
+   WCAG AA 4.5:1 on `surface`. Written twice (media query + attribute)
+   because the Tailwind PostCSS setup has no mixins. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --c-canopy: 82 176 114; /* #52B072 */
+    --c-canopy-dark: 92 189 124; /* #5CBD7C */
+    --c-canopy-tint: 32 56 41; /* #203829 */
+    --c-harvest: 233 163 92; /* #E9A35C */
+    --c-plum: 184 145 204; /* #B891CC */
+    --c-tide: 95 195 214; /* #5FC3D6 */
+    --c-coral: 232 146 110; /* #E8926E */
+    --c-clay: 208 135 135; /* #D08787 */
+    --c-moss: 196 196 106; /* #C4C46A */
+    --c-ink: 232 237 233; /* #E8EDE9 */
+    --c-paper: 15 21 18; /* #0F1512 */
+    --c-surface: 26 35 29; /* #1A231D */
+    --c-line: 46 58 50; /* #2E3A32 */
+    --c-danger: 244 122 112; /* #F47A70 */
+    --c-danger-tint: 72 41 38; /* #482926 */
+    --c-info: 93 166 216; /* #5DA6D8 */
+    --c-info-tint: 30 52 72; /* #1E3448 */
+    --c-on-accent: 14 26 18; /* #0E1A12 — bright accents need dark text */
+    --c-shadow: 0 0 0;
+    --c-scroll: 92 110 100;
+    --c-scroll-hover: 118 136 126;
+
+    --c-slate-50: 44 55 48; /* #2C3730 */
+    --c-slate-100: 52 65 58; /* #34413A */
+    --c-slate-200: 61 75 67; /* #3D4B43 */
+    --c-slate-300: 76 91 82; /* #4C5B52 */
+    --c-slate-400: 146 162 151; /* #92A297 */
+    --c-slate-500: 163 176 167; /* #A3B0A7 */
+    --c-slate-600: 191 201 194; /* #BFC9C2 */
+    --c-slate-700: 214 221 216; /* #D6DDD8 */
+    --c-slate-800: 230 235 231; /* #E6EBE7 */
+    --c-slate-900: 241 244 241; /* #F1F4F1 */
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --c-canopy: 82 176 114;
+  --c-canopy-dark: 92 189 124;
+  --c-canopy-tint: 32 56 41;
+  --c-harvest: 233 163 92;
+  --c-plum: 184 145 204;
+  --c-tide: 95 195 214;
+  --c-coral: 232 146 110;
+  --c-clay: 208 135 135;
+  --c-moss: 196 196 106;
+  --c-ink: 232 237 233;
+  --c-paper: 15 21 18;
+  --c-surface: 26 35 29;
+  --c-line: 46 58 50;
+  --c-danger: 244 122 112;
+  --c-danger-tint: 72 41 38;
+  --c-info: 93 166 216;
+  --c-info-tint: 30 52 72;
+  --c-on-accent: 14 26 18;
+  --c-shadow: 0 0 0;
+  --c-scroll: 92 110 100;
+  --c-scroll-hover: 118 136 126;
+
+  --c-slate-50: 44 55 48;
+  --c-slate-100: 52 65 58;
+  --c-slate-200: 61 75 67;
+  --c-slate-300: 76 91 82;
+  --c-slate-400: 146 162 151;
+  --c-slate-500: 163 176 167;
+  --c-slate-600: 191 201 194;
+  --c-slate-700: 214 221 216;
+  --c-slate-800: 230 235 231;
+  --c-slate-900: 241 244 241;
+}
+
+:root {
+  font-family: 'IBM Plex Sans', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  
-  /* Force light mode for enterprise clean look */
-  color-scheme: light;
-  background-color: #f8fafc; /* Slate-50 */
-  color: #0f172a; /* Slate-900 */
+
+  background-color: rgb(var(--c-paper));
+  color: rgb(var(--c-ink));
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  /* Smooth programmatic scrolling app-wide (scrollIntoView, #anchor jumps,
+     hand-rolled window.scrollTo). Neutralised by the reduced-motion block below. */
+  scroll-behavior: smooth;
+  /* Keep anchored scrolls clear of the fixed h-14 (3.5rem) topbar */
+  scroll-padding-top: 3.5rem;
+
+  /* Consistent thin, tokenized scrollbar for every scroll container that
+     doesn't opt into .scrollbar-thin */
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--c-scroll)) rgb(var(--c-canopy-tint)); /* thumb / track */
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--c-scroll));
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--c-scroll-hover));
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  background-color: rgb(var(--c-paper));
+  color: rgb(var(--c-ink));
+  /* Stop the whole window rubber-banding past the app shell */
+  overscroll-behavior-y: none;
 }
 
-/* Custom scrollbar styles for modal panels */
+/*
+ * Theme switch crossfade. `useTheme` stamps `.theme-switching` on <html> for
+ * the length of one switch (see THEME_SWITCH_MS), so every colour that reads a
+ * `--c-*` token eases from the old palette to the new one instead of snapping.
+ * The class comes off again straight after, so nothing pays for a global
+ * transition the rest of the time. The reduced-motion floor below still wins.
+ */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition-property: background-color, color, border-color, outline-color,
+    fill, stroke, box-shadow, caret-color !important;
+  transition-duration: 0.35s !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-delay: 0s !important;
+}
+
+/* Tabular figures for identifiers / counts wherever mono is used */
+.font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The "ledger spine" — a 3px canopy rule on the leading edge */
+.ledger-spine {
+  position: relative;
+}
+.ledger-spine::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: rgb(var(--c-canopy));
+  border-radius: 3px;
+}
+
+/* Custom scrollbar styles for modal / scroll panels.
+   Scrollbar look only — it deliberately does NOT set `overscroll-behavior`.
+   A contained panel swallows the wheel once it hits its own end, so whatever
+   sits behind it refuses to scroll until the pointer leaves the panel.
+
+   The rule: contain only at the OUTERMOST boundary of a floating surface, and
+   let every panel inside it chain.
+     • contained — the modal body (the page behind is already `overflow:hidden`),
+       the drawer nav, the DQL editor, the Radix Select viewport (Select locks
+       body scroll itself).
+     • chaining — everything that sits over a page the user can still scroll:
+       DataTable bodies, report tables, the CustomSelect filter list, the
+       results-grid column popover, and lists nested inside a modal body. */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 #f1f5f9;
+  scrollbar-color: rgb(var(--c-scroll)) rgb(var(--c-canopy-tint));
+  /* Momentum + smooth on touch */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
 
 .scrollbar-thin::-webkit-scrollbar {
@@ -32,15 +260,27 @@ body {
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: rgb(var(--c-canopy-tint));
   border-radius: 4px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgb(var(--c-scroll));
   border-radius: 4px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgb(var(--c-scroll-hover));
+}
+
+/* Quality floor: honour reduced-motion everywhere */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -1,0 +1,22 @@
+.received-header-group {
+    border-top: 3px solid #2563eb  !important;
+    text-align: center;
+    color: #2563eb;                    
+
+}
+
+.issued-header-group {
+    border-top: 3px solid #16a34a  !important;
+    text-align: center;
+    color: #065f46;                      
+}
+
+/* .k-grid-header .received-col {
+    background-color: #e8f0fe !important; 
+    color: #2563eb;                    
+} */
+
+/* .k-grid-header .issued-col {
+    background-color: #eaf7ef !important;
+    color: #065f46;                       
+} */

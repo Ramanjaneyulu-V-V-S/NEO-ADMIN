@@ -1,17 +1,18 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../api/axios';
+import { recordExport } from '../utils/audit';
 import {
     Search, ChevronLeft, ChevronRight, ChevronDown, Users, UserPlus,
     Loader2, Edit2, ChevronsLeft, X, ArrowUpDown, ArrowUp, ArrowDown,
     CheckCircle2, AlertCircle, Shield, Mail, User, Key, Database,
     FolderOpen, Globe, Lock, Tag, Info, Eye, EyeOff, KeyRound, UserCog,
-    Briefcase, Building2, Hash, MapPin, ToggleLeft, GraduationCap, Layers, Save
+    Briefcase, Building2, Hash, MapPin, ToggleLeft, GraduationCap, Layers, Save, Download
 } from 'lucide-react';
 import EditUserProfileModal from '../components/EditUserProfileModal.jsx';
-import EmptyState from '../components/ui/EmptyState.jsx';
-import SkeletonLoader from '../components/ui/SkeletonLoader.jsx';
 import CustomSelect from '../components/ui/CustomSelect.jsx';
-import { USER_GRADES, DESIGNATION_OPTIONS, fetchDepartments, getLocations } from '../data/nabardMetadata.js';
+import { PageHeader, Tabs, DataTable, Pagination, Button, Input, Modal, useToast } from '../components/ui';
+import UserExportTab from './UserExportPage';
+import { USER_GRADES, DESIGNATION_OPTIONS, DESIGNATION_OTHER, fetchDepartments, getLocations } from '../data/nabardMetadata.js';
 
 // ─── Fetch all users across pages (Documentum REST caps at 2000/page) ────────
 async function fetchAllUsers(officeTypeFilter, locationFilter, deptNames) {
@@ -42,36 +43,16 @@ const PRIVILEGE_OPTIONS = [
     { value: 16, label: 'Superuser',     description: 'Full superuser access' },
 ];
 
-// ─── Toast Notification ───────────────────────────────────────────────────────
-const Toast = ({ toast, onDismiss }) => {
-    useEffect(() => {
-        if (!toast) return;
-        const timer = setTimeout(onDismiss, toast.type === 'success' ? 3000 : 5000);
-        return () => clearTimeout(timer);
-    }, [toast, onDismiss]);
-
-    if (!toast) return null;
-
-    const styles = {
-        success: 'bg-green-50 text-green-800 border-green-200',
-        error:   'bg-red-50   text-red-800   border-red-200',
-    };
-    const Icon = toast.type === 'success' ? CheckCircle2 : AlertCircle;
-
-    return (
-        <div className={`fixed top-5 right-5 z-50 flex items-start gap-3 px-4 py-3 border rounded-xl shadow-lg max-w-sm animate-fade-in ${styles[toast.type]}`}>
-            <Icon size={18} className="mt-0.5 shrink-0" />
-            <div className="flex-1 text-sm font-medium">{toast.message}</div>
-            <button onClick={onDismiss} className="shrink-0 opacity-60 hover:opacity-100">
-                <X size={16} />
-            </button>
-        </div>
-    );
-};
-
 // ─── Source label helper ──────────────────────────────────────────────────────
 const DM_SOURCE_LABELS = { 0: 'Local', 1: 'LDAP', 3: 'OTDS' };
 const DM_STATE_LABELS  = { 0: 'Active', 1: 'Inactive' };
+// Local = neutral (matches the "inline password" treatment elsewhere), LDAP
+// gets the new `tide` accent so it's no longer indistinguishable from OTDS.
+const DM_SOURCE_TONE_CLS = {
+    0: 'bg-slate-100 text-slate-600 border border-slate-200',
+    1: 'bg-tide/10 text-tide border border-tide/20',
+    3: 'bg-canopy-tint text-canopy border border-canopy/20',
+};
 
 // ─── Edit dm_user Modal ───────────────────────────────────────────────────────
 const EditDmUserModal = ({ user, isOpen, onClose, onSaved, onToast }) => {
@@ -138,27 +119,38 @@ const EditDmUserModal = ({ user, isOpen, onClose, onSaved, onToast }) => {
 
     if (!isOpen) return null;
 
-    const inputCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2] bg-white';
+    const inputCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-surface';
     const Lbl = ({ children }) => <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{children}</label>;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden max-h-[90vh]">
-                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                    <div>
-                        <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                            <UserCog size={16} className="text-violet-600" />
-                            Edit Documentum User
-                        </h2>
-                        <p className="text-xs text-slate-400 mt-0.5 font-mono">{user?.user_name} · {user?.user_login_name}</p>
-                    </div>
-                    <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-full transition-colors text-slate-500">
-                        <X size={18} />
+        <Modal
+            isOpen
+            onClose={onClose}
+            size="lg"
+            title={
+                <span className="flex flex-col gap-0.5">
+                    <span className="flex items-center gap-2">
+                        <UserCog size={16} className="text-canopy" />
+                        Edit Documentum User
+                    </span>
+                    <span className="font-mono text-xs font-normal text-slate-400">{user?.user_name} · {user?.user_login_name}</span>
+                </span>
+            }
+            footer={
+                <>
+                    <button onClick={onClose}
+                        className="px-4 py-2 bg-surface border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
+                        Cancel
                     </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto overscroll-contain p-6">
-                    {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">{error}</div>}
+                    <button type="submit" form="editDmUserForm" disabled={loading}
+                        className="px-4 py-2 bg-canopy text-white rounded-lg text-sm font-medium hover:bg-canopy-dark disabled:opacity-50 flex items-center gap-2 transition-colors">
+                        {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                        Save Changes
+                    </button>
+                </>
+            }
+        >
+                    {error && <div className="mb-4 p-3 bg-danger-tint text-danger rounded-lg text-sm border border-danger-tint">{error}</div>}
                     <form id="editDmUserForm" onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-1">
                             <Lbl>Email / User Address</Lbl>
@@ -174,40 +166,26 @@ const EditDmUserModal = ({ user, isOpen, onClose, onSaved, onToast }) => {
                             </Lbl>
                             <CustomSelect
                                 value={form.user_state}
-                                onChange={v => set('user_state', Number(v))}
                                 disabled={loadingState}
+                                onChange={v => set('user_state', Number(v))}
                                 options={[
                                     { value: 0, label: 'Active' },
                                     { value: 1, label: 'Inactive' },
                                 ]}
                             />
                             {form.user_state === 1 && !loadingState && (
-                                <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+                                <p className="text-xs text-harvest flex items-center gap-1 mt-1">
                                     <AlertCircle size={12} /> Saving will disable the OTDS account.
                                 </p>
                             )}
                             {form.user_state === 0 && !loadingState && (
-                                <p className="text-xs text-emerald-600 flex items-center gap-1 mt-1">
+                                <p className="text-xs text-canopy flex items-center gap-1 mt-1">
                                     <CheckCircle2 size={12} /> Saving will enable the OTDS account.
                                 </p>
                             )}
                         </div>
                     </form>
-                </div>
-
-                <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-                    <button onClick={onClose}
-                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
-                        Cancel
-                    </button>
-                    <button type="submit" form="editDmUserForm" disabled={loading}
-                        className="px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50 flex items-center gap-2 transition-colors">
-                        {loading ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                        Save Changes
-                    </button>
-                </div>
-            </div>
-        </div>
+        </Modal>
     );
 };
 
@@ -291,24 +269,30 @@ const DmUserTab = ({ onToast }) => {
     const rangeEnd     = rangeStart + pageSize;
     const currentUsers = processed.slice(rangeStart, rangeEnd);
 
-    const handleSort = (key) => setSortConfig(c => ({
-        key, direction: c.key === key && c.direction === 'asc' ? 'desc' : 'asc',
-    }));
-
-    const SortIcon = ({ columnKey }) => {
-        if (sortConfig.key !== columnKey)
-            return <ArrowUpDown size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity ml-1" />;
-        return sortConfig.direction === 'asc'
-            ? <ArrowUp size={14} className="text-[#0A66C2] ml-1" />
-            : <ArrowDown size={14} className="text-[#0A66C2] ml-1" />;
-    };
-
-    const SortableHeader = ({ label, columnKey, className = '' }) => (
-        <th className={`px-4 py-3 font-semibold text-slate-700 cursor-pointer hover:bg-slate-100 transition-colors group select-none ${className}`}
-            onClick={() => handleSort(columnKey)}>
-            <div className="flex items-center">{label}<SortIcon columnKey={columnKey} /></div>
-        </th>
-    );
+    const dmColumns = [
+        { key: 'idx', header: '#', width: 'w-12', mono: true, card: 'hide',
+          render: (_u, idx) => <span className="text-slate-400 text-xs">{rangeStart + idx + 1}</span> },
+        { key: 'user_name', header: 'User Name', sortable: true, primary: true,
+          render: (u) => <span className="font-medium text-slate-900">{u.user_name}</span> },
+        { key: 'user_login_name', header: 'Login Name', sortable: true, mono: true, cardLabel: 'Login',
+          render: (u) => <span className="text-xs text-slate-500">{u.user_login_name || '-'}</span> },
+        { key: 'user_address', header: 'Email', sortable: true, cardLabel: 'Email',
+          render: (u) => <span className="text-xs text-slate-600">{u.user_address || '-'}</span> },
+        { key: 'user_source', header: 'Source', sortable: true, cardLabel: 'Source',
+          render: (u) => u.user_source !== undefined && u.user_source !== null ? (
+              <span className={`px-2 py-0.5 rounded text-xs font-medium ${DM_SOURCE_TONE_CLS[u.user_source] || 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                  {DM_SOURCE_LABELS[u.user_source] || u.user_source}
+              </span>
+          ) : '-' },
+        { key: 'actions', header: 'Actions', width: 'w-16', align: 'center', card: 'footer',
+          render: (u) => (
+              <button onClick={() => { setSelectedUser(u); setIsEditOpen(true); }}
+                  className="p-2 hover:bg-surface border border-transparent hover:border-slate-200 text-slate-400 hover:text-canopy hover:shadow-sm rounded-lg transition-[color,background-color,border-color,box-shadow]"
+                  title="Edit dm_user">
+                  <Edit2 size={16} />
+              </button>
+          ) },
+    ];
 
     return (
         <div className="flex flex-col flex-1 overflow-hidden">
@@ -321,7 +305,7 @@ const DmUserTab = ({ onToast }) => {
                     <input type="text" value={searchQuery}
                         onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                         placeholder="Search by name, login, email..."
-                        className="w-full sm:w-72 pl-9 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] shadow-sm" />
+                        className="w-full sm:w-72 pl-9 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy shadow-sm" />
                     {searchQuery && (
                         <button onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
                             className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded-full">
@@ -331,58 +315,26 @@ const DmUserTab = ({ onToast }) => {
                 </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-lg shadow-sm flex-1 flex flex-col overflow-hidden">
-                <div className="overflow-x-auto flex-1">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                            <tr>
-                                <th className="px-4 py-3 font-semibold text-slate-700 w-12">#</th>
-                                <SortableHeader label="User Name"   columnKey="user_name" />
-                                <SortableHeader label="Login Name"  columnKey="user_login_name" />
-                                <SortableHeader label="Email"       columnKey="user_address" />
-                                <SortableHeader label="Source"      columnKey="user_source" />
-                                <th className="px-4 py-3 font-semibold text-slate-700 w-16 text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {loading ? (
-                                <tr><td colSpan="5" className="p-0">
-                                    <SkeletonLoader columns={5} rows={5} />
-                                </td></tr>
-                            ) : currentUsers.length === 0 ? (
-                                <tr><td colSpan="5" className="p-0">
-                                    <EmptyState title="No users found" description="Try adjusting your search terms" icon={Users} />
-                                </td></tr>
-                            ) : currentUsers.map((user, idx) => (
-                                <tr key={user.user_name || idx} className="hover:bg-violet-50/30 transition-colors group">
-                                    <td className="px-4 py-3 text-slate-400 font-mono text-xs">{rangeStart + idx + 1}</td>
-                                    <td className="px-4 py-3">
-                                        <span className="font-medium text-slate-900">{user.user_name}</span>
-                                    </td>
-                                    <td className="px-4 py-3 font-mono text-xs text-slate-500">{user.user_login_name || '-'}</td>
-                                    <td className="px-4 py-3 text-slate-600 text-xs">{user.user_address || '-'}</td>
-                                    <td className="px-4 py-3">
-                                        {user.user_source !== undefined && user.user_source !== null ? (
-                                            <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium border border-blue-100">
-                                                {DM_SOURCE_LABELS[user.user_source] || user.user_source}
-                                            </span>
-                                        ) : '-'}
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        <button onClick={() => { setSelectedUser(user); setIsEditOpen(true); }}
-                                            className="p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-400 hover:text-violet-600 hover:shadow-sm rounded-lg transition-all"
-                                            title="Edit dm_user">
-                                            <Edit2 size={16} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+            <div className="bg-surface border border-slate-200 rounded-lg shadow-sm flex-1 flex flex-col overflow-hidden">
+                <DataTable
+                    columns={dmColumns}
+                    rows={currentUsers}
+                    rowKey={(u, idx) => u.user_name || idx}
+                    loading={loading}
+                    skeletonRows={8}
+                    sort={sortConfig.key ? { key: sortConfig.key, dir: sortConfig.direction } : null}
+                    onSortChange={(next) => {
+                        setSortConfig(next ? { key: next.key, direction: next.dir } : { key: 'user_name', direction: 'asc' });
+                        setCurrentPage(1);
+                    }}
+                    empty={{ icon: Users, title: 'No users found', description: 'Try adjusting your search terms' }}
+                    stickyHeader
+                    maxHeight="70vh"
+                    className="p-3 md:p-0"
+                />
 
                 {/* Pagination */}
-                <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50/50">
+                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50/50 sm:px-6 sm:py-4">
                     <div className="text-sm text-slate-500">
                         {totalItems > 0 ? (
                             <>Showing <span className="font-medium text-slate-900">{rangeStart + 1}</span> to <span className="font-medium text-slate-900">{Math.min(rangeEnd, totalItems)}</span> of <span className="font-medium text-slate-900">{totalItems}</span> results</>
@@ -390,18 +342,18 @@ const DmUserTab = ({ onToast }) => {
                     </div>
                     <div className="flex items-center gap-2">
                         <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1 || loading}
-                            className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-violet-600 disabled:opacity-40 disabled:hover:bg-transparent text-slate-500 transition-colors">
+                            className="p-2 border border-slate-200 rounded-lg hover:bg-surface hover:text-canopy disabled:opacity-40 disabled:hover:bg-transparent text-slate-500 transition-colors">
                             <ChevronsLeft size={16} />
                         </button>
                         <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || loading}
-                            className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-violet-600 disabled:opacity-40 disabled:hover:bg-transparent text-slate-500 transition-colors">
+                            className="p-2 border border-slate-200 rounded-lg hover:bg-surface hover:text-canopy disabled:opacity-40 disabled:hover:bg-transparent text-slate-500 transition-colors">
                             <ChevronLeft size={16} />
                         </button>
-                        <div className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 min-w-[3rem] text-center shadow-sm">
+                        <div className="px-4 py-1.5 bg-surface border border-slate-200 rounded-lg text-sm font-medium text-slate-700 min-w-[3rem] text-center shadow-sm">
                             {currentPage}
                         </div>
                         <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || loading || totalPages === 0}
-                            className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-violet-600 disabled:opacity-40 disabled:hover:bg-transparent text-slate-500 transition-colors">
+                            className="p-2 border border-slate-200 rounded-lg hover:bg-surface hover:text-canopy disabled:opacity-40 disabled:hover:bg-transparent text-slate-500 transition-colors">
                             <ChevronRight size={16} />
                         </button>
                     </div>
@@ -428,36 +380,57 @@ const UserDirectoryTab = ({ onToast }) => {
     );
 };
 
+const OFFICE_TYPE_LABELS = { HO: 'HO — Head Office', RO: 'RO — Regional Office', TE: 'TE — Training Establishment' };
+
+const PROFILE_PAGE_SIZES = [15, 25, 50];
+
+// Debounce a fast-changing value (e.g. a text input) for server-side querying.
+function useDebouncedValue(value, delay = 300) {
+    const [debounced, setDebounced] = useState(value);
+    useEffect(() => {
+        const t = setTimeout(() => setDebounced(value), delay);
+        return () => clearTimeout(t);
+    }, [value, delay]);
+    return debounced;
+}
+
 // ─── cms_user_profile Sub-Tab (was UserDirectoryTab) ─────────────────────────
+// Server-side paginated / filtered / sorted — one small page per request keeps
+// the initial load well under a second (the old bulk 2 000-row fetch took ~7 s).
 const CmsProfileTab = ({ onToast }) => {
-    const [allUsers, setAllUsers] = useState([]);
+    const [users, setUsers] = useState([]);
+    const [total, setTotal] = useState(null);
+    const [hasNext, setHasNext] = useState(false);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize] = useState(15);
-    const [filterName, setFilterName] = useState('');
-    const [filterUin, setFilterUin] = useState('');
+    const [pageSize, setPageSize] = useState(25);
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [filterSearch, setFilterSearch] = useState('');
     const [filterGrade, setFilterGrade] = useState('');
+    const [filterOfficeType, setFilterOfficeType] = useState('');
     const [filterDeptCode, setFilterDeptCode] = useState('');
     const [filterRoCode, setFilterRoCode] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: 'object_name', direction: 'asc' });
     const [selectedUser, setSelectedUser] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const fetchIdRef = useRef(0); // guard against stale / duplicate fetches
+
+    const debouncedSearch = useDebouncedValue(filterSearch.trim(), 300);
 
     const storedUser   = JSON.parse(localStorage.getItem('user') || '{}');
     const adminRole    = storedUser.properties?.admin_role || storedUser.admin_role || null;
     const isLocalAdmin = adminRole === 'Local Admin';
     const loginUsername = storedUser.properties?.user_name || storedUser.user_name || '';
 
-    const [profileCtx, setProfileCtx]           = useState(null);
+    const [profileCtx, setProfileCtx]           = useState(isLocalAdmin ? null : {});
     const [profileOfficeType, setProfileOfficeType] = useState('');
     const [profileLocation, setProfileLocation] = useState('');
     const [allDepts, setAllDepts]               = useState([]);
+    const [hoDeptList, setHoDeptList]           = useState([]); // Super Admin HO department options
 
+    // Local Admin: resolve the fixed office / location / department scope
     useEffect(() => {
-        if (!isLocalAdmin || !loginUsername) {
-            fetchUsers(null);
-            return;
-        }
+        if (!isLocalAdmin || !loginUsername) return;
         api.get('/users/profile-context', { params: { username: loginUsername } })
             .then(res => {
                 const ctx = res.data || {};
@@ -465,305 +438,292 @@ const CmsProfileTab = ({ onToast }) => {
                 setProfileOfficeType(ctx.office_type || '');
                 setProfileLocation(ctx.location || '');
             })
-            .catch(() => { setProfileCtx({}); fetchUsers(null); });
+            .catch(() => setProfileCtx({}));
     }, [isLocalAdmin, loginUsername]);
 
-    // Fetch departments for HO Local Admin
+    // Super Admin: HO department filter options (static metadata, not scanned from rows)
+    useEffect(() => {
+        if (isLocalAdmin) return;
+        fetchDepartments('HO').then(setHoDeptList).catch(() => setHoDeptList([]));
+    }, [isLocalAdmin]);
+
+    // Local Admin: departments for their office / location
     useEffect(() => {
         if (!isLocalAdmin || !profileOfficeType) return;
         if ((profileOfficeType === 'RO' || profileOfficeType === 'TE') && !profileLocation) return;
         fetchDepartments(profileOfficeType, profileLocation).then(setAllDepts);
     }, [isLocalAdmin, profileOfficeType, profileLocation]);
 
-    const filteredDepts = isLocalAdmin && profileCtx
-        ? (() => {
-            const raw = profileCtx.department_short_code_multi;
-            const allowed = (Array.isArray(raw) ? raw : (raw ? [raw] : []))
-                .map(s => s.toLowerCase());
-            return allDepts.filter(d => allowed.includes(d.shortCode.toLowerCase()));
-          })()
-        : allDepts;
+    const filteredDepts = useMemo(() => {
+        if (!isLocalAdmin || !profileCtx) return allDepts;
+        const raw = profileCtx.department_short_code_multi;
+        const allowed = (Array.isArray(raw) ? raw : (raw ? [raw] : []))
+            .map(s => s.toLowerCase());
+        return allDepts.filter(d => allowed.includes(d.shortCode.toLowerCase()));
+    }, [isLocalAdmin, profileCtx, allDepts]);
 
-    const localAdminDeptNames = isLocalAdmin && profileOfficeType === 'HO' && filteredDepts.length > 0
-        ? filteredDepts.map(d => d.name).join(',')
-        : '';
+    const localAdminDeptNames = useMemo(() => (
+        isLocalAdmin && profileOfficeType === 'HO' && filteredDepts.length > 0
+            ? filteredDepts.map(d => d.name).join(',')
+            : ''
+    ), [isLocalAdmin, profileOfficeType, filteredDepts]);
 
-    // Auto-fetch once Local Admin context is ready
+    // The server-side scope is ready once a Local Admin's context has resolved.
+    const scopeReady = !isLocalAdmin
+        ? true
+        : !!(profileCtx && profileOfficeType && (
+            profileOfficeType === 'HO' ? !!localAdminDeptNames : !!profileLocation
+        ));
+
+    // ── One consolidated server-side fetch: page + filters + sort ──────────────
     useEffect(() => {
-        if (!isLocalAdmin || !profileCtx || !profileOfficeType) return;
-        if (profileOfficeType === 'HO') {
-            if (!localAdminDeptNames) return;
-            const selectedDept = allDepts.find(d => d.shortCode === filterDeptCode);
-            fetchUsers(profileOfficeType, '', selectedDept?.name || localAdminDeptNames);
-        } else {
-            if (!profileLocation) return;
-            fetchUsers(profileOfficeType, profileLocation, '');
-        }
-    }, [isLocalAdmin, profileCtx, profileOfficeType, profileLocation, localAdminDeptNames, filterDeptCode, allDepts]);
+        if (!scopeReady) return;
+        const myFetchId = ++fetchIdRef.current;
 
-    // For Super Admin: re-fetch when filter changes
-    useEffect(() => {
-        if (isLocalAdmin) return;
-        const selectedDept = allDepts.find(d => d.shortCode === filterDeptCode);
-        fetchUsers(null, '', selectedDept?.name || '');
-    }, [isLocalAdmin, filterDeptCode, allDepts]);
+        const load = async () => {
+            setLoading(true);
+            const params = {
+                page: currentPage,
+                size: pageSize,
+                sortBy: sortConfig.key || 'object_name',
+                sortDir: sortConfig.direction || 'asc',
+                'include-total': true,
+            };
+            if (debouncedSearch) params.query = debouncedSearch;
+            if (filterGrade)     params.grade = filterGrade;
 
-    const fetchUsers = async (officeTypeFilter, locationFilter, deptNames) => {
-        setLoading(true);
-        try {
-            const users = await fetchAllUsers(officeTypeFilter, locationFilter, deptNames);
-            setAllUsers(users);
-        } catch (error) {
-            console.error('Error fetching users', error);
-            setAllUsers([]);
-        } finally {
-            setLoading(false);
-        }
-    };
+            if (isLocalAdmin) {
+                if (profileOfficeType === 'HO') {
+                    params.officeTypeFilter = 'HO';
+                    params.deptNames = localAdminDeptNames;
+                    if (filterDeptCode) params.deptCode = filterDeptCode;
+                } else {
+                    params.officeTypeFilter = profileOfficeType;
+                    params.locationFilter = profileLocation;
+                }
+            } else {
+                if (filterOfficeType) params.officeTypeFilter = filterOfficeType;
+                if (filterDeptCode)   params.deptCode = filterDeptCode;
+                if (filterRoCode)     params.roCode = filterRoCode;
+            }
 
-    const gradeOptions = useMemo(() => {
-        const seen = new Set();
-        return allUsers.map(u => u.user_grade).filter(g => g && !seen.has(g) && seen.add(g)).sort()
-            .map(g => ({ value: g, label: g }));
-    }, [allUsers]);
+            try {
+                const res = await api.get('/users/profiles', { params });
+                if (fetchIdRef.current !== myFetchId) return;
+                setUsers(res.data.users || []);
+                setHasNext(!!res.data.hasNext);
+                setTotal(res.data.total != null ? Number(res.data.total) : null);
+            } catch (err) {
+                if (fetchIdRef.current !== myFetchId) return;
+                console.error('Error fetching users', err);
+                setUsers([]); setHasNext(false); setTotal(null);
+                onToast?.({ type: 'error', message: 'Failed to load user directory.' });
+            } finally {
+                if (fetchIdRef.current === myFetchId) setLoading(false);
+            }
+        };
+
+        load();
+    }, [scopeReady, isLocalAdmin, currentPage, pageSize, sortConfig, refreshKey,
+        debouncedSearch, filterGrade, filterOfficeType, filterDeptCode, filterRoCode,
+        profileOfficeType, profileLocation, localAdminDeptNames, onToast]);
+
+    // Modal callback — refetch the current page (keeps filters / page position)
+    const handleRefreshUsers = () => setRefreshKey(k => k + 1);
+
+    const gradeOptions = useMemo(
+        () => USER_GRADES.map(g => ({ value: g.value, label: g.label })),
+        []
+    );
 
     const roCodeOptions = useMemo(() => {
         const seen = new Set();
-        return allUsers.map(u => u.ro_short_code).filter(r => r && !seen.has(r) && seen.add(r)).sort()
-            .map(r => ({ value: r, label: r }));
-    }, [allUsers]);
+        return [...getLocations('RO'), ...getLocations('TE')]
+            .filter(l => l.shortCode && !seen.has(l.shortCode) && seen.add(l.shortCode))
+            .map(l => ({ value: l.shortCode, label: `${l.location} (${l.shortCode})` }));
+    }, []);
 
-    const processedUsers = useMemo(() => {
-        let result = [...allUsers];
-        if (filterName.trim()) {
-            const q = filterName.toLowerCase().trim();
-            result = result.filter(u =>
-                (u.object_name?.toLowerCase() || '').includes(q) ||
-                (u.user_login_name?.toLowerCase() || '').includes(q)
-            );
-        }
-        if (filterUin.trim()) {
-            const q = filterUin.toLowerCase().trim();
-            result = result.filter(u => (u.uin?.toLowerCase() || '').includes(q));
-        }
-        if (filterGrade)  result = result.filter(u => u.user_grade === filterGrade);
-        if (filterRoCode) result = result.filter(u => u.ro_short_code === filterRoCode);
-        if (sortConfig.key) {
-            result.sort((a, b) => {
-                const av = a[sortConfig.key] || '';
-                const bv = b[sortConfig.key] || '';
-                if (av < bv) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (av > bv) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-        return result;
-    }, [allUsers, filterName, filterUin, filterGrade, filterRoCode, sortConfig]);
-
-    const totalItems  = processedUsers.length;
-    const totalPages  = Math.ceil(totalItems / pageSize);
-    const rangeStart  = (currentPage - 1) * pageSize;
-    const rangeEnd    = rangeStart + pageSize;
-    const currentUsers = processedUsers.slice(rangeStart, rangeEnd);
-
-    const handleSort = (key) => setSortConfig(c => ({
-        key, direction: c.key === key && c.direction === 'asc' ? 'desc' : 'asc'
-    }));
-
-    const handlePageChange = (p) => {
-        if (p >= 1 && p <= totalPages) setCurrentPage(p);
-    };
-
-    const SortIcon = ({ columnKey }) => {
-        if (sortConfig.key !== columnKey)
-            return <ArrowUpDown size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity ml-1" />;
-        return sortConfig.direction === 'asc'
-            ? <ArrowUp size={14} className="text-[#0A66C2] ml-1" />
-            : <ArrowDown size={14} className="text-[#0A66C2] ml-1" />;
-    };
-
-    const SortableHeader = ({ label, columnKey, className = '' }) => (
-        <th className={`px-4 py-3 font-semibold text-slate-700 cursor-pointer hover:bg-slate-100 transition-colors group select-none ${className}`}
-            onClick={() => handleSort(columnKey)}>
-            <div className="flex items-center">{label}<SortIcon columnKey={columnKey} /></div>
-        </th>
+    const officeTypeOptions = useMemo(
+        () => ['HO', 'RO', 'TE'].map(o => ({ value: o, label: OFFICE_TYPE_LABELS[o] || o })),
+        []
     );
 
-    const hasActiveFilters = filterName || filterUin || filterGrade || filterDeptCode || filterRoCode;
+    // Super Admin HO department options (from metadata, not from loaded rows)
+    const hoDeptOptions = useMemo(
+        () => hoDeptList
+            .map(d => ({ value: d.shortCode, label: `${d.name} (${d.shortCode})` }))
+            .sort((a, b) => a.label.localeCompare(b.label)),
+        [hoDeptList]
+    );
+
+    const totalPages = total != null ? Math.max(1, Math.ceil(total / pageSize)) : null;
+    const rangeStart = (currentPage - 1) * pageSize;
+    const currentUsers = users;
+
+    const handlePageChange = (p) => {
+        if (p < 1) return;
+        if (totalPages != null) { if (p <= totalPages) setCurrentPage(p); return; }
+        if (p <= currentPage || hasNext) setCurrentPage(p);
+    };
+
+    const hasActiveFilters = filterSearch || filterGrade || filterOfficeType || filterDeptCode || filterRoCode;
     const clearAllFilters = () => {
-        setFilterName(''); setFilterUin(''); setFilterGrade('');
+        setFilterSearch(''); setFilterGrade(''); setFilterOfficeType('');
         setFilterDeptCode(''); setFilterRoCode('');
         setCurrentPage(1);
     };
 
+    const filterLabelCls = 'text-caption font-medium uppercase tracking-wide text-slate-500';
+
+    const columns = [
+        {
+            key: 'idx', header: '#', mono: true, width: 'w-12', card: 'hide',
+            render: (_u, i) => rangeStart + i + 1,
+        },
+        {
+            key: 'object_name', header: 'Name', primary: true, sortable: true,
+            render: (u) => (
+                <div className="flex flex-col">
+                    <span className="font-medium text-ink">{u.object_name}</span>
+                    <span className="text-caption text-slate-500">{u.user_login_name}</span>
+                </div>
+            ),
+        },
+        { key: 'uin', header: 'UIN', mono: true, sortable: true, render: (u) => u.uin || '—' },
+        {
+            key: 'user_grade', header: 'Grade', sortable: true,
+            render: (u) => u.user_grade
+                ? <span className="rounded border border-line bg-paper px-2 py-0.5 text-caption font-medium text-slate-600">{u.user_grade}</span>
+                : '—',
+        },
+        { key: 'designation', header: 'Designation', sortable: true, render: (u) => u.designation || '—' },
+        { key: 'department_short_code', header: 'Department', mono: true, sortable: true, render: (u) => u.department_short_code || '—' },
+        { key: 'ro_short_code', header: 'RO Code', mono: true, sortable: true, render: (u) => u.ro_short_code || '—' },
+        {
+            key: 'actions', header: '', align: 'right', card: 'footer',
+            render: (u) => (
+                <Button
+                    size="sm" variant="secondary"
+                    onClick={() => { setSelectedUser(u); setIsEditModalOpen(true); }}
+                >
+                    <Edit2 size={13} /> Edit
+                </Button>
+            ),
+        },
+    ];
+
     return (
-        <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="flex flex-col gap-4">
             {/* Per-column filters */}
-            <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm mb-4">
+            <div className="rounded-card border border-line bg-surface p-3 shadow-card">
                 <div className="flex flex-wrap items-end gap-3">
-                    {/* Name */}
-                    <div className="flex flex-col gap-1 min-w-[160px]">
-                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Name</label>
+                    {/* Global search — name, UIN, login name, department, designation */}
+                    <div className="flex w-full flex-col gap-1 sm:w-64">
+                        <label className={filterLabelCls}>Search</label>
                         <div className="relative">
-                            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input type="text" value={filterName}
-                                onChange={e => { setFilterName(e.target.value); setCurrentPage(1); }}
-                                placeholder="Search name…"
-                                className="w-full pl-7 pr-7 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2]" />
-                            {filterName && <button onClick={() => { setFilterName(''); setCurrentPage(1); }}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X size={12} /></button>}
+                            <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <Input value={filterSearch}
+                                onChange={e => { setFilterSearch(e.target.value); setCurrentPage(1); }}
+                                placeholder="Name, UIN, login, department…"
+                                className="pl-7 pr-7" />
+                            {filterSearch && <button onClick={() => { setFilterSearch(''); setCurrentPage(1); }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-ink"><X size={12} /></button>}
                         </div>
                     </div>
 
-                    {/* UIN */}
-                    <div className="flex flex-col gap-1 min-w-[120px]">
-                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">UIN</label>
-                        <div className="relative">
-                            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input type="text" value={filterUin}
-                                onChange={e => { setFilterUin(e.target.value); setCurrentPage(1); }}
-                                placeholder="Search UIN…"
-                                className="w-full pl-7 pr-7 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2]" />
-                            {filterUin && <button onClick={() => { setFilterUin(''); setCurrentPage(1); }}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X size={12} /></button>}
-                        </div>
-                    </div>
-
-                    {/* Grade */}
-                    <div className="flex flex-col gap-1 min-w-[150px]">
-                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Grade</label>
-                        <CustomSelect value={filterGrade} onChange={v => { setFilterGrade(v); setCurrentPage(1); }}
-                            placeholder="All grades" options={gradeOptions} />
-                    </div>
-
-                    {/* Department */}
-                    {(isLocalAdmin ? filteredDepts.length > 1 : allDepts.length > 0) && (
-                        <div className="flex flex-col gap-1 min-w-[200px]">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Department</label>
-                            <CustomSelect value={filterDeptCode}
-                                onChange={v => { setFilterDeptCode(v); setCurrentPage(1); }}
-                                placeholder={isLocalAdmin ? "All my depts" : "All departments"}
-                                options={(isLocalAdmin ? filteredDepts : allDepts).map(d => ({ value: d.shortCode, label: `${d.name} (${d.shortCode})` }))} />
+                    {/* Office Type (HO/RO/TE) — hidden for Local Admins (scope is fixed) */}
+                    {!isLocalAdmin && (
+                        <div className="flex min-w-[190px] flex-col gap-1">
+                            <label className={filterLabelCls}>Office Type</label>
+                            <CustomSelect value={filterOfficeType}
+                                onChange={v => { setFilterOfficeType(v); setFilterDeptCode(''); setFilterRoCode(''); setCurrentPage(1); }}
+                                placeholder="Select office type" options={officeTypeOptions} />
                         </div>
                     )}
 
-                    {/* RO Code */}
-                    {roCodeOptions.length > 0 && (
-                        <div className="flex flex-col gap-1 min-w-[120px]">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">RO Code</label>
+                    {/* Department — HO only (Super Admin from data; Local Admin from their scope) */}
+                    {(isLocalAdmin ? filteredDepts.length > 1 : filterOfficeType === 'HO') && (
+                        <div className="flex min-w-[200px] flex-col gap-1">
+                            <label className={filterLabelCls}>Department</label>
+                            <CustomSelect value={filterDeptCode}
+                                onChange={v => { setFilterDeptCode(v); setCurrentPage(1); }}
+                                placeholder={isLocalAdmin ? "All my depts" : "All departments"}
+                                options={isLocalAdmin
+                                    ? filteredDepts.map(d => ({ value: d.shortCode, label: `${d.name} (${d.shortCode})` }))
+                                    : hoDeptOptions} />
+                        </div>
+                    )}
+
+                    {/* RO Code — RO/TE only */}
+                    {(filterOfficeType === 'RO' || filterOfficeType === 'TE') && roCodeOptions.length > 0 && (
+                        <div className="flex min-w-[130px] flex-col gap-1">
+                            <label className={filterLabelCls}>RO Code</label>
                             <CustomSelect value={filterRoCode} onChange={v => { setFilterRoCode(v); setCurrentPage(1); }}
                                 placeholder="All RO codes" options={roCodeOptions} />
                         </div>
                     )}
 
+                    {/* Grade */}
+                    <div className="flex min-w-[150px] flex-col gap-1">
+                        <label className={filterLabelCls}>Grade</label>
+                        <CustomSelect value={filterGrade} onChange={v => { setFilterGrade(v); setCurrentPage(1); }}
+                            placeholder="Select grade" options={gradeOptions} />
+                    </div>
+
                     {/* Count + Clear */}
-                    <div className="flex flex-col gap-1 ml-auto items-end">
-                        <span className="text-xs text-slate-400 invisible">x</span>
-                        <div className="flex items-center gap-2">
-                            {!loading && <span className="text-sm text-slate-500 whitespace-nowrap">
-                                <span className="text-slate-900 font-semibold">{totalItems}</span> users
-                            </span>}
-                            {hasActiveFilters && (
-                                <button onClick={clearAllFilters}
-                                    className="flex items-center gap-1 px-2.5 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap">
-                                    <X size={11} /> Clear all
-                                </button>
-                            )}
-                        </div>
+                    <div className="ml-auto flex items-center gap-2 self-end">
+                        {!loading && total != null && <span className="whitespace-nowrap text-body text-slate-500">
+                            <span className="font-mono text-canopy">{total}</span> users
+                        </span>}
+                        {hasActiveFilters && (
+                            <Button size="sm" variant="ghost" onClick={clearAllFilters}>
+                                <X size={12} /> Clear all
+                            </Button>
+                        )}
                     </div>
                 </div>
             </div>
 
             {/* Table */}
-            <div className="bg-white border border-slate-200 rounded-lg shadow-sm flex-1 flex flex-col overflow-hidden">
-                <div className="overflow-x-auto flex-1">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                            <tr>
-                                <th className="px-4 py-3 font-semibold text-slate-700 w-16">#</th>
-                                <SortableHeader label="Name"        columnKey="object_name" />
-                                <SortableHeader label="UIN"         columnKey="uin" />
-                                <SortableHeader label="Grade"       columnKey="user_grade" />
-                                <SortableHeader label="Designation" columnKey="designation" />
-                                <SortableHeader label="Department"  columnKey="department_short_code" />
-                                <SortableHeader label="RO Code"     columnKey="ro_short_code" />
-                                <th className="px-4 py-3 font-semibold text-slate-700 w-16 text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {loading ? (
-                                <tr><td colSpan="8" className="p-0">
-                                    <SkeletonLoader columns={8} rows={10} />
-                                </td></tr>
-                            ) : currentUsers.length === 0 ? (
-                                <tr><td colSpan="8" className="p-0">
-                                    <EmptyState title="No users found" description="Try adjusting your search terms" icon={Users} />
-                                </td></tr>
-                            ) : currentUsers.map((user, idx) => (
-                                <tr key={user.r_object_id || idx} className="hover:bg-blue-50/30 transition-colors group">
-                                    <td className="px-4 py-3 text-slate-400 font-mono text-xs">{rangeStart + idx + 1}</td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex flex-col">
-                                            <span className="font-medium text-slate-900">{user.object_name}</span>
-                                            <span className="text-xs text-slate-500 group-hover:text-[#0A66C2] transition-colors">{user.user_login_name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-600 font-mono text-xs">{user.uin || '-'}</td>
-                                    <td className="px-4 py-3 text-slate-600">
-                                        {user.user_grade ? (
-                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-medium border border-slate-200">
-                                                {user.user_grade}
-                                            </span>
-                                        ) : '-'}
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-600">{user.designation || '-'}</td>
-                                    <td className="px-4 py-3 text-slate-600 font-mono text-xs">{user.department_short_code || '-'}</td>
-                                    <td className="px-4 py-3 text-slate-600 font-mono text-xs">{user.ro_short_code || '-'}</td>
-                                    <td className="px-4 py-3 text-center">
-                                        <button onClick={() => { setSelectedUser(user); setIsEditModalOpen(true); }}
-                                            className="p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-400 hover:text-[#0A66C2] hover:shadow-sm rounded-lg transition-all"
-                                            title="Edit User">
-                                            <Edit2 size={16} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination */}
-                <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50/50">
-                    <div className="text-sm text-slate-500">
-                        {totalItems > 0 ? (
-                            <>Showing <span className="font-medium text-slate-900">{rangeStart + 1}</span> to <span className="font-medium text-slate-900">{Math.min(rangeEnd, totalItems)}</span> of <span className="font-medium text-slate-900">{totalItems}</span> results</>
-                        ) : 'No results'}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => handlePageChange(1)} disabled={currentPage === 1 || loading}
-                            className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-[#0A66C2] disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400 text-slate-500 transition-colors" title="First Page">
-                            <ChevronsLeft size={16} />
-                        </button>
-                        <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1 || loading}
-                            className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-[#0A66C2] disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400 text-slate-500 transition-colors" title="Previous Page">
-                            <ChevronLeft size={16} />
-                        </button>
-                        <div className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 min-w-[3rem] text-center shadow-sm">
-                            {currentPage}
-                        </div>
-                        <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages || loading || totalPages === 0}
-                            className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-[#0A66C2] disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400 text-slate-500 transition-colors" title="Next Page">
-                            <ChevronRight size={16} />
-                        </button>
-                    </div>
-                </div>
+            <div className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
+                <DataTable
+                    columns={columns}
+                    rows={currentUsers}
+                    rowKey={(u, i) => u.r_object_id || i}
+                    loading={loading}
+                    skeletonRows={pageSize}
+                    sort={sortConfig.key ? { key: sortConfig.key, dir: sortConfig.direction } : null}
+                    onSortChange={(next) => {
+                        setSortConfig(next ? { key: next.key, direction: next.dir } : { key: '', direction: 'asc' });
+                        setCurrentPage(1);
+                    }}
+                    empty={{
+                        icon: Users,
+                        title: 'No users found',
+                        description: hasActiveFilters ? 'Try adjusting your filters.' : 'There are no user profiles to show.',
+                    }}
+                    className="px-1"
+                    stickyHeader
+                />
+                {(total == null ? currentUsers.length > 0 : total > 0) && (
+                    <Pagination
+                        page={currentPage}
+                        pageSize={pageSize}
+                        total={total}
+                        hasNext={hasNext}
+                        onPageChange={handlePageChange}
+                        onPageSizeChange={(n) => { setPageSize(n); setCurrentPage(1); }}
+                        pageSizes={PROFILE_PAGE_SIZES}
+                        loading={loading}
+                    />
+                )}
             </div>
 
             <EditUserProfileModal
                 user={selectedUser}
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
-                onUpdate={fetchUsers}
+                onUpdate={handleRefreshUsers}
             />
         </div>
     );
@@ -802,22 +762,16 @@ const EMPTY_FORM = {
 };
 
 const SelectField = ({ value, onChange, options, className = '' }) => (
-    <div className="relative">
-        <select
-            value={value}
-            onChange={e => onChange(e.target.value)}
-            className={`w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] hover:border-slate-300 bg-white appearance-none pr-10 cursor-pointer ${className}`}
-        >
-            {options.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}{opt.description ? ` — ${opt.description}` : ''}</option>
-            ))}
-        </select>
-        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-        </div>
-    </div>
+    <CustomSelect
+        value={value}
+        onChange={onChange}
+        className={className}
+        options={options.map(opt => ({
+            value: opt.value,
+            label: opt.description ? `${opt.label} — ${opt.description}` : opt.label,
+            disabled: opt.disabled,
+        }))}
+    />
 );
 
 const FormField = ({ label, icon: Icon, required, error, hint, children }) => (
@@ -826,19 +780,19 @@ const FormField = ({ label, icon: Icon, required, error, hint, children }) => (
             <span className="flex items-center gap-1.5">
                 <Icon size={14} className="text-slate-400" />
                 {label}
-                {required && <span className="text-red-400">*</span>}
+                {required && <span className="text-danger/70">*</span>}
                 {!required && <span className="text-xs font-normal text-slate-400">(optional)</span>}
             </span>
         </label>
         {children}
-        {error && <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12} />{error}</p>}
+        {error && <p className="mt-1.5 text-xs text-danger flex items-center gap-1"><AlertCircle size={12} />{error}</p>}
         {hint && !error && <p className="mt-1.5 text-xs text-slate-400">{hint}</p>}
     </div>
 );
 
 const inputCls = (hasError) =>
-    `w-full px-4 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] ${
-        hasError ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white hover:border-slate-300'
+    `w-full px-4 py-2.5 border rounded-xl text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy ${
+        hasError ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'
     }`;
 
 
@@ -850,27 +804,27 @@ const STEPS = [
 ];
 
 const StepIndicator = ({ step }) => (
-    <div className="flex items-center justify-center gap-0 mb-8">
+    <div className="flex items-center justify-start gap-0 mb-8">
         {STEPS.map((s, i) => {
             const done    = step > s.num;
             const active  = step === s.num;
             return (
                 <div key={s.num} className="flex items-center">
                     <div className="flex flex-col items-center">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 ${
-                            done   ? 'bg-[#0A66C2] border-[#0A66C2] text-white' :
-                            active ? 'bg-white border-[#0A66C2] text-[#0A66C2]' :
-                                     'bg-white border-slate-200 text-slate-400'
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors duration-300 ${
+                            done   ? 'bg-canopy border-canopy text-white' :
+                            active ? 'bg-surface border-canopy text-canopy' :
+                                     'bg-surface border-slate-200 text-slate-400'
                         }`}>
                             {done ? <CheckCircle2 size={16} /> : s.num}
                         </div>
                         <div className="mt-1.5 text-center">
-                            <div className={`text-xs font-semibold ${active ? 'text-[#0A66C2]' : done ? 'text-slate-700' : 'text-slate-400'}`}>{s.label}</div>
+                            <div className={`text-xs font-semibold ${active ? 'text-canopy' : done ? 'text-slate-700' : 'text-slate-400'}`}>{s.label}</div>
                             <div className="text-xs text-slate-400">{s.sub}</div>
                         </div>
                     </div>
                     {i < STEPS.length - 1 && (
-                        <div className={`h-px w-16 sm:w-24 mx-2 mb-6 transition-all duration-300 ${step > s.num ? 'bg-[#0A66C2]' : 'bg-slate-200'}`} />
+                        <div className={`h-px w-16 sm:w-24 mx-2 mb-6 transition-colors duration-300 ${step > s.num ? 'bg-canopy' : 'bg-slate-200'}`} />
                     )}
                 </div>
             );
@@ -886,11 +840,11 @@ const SourcePasswordBlock = ({ form, handleChange, showPassword, setShowPassword
             <span className="flex items-center gap-1.5">
                 <Globe size={14} className="text-slate-400" />
                 User Source
-                <span className="text-red-400">*</span>
+                <span className="text-danger/70">*</span>
             </span>
         </label>
-        <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-[#0A66C2] transition-all">
-            <div className="flex items-center bg-white">
+        <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-colors">
+            <div className="flex items-center bg-surface">
                 <div className="relative flex-1">
                     <select
                         value={form.user_source}
@@ -908,7 +862,7 @@ const SourcePasswordBlock = ({ form, handleChange, showPassword, setShowPassword
                     </div>
                 </div>
                 <div className="px-3 shrink-0">
-                    {form.user_source === 'OTDS' && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">OTDS</span>}
+                    {form.user_source === 'OTDS' && <span className="px-2 py-0.5 bg-canopy-tint text-canopy text-xs font-semibold rounded-full">OTDS</span>}
                     {form.user_source === 'inline password' && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded-full">Inline Password</span>}
                 </div>
             </div>
@@ -930,14 +884,14 @@ const SourcePasswordBlock = ({ form, handleChange, showPassword, setShowPassword
                             {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
                     </div>
-                    {errors?.user_password && <p className="text-xs text-red-500 mt-1 ml-5">{errors.user_password}</p>}
+                    {errors?.user_password && <p className="text-xs text-danger mt-1 ml-5">{errors.user_password}</p>}
                 </div>
             ) : form.user_source === 'OTDS' ? (
                 /* OTDS — initial password, confirm, partition, no-reset checkbox */
                 <div className="border-t border-slate-200 bg-slate-50/60 p-4 space-y-3">
                     {/* Password */}
                     <div>
-                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-white focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-[#0A66C2] transition-all">
+                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-surface focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-colors">
                             <Key size={13} className="text-slate-400 shrink-0" />
                             <input type={showPassword ? 'text' : 'password'} value={form.otds_password}
                                 onChange={e => handleChange('otds_password', e.target.value)}
@@ -948,11 +902,11 @@ const SourcePasswordBlock = ({ form, handleChange, showPassword, setShowPassword
                                 {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                             </button>
                         </div>
-                        {errors?.otds_password && <p className="text-xs text-red-500 mt-1">{errors.otds_password}</p>}
+                        {errors?.otds_password && <p className="text-xs text-danger mt-1">{errors.otds_password}</p>}
                     </div>
                     {/* Confirm Password */}
                     <div>
-                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-white focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-[#0A66C2] transition-all">
+                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-surface focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy transition-colors">
                             <Key size={13} className="text-slate-400 shrink-0" />
                             <input type={showOtdsConfirm ? 'text' : 'password'} value={form.otds_confirm_pw}
                                 onChange={e => handleChange('otds_confirm_pw', e.target.value)}
@@ -963,17 +917,17 @@ const SourcePasswordBlock = ({ form, handleChange, showPassword, setShowPassword
                                 {showOtdsConfirm ? <EyeOff size={14} /> : <Eye size={14} />}
                             </button>
                         </div>
-                        {errors?.otds_confirm_pw && <p className="text-xs text-red-500 mt-1">{errors.otds_confirm_pw}</p>}
+                        {errors?.otds_confirm_pw && <p className="text-xs text-danger mt-1">{errors.otds_confirm_pw}</p>}
                     </div>
                     {/* Partition */}
                     <div>
-                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 transition-all">
+                        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 transition-colors">
                             <Database size={13} className="text-slate-400 shrink-0" />
                             <input type="text" value={form.otds_partition}
                                 readOnly
                                 className="flex-1 bg-transparent text-sm outline-none text-slate-500 cursor-not-allowed" />
                         </div>
-                        {errors?.otds_partition && <p className="text-xs text-red-500 mt-1">{errors.otds_partition}</p>}
+                        {errors?.otds_partition && <p className="text-xs text-danger mt-1">{errors.otds_partition}</p>}
                     </div>
                     {/* No-reset always true — hidden */}
                 </div>
@@ -995,6 +949,8 @@ const UserCreateTab = ({ onToast }) => {
     // Track which Hindi fields have been manually edited so auto-fill doesn't overwrite them
     const hindiTouched = useRef({ profile_hindi_user_name: false, profile_hindi_designation: false });
     const [checkingUin, setCheckingUin] = useState(false);
+    // True while the Designation field shows the free-text "Other" input instead of the dropdown.
+    const [designationCustom, setDesignationCustom] = useState(false);
 
     const checkUinExists = async (uin) => {
         const val = uin.trim();
@@ -1231,21 +1187,20 @@ const UserCreateTab = ({ onToast }) => {
     };
 
     return (
-        <div className="overflow-y-auto overscroll-contain flex-1 min-h-0 pr-1">
-            <div className="flex justify-center pb-6">
-                <div className="w-full max-w-2xl">
+        <div className="pb-6">
+            <div className="w-full">
 
                     {/* Step indicator */}
                     <StepIndicator step={step} />
 
                     {/* Card */}
-                    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
 
                         {/* ── Step 1: Identity ── */}
                         {step === 1 && (
                             <>
-                                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50 flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm shrink-0">
+                                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm shrink-0">
                                         <User size={17} className="text-white" />
                                     </div>
                                     <div>
@@ -1254,7 +1209,7 @@ const UserCreateTab = ({ onToast }) => {
                                     </div>
                                 </div>
                                 <div className="p-6 space-y-4">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <FormField label="User Name" icon={User} required error={errors.user_name}>
                                             <input autoFocus type="text" value={form.user_name}
                                                 onChange={e => handleChange('user_name', e.target.value)}
@@ -1281,8 +1236,8 @@ const UserCreateTab = ({ onToast }) => {
                         {/* ── Step 2: Authentication & Repository ── */}
                         {step === 2 && (
                             <>
-                                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-violet-50 to-slate-50 flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center shadow-sm shrink-0">
+                                <div className="px-6 py-5 border-b border-slate-100 bg-canopy-tint/50 flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm shrink-0">
                                         <Shield size={17} className="text-white" />
                                     </div>
                                     <div>
@@ -1298,7 +1253,7 @@ const UserCreateTab = ({ onToast }) => {
                                     {/* ── Repository settings ── */}
                                     <div className="border-t border-slate-100 pt-4 space-y-4">
                                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Repository & Permissions</p>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                                             <FormField label="Repository Name" icon={Globe} required error={errors.home_docbase}>
                                                 <input type="text" value={repoName}
                                                     readOnly
@@ -1325,7 +1280,7 @@ const UserCreateTab = ({ onToast }) => {
                                     {/* Summary card */}
                                     <div className="mt-2 p-4 bg-slate-50 border border-slate-200 rounded-xl">
                                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Review dm_user Creation:</p>
-                                        <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+                                        <div className="grid grid-cols-1 gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
                                             {[
                                                 ['User Name',   form.user_name],
                                                 ['Login Name',  form.user_login_name],
@@ -1348,8 +1303,8 @@ const UserCreateTab = ({ onToast }) => {
                         {/* ── Step 3: User Profile ── */}
                         {step === 3 && (
                             <>
-                                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-amber-50 to-slate-50 flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shadow-sm shrink-0">
+                                <div className="px-6 py-5 border-b border-slate-100 bg-canopy-tint/50 flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-harvest flex items-center justify-center shadow-sm shrink-0">
                                         <Briefcase size={17} className="text-white" />
                                     </div>
                                     <div>
@@ -1358,19 +1313,32 @@ const UserCreateTab = ({ onToast }) => {
                                     </div>
                                 </div>
                                 <div className="p-6 space-y-4">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                                         <FormField label="Designation" icon={Briefcase} required error={errors.profile_designation}>
-                                            <SelectField value={form.profile_designation}
-                                                onChange={v => handleChange('profile_designation', v)}
+                                            <SelectField value={designationCustom ? DESIGNATION_OTHER : form.profile_designation}
+                                                onChange={v => {
+                                                    if (v === DESIGNATION_OTHER) {
+                                                        setDesignationCustom(true);
+                                                        handleChange('profile_designation', '');
+                                                    } else {
+                                                        setDesignationCustom(false);
+                                                        handleChange('profile_designation', v);
+                                                    }
+                                                }}
                                                 options={DESIGNATION_OPTIONS} />
+                                            {designationCustom && (
+                                                <input type="text" value={form.profile_designation}
+                                                    onChange={e => handleChange('profile_designation', e.target.value)}
+                                                    placeholder="Enter designation"
+                                                    className={`mt-2 ${inputCls(errors.profile_designation)}`}
+                                                    autoFocus />
+                                            )}
                                         </FormField>
                                         <FormField label="Hindi Designation" icon={Briefcase} required error={errors.profile_hindi_designation}>
                                             <input type="text" value={form.profile_hindi_designation}
                                                 onChange={e => handleChange('profile_hindi_designation', e.target.value)}
                                                 className={inputCls(errors.profile_hindi_designation)} />
                                         </FormField>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <FormField label="Hindi User Name" icon={User} required error={errors.profile_hindi_user_name}>
                                             <input type="text" value={form.profile_hindi_user_name}
                                                 onChange={e => handleChange('profile_hindi_user_name', e.target.value)}
@@ -1388,8 +1356,6 @@ const UserCreateTab = ({ onToast }) => {
                                                 )}
                                             </div>
                                         </FormField>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <FormField label="User Grade" icon={GraduationCap} required error={errors.profile_user_grade}>
                                             <SelectField value={form.profile_user_grade}
                                                 onChange={v => {
@@ -1435,7 +1401,7 @@ const UserCreateTab = ({ onToast }) => {
                                                         </div>
                                                     </div>
                                                 </FormField>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <FormField label="Location" icon={MapPin}>
                                                         <input type="text" disabled value={form.profile_location}
                                                             placeholder="—"
@@ -1447,7 +1413,7 @@ const UserCreateTab = ({ onToast }) => {
                                                             className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-100 text-slate-400 cursor-not-allowed font-mono" />
                                                     </FormField>
                                                 </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <FormField label="Department Name" icon={Layers}>
                                                         <input type="text" disabled
                                                             value={['RO','TE'].includes(form.profile_office_type)
@@ -1477,12 +1443,12 @@ const UserCreateTab = ({ onToast }) => {
                         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2">
                                 <button type="button" onClick={handleReset}
-                                    className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-all">
+                                    className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-surface transition-colors">
                                     Reset
                                 </button>
                                 {step > 1 && (
                                     <button type="button" onClick={goBack}
-                                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-white hover:border-slate-300 hover:shadow-sm transition-all">
+                                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-surface hover:border-slate-300 hover:shadow-sm transition-[color,background-color,border-color,box-shadow]">
                                         <ChevronLeft size={15} /> Back
                                     </button>
                                 )}
@@ -1492,12 +1458,12 @@ const UserCreateTab = ({ onToast }) => {
                                 {/* Step dots */}
                                 <div className="flex gap-1 mr-2">
                                     {STEPS.map(s => (
-                                        <div key={s.num} className={`w-1.5 h-1.5 rounded-full transition-all ${step === s.num ? 'bg-[#0A66C2] w-4' : step > s.num ? 'bg-[#0A66C2] opacity-40' : 'bg-slate-200'}`} />
+                                        <div key={s.num} className={`w-1.5 h-1.5 rounded-full transition-colors ${step === s.num ? 'bg-canopy w-4' : step > s.num ? 'bg-canopy opacity-40' : 'bg-slate-200'}`} />
                                     ))}
                                 </div>
                                 {step < 3 ? (
                                     <button type="button" onClick={goNext}
-                                        className="flex items-center gap-1.5 px-5 py-2 bg-[#0A66C2] hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
+                                        className="flex items-center gap-1.5 px-5 py-2 bg-canopy hover:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
                                         Next <ChevronRight size={15} />
                                     </button>
                                 ) : (
@@ -1506,7 +1472,7 @@ const UserCreateTab = ({ onToast }) => {
                                         !form.profile_hindi_user_name.trim() || !form.profile_uin.trim() ||
                                         !form.profile_user_grade || form.profile_grade_level === '' ||
                                         (errors.profile_uin && errors.profile_uin.startsWith('UIN already'))}
-                                        className="flex items-center gap-2 px-6 py-2 bg-[#0A66C2] hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                                        className="flex items-center gap-2 px-6 py-2 bg-canopy hover:bg-canopy-dark active:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                                         {submitting
                                             ? <><Loader2 size={15} className="animate-spin" /> Creating...</>
                                             : <><UserPlus size={15} /> Create User</>
@@ -1518,7 +1484,6 @@ const UserCreateTab = ({ onToast }) => {
                     </div>
                 </div>
             </div>
-        </div>
     );
 };
 
@@ -1613,24 +1578,23 @@ const UpdatePasswordTab = ({ onToast }) => {
         if (/[A-Z]/.test(pw)) score++;
         if (/[0-9]/.test(pw)) score++;
         if (/[^A-Za-z0-9]/.test(pw)) score++;
-        if (score <= 1) return { label: 'Weak',   color: 'bg-red-400',    text: 'text-red-500',    bars: 1 };
-        if (score <= 2) return { label: 'Fair',   color: 'bg-amber-400',  text: 'text-amber-500',  bars: 2 };
-        if (score <= 3) return { label: 'Good',   color: 'bg-yellow-400', text: 'text-yellow-600', bars: 3 };
-        if (score <= 4) return { label: 'Strong', color: 'bg-emerald-400',text: 'text-emerald-600',bars: 4 };
-        return { label: 'Very Strong', color: 'bg-emerald-500', text: 'text-emerald-700', bars: 5 };
+        if (score <= 1) return { label: 'Weak',   color: 'bg-danger/70',    text: 'text-danger',    bars: 1 };
+        if (score <= 2) return { label: 'Fair',   color: 'bg-harvest/70',  text: 'text-harvest',  bars: 2 };
+        if (score <= 3) return { label: 'Good',   color: 'bg-harvest/70', text: 'text-harvest', bars: 3 };
+        if (score <= 4) return { label: 'Strong', color: 'bg-canopy/70',text: 'text-canopy',bars: 4 };
+        return { label: 'Very Strong', color: 'bg-canopy', text: 'text-canopy', bars: 5 };
     };
 
     const strength = pwStrength(newPassword);
 
     return (
-        <div className="overflow-y-auto overscroll-contain flex-1 min-h-0 pr-1">
-            <div className="flex justify-center pb-6">
-                <div className="w-full max-w-lg">
-                    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="pb-6">
+            <div className="w-full">
+                    <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
 
                         {/* Header */}
-                        <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-amber-50 to-slate-50 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center shadow-sm shrink-0">
+                        <div className="px-6 py-5 border-b border-slate-100 bg-canopy-tint/50 flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-harvest flex items-center justify-center shadow-sm shrink-0">
                                 <KeyRound size={17} className="text-white" />
                             </div>
                             <div>
@@ -1647,10 +1611,10 @@ const UpdatePasswordTab = ({ onToast }) => {
                                     <span className="flex items-center gap-1.5">
                                         <User size={14} className="text-slate-400" />
                                         Select User
-                                        <span className="text-red-400">*</span>
+                                        <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-all ${errors.user ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-[#0A66C2]`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.user ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <Search size={15} className="ml-3 text-slate-400 shrink-0" />
                                     <input
                                         type="text"
@@ -1668,12 +1632,12 @@ const UpdatePasswordTab = ({ onToast }) => {
                                     )}
                                 </div>
                                 {errors.user && (
-                                    <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12} />{errors.user}</p>
+                                    <p className="mt-1.5 text-xs text-danger flex items-center gap-1"><AlertCircle size={12} />{errors.user}</p>
                                 )}
 
                                 {/* Dropdown */}
                                 {showDropdown && !selectedUser && (
-                                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                                    <div className="absolute z-20 left-0 right-0 mt-1 bg-surface border border-slate-200 rounded-xl shadow-lg overflow-hidden">
                                         {filtered.length === 0 ? (
                                             <div className="px-4 py-3 text-sm text-slate-400 text-center">No users found</div>
                                         ) : filtered.map((u, i) => (
@@ -1681,10 +1645,10 @@ const UpdatePasswordTab = ({ onToast }) => {
                                                 key={u.r_object_id || i}
                                                 type="button"
                                                 onMouseDown={() => selectUser(u)}
-                                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left transition-colors border-b border-slate-50 last:border-0"
+                                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-canopy-tint text-left transition-colors border-b border-slate-50 last:border-0"
                                             >
-                                                <div className="w-7 h-7 rounded-full bg-[#0A66C2]/10 flex items-center justify-center shrink-0">
-                                                    <User size={13} className="text-[#0A66C2]" />
+                                                <div className="w-7 h-7 rounded-full bg-canopy/10 flex items-center justify-center shrink-0">
+                                                    <User size={13} className="text-canopy" />
                                                 </div>
                                                 <div className="min-w-0">
                                                     <p className="text-sm font-medium text-slate-800 truncate">{u.object_name || u.user_login_name}</p>
@@ -1698,8 +1662,8 @@ const UpdatePasswordTab = ({ onToast }) => {
 
                             {/* Selected user card */}
                             {selectedUser && (
-                                <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-100 rounded-xl">
-                                    <div className="w-9 h-9 rounded-full bg-[#0A66C2] flex items-center justify-center shrink-0 text-white font-bold text-sm">
+                                <div className="flex items-center gap-3 p-3 bg-canopy-tint border border-canopy/20 rounded-xl">
+                                    <div className="w-9 h-9 rounded-full bg-canopy flex items-center justify-center shrink-0 text-white font-bold text-sm">
                                         {(selectedUser.object_name || selectedUser.user_login_name || '?')[0].toUpperCase()}
                                     </div>
                                     <div className="min-w-0">
@@ -1709,23 +1673,24 @@ const UpdatePasswordTab = ({ onToast }) => {
                                             <p className="text-xs text-slate-400">{selectedUser.department_name}</p>
                                         )}
                                     </div>
-                                    <CheckCircle2 size={16} className="ml-auto text-[#0A66C2] shrink-0" />
+                                    <CheckCircle2 size={16} className="ml-auto text-canopy shrink-0" />
                                 </div>
                             )}
 
                             {/* Divider */}
                             <div className="border-t border-slate-100" />
 
-                            {/* New password */}
+                            {/* New / Confirm password — paired */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1.5">
                                     <span className="flex items-center gap-1.5">
                                         <Lock size={14} className="text-slate-400" />
                                         New Password
-                                        <span className="text-red-400">*</span>
+                                        <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-all ${errors.newPassword ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-[#0A66C2]`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.newPassword ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <input
                                         type={showNew ? 'text' : 'password'}
                                         value={newPassword}
@@ -1739,7 +1704,7 @@ const UpdatePasswordTab = ({ onToast }) => {
                                     </button>
                                 </div>
                                 {errors.newPassword && (
-                                    <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12} />{errors.newPassword}</p>
+                                    <p className="mt-1.5 text-xs text-danger flex items-center gap-1"><AlertCircle size={12} />{errors.newPassword}</p>
                                 )}
 
                                 {/* Strength meter */}
@@ -1747,7 +1712,7 @@ const UpdatePasswordTab = ({ onToast }) => {
                                     <div className="mt-2">
                                         <div className="flex gap-1 mb-1">
                                             {[1,2,3,4,5].map(n => (
-                                                <div key={n} className={`h-1 flex-1 rounded-full transition-all ${n <= strength.bars ? strength.color : 'bg-slate-100'}`} />
+                                                <div key={n} className={`h-1 flex-1 rounded-full transition-colors ${n <= strength.bars ? strength.color : 'bg-slate-100'}`} />
                                             ))}
                                         </div>
                                         <p className={`text-xs font-medium ${strength.text}`}>{strength.label}</p>
@@ -1761,10 +1726,10 @@ const UpdatePasswordTab = ({ onToast }) => {
                                     <span className="flex items-center gap-1.5">
                                         <Lock size={14} className="text-slate-400" />
                                         Confirm Password
-                                        <span className="text-red-400">*</span>
+                                        <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-all ${errors.confirmPassword ? 'border-red-300 bg-red-50' : confirmPassword && confirmPassword === newPassword ? 'border-emerald-300 bg-emerald-50/30' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-[#0A66C2]`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.confirmPassword ? 'border-danger/40 bg-danger-tint' : confirmPassword && confirmPassword === newPassword ? 'border-canopy/40 bg-canopy-tint/30' : 'border-slate-200 bg-surface hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <input
                                         type={showConfirm ? 'text' : 'password'}
                                         value={confirmPassword}
@@ -1773,7 +1738,7 @@ const UpdatePasswordTab = ({ onToast }) => {
                                         className="flex-1 px-4 py-2.5 text-sm bg-transparent focus:outline-none placeholder:text-slate-400"
                                     />
                                     {confirmPassword && confirmPassword === newPassword ? (
-                                        <CheckCircle2 size={15} className="mr-3 text-emerald-500 shrink-0" />
+                                        <CheckCircle2 size={15} className="mr-3 text-canopy shrink-0" />
                                     ) : (
                                         <button type="button" onClick={() => setShowConfirm(p => !p)}
                                             className="mr-3 text-slate-400 hover:text-slate-600 transition-colors" tabIndex={-1}>
@@ -1782,18 +1747,19 @@ const UpdatePasswordTab = ({ onToast }) => {
                                     )}
                                 </div>
                                 {errors.confirmPassword && (
-                                    <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12} />{errors.confirmPassword}</p>
+                                    <p className="mt-1.5 text-xs text-danger flex items-center gap-1"><AlertCircle size={12} />{errors.confirmPassword}</p>
                                 )}
+                            </div>
                             </div>
 
                             {/* Actions */}
                             <div className="flex items-center justify-end gap-3 pt-1">
                                 <button type="button" onClick={clearUser}
-                                    className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
+                                    className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
                                     Clear
                                 </button>
                                 <button type="submit" disabled={submitting}
-                                    className="flex items-center gap-2 px-6 py-2 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                                    className="flex items-center gap-2 px-6 py-2 bg-harvest hover:bg-harvest active:bg-harvest text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                                     {submitting
                                         ? <><Loader2 size={15} className="animate-spin" /> Updating…</>
                                         : <><KeyRound size={15} /> Update Password</>
@@ -1804,7 +1770,6 @@ const UpdatePasswordTab = ({ onToast }) => {
                     </div>
                 </div>
             </div>
-        </div>
     );
 };
 
@@ -1933,11 +1898,11 @@ const BulkPasswordTab = ({ onToast }) => {
         if (/[A-Z]/.test(pw)) score++;
         if (/[0-9]/.test(pw)) score++;
         if (/[^A-Za-z0-9]/.test(pw)) score++;
-        if (score <= 1) return { label: 'Weak',        color: 'bg-red-400',     text: 'text-red-500',     bars: 1 };
-        if (score <= 2) return { label: 'Fair',        color: 'bg-amber-400',   text: 'text-amber-500',   bars: 2 };
-        if (score <= 3) return { label: 'Good',        color: 'bg-yellow-400',  text: 'text-yellow-600',  bars: 3 };
-        if (score <= 4) return { label: 'Strong',      color: 'bg-emerald-400', text: 'text-emerald-600', bars: 4 };
-        return             { label: 'Very Strong', color: 'bg-emerald-500', text: 'text-emerald-700', bars: 5 };
+        if (score <= 1) return { label: 'Weak',        color: 'bg-danger/70',     text: 'text-danger',     bars: 1 };
+        if (score <= 2) return { label: 'Fair',        color: 'bg-harvest/70',   text: 'text-harvest',   bars: 2 };
+        if (score <= 3) return { label: 'Good',        color: 'bg-harvest/70',  text: 'text-harvest',  bars: 3 };
+        if (score <= 4) return { label: 'Strong',      color: 'bg-canopy/70', text: 'text-canopy', bars: 4 };
+        return             { label: 'Very Strong', color: 'bg-canopy', text: 'text-canopy', bars: 5 };
     };
     const strength = pwStrength(newPassword);
 
@@ -1954,16 +1919,15 @@ const BulkPasswordTab = ({ onToast }) => {
     const successCount = results.filter(r => r.status === 'success').length;
 
     return (
-        <div className="overflow-y-auto overscroll-contain flex-1 min-h-0 pr-1">
-            <div className="flex justify-center pb-6">
-                <div className="w-full max-w-2xl space-y-4">
+        <div className="pb-6">
+            <div className="w-full space-y-4">
 
                     {/* Main card */}
-                    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
 
                         {/* Header */}
-                        <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-violet-50 to-slate-50 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-violet-500 flex items-center justify-center shadow-sm shrink-0">
+                        <div className="px-6 py-5 border-b border-slate-100 bg-canopy-tint/50 flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm shrink-0">
                                 <UserCog size={17} className="text-white" />
                             </div>
                             <div>
@@ -1980,10 +1944,10 @@ const BulkPasswordTab = ({ onToast }) => {
                                     <span className="flex items-center gap-1.5">
                                         <Users size={14} className="text-slate-400" />
                                         Add Users
-                                        <span className="text-red-400">*</span>
+                                        <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-all ${errors.users ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-[#0A66C2]`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.users ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <Search size={15} className="ml-3 text-slate-400 shrink-0" />
                                     <input
                                         type="text"
@@ -1994,18 +1958,18 @@ const BulkPasswordTab = ({ onToast }) => {
                                         className="flex-1 px-3 py-2.5 text-sm bg-transparent focus:outline-none placeholder:text-slate-400"
                                     />
                                     {selectedUsers.length > 0 && (
-                                        <span className="mr-3 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full shrink-0">
+                                        <span className="mr-3 px-2 py-0.5 bg-canopy-tint text-canopy text-xs font-semibold rounded-full shrink-0">
                                             {selectedUsers.length} added
                                         </span>
                                     )}
                                 </div>
                                 {errors.users && (
-                                    <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12} />{errors.users}</p>
+                                    <p className="mt-1.5 text-xs text-danger flex items-center gap-1"><AlertCircle size={12} />{errors.users}</p>
                                 )}
 
                                 {/* Dropdown */}
                                 {showDropdown && (
-                                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden flex flex-col max-h-80">
+                                    <div className="absolute z-20 left-0 right-0 mt-1 bg-surface border border-slate-200 rounded-xl shadow-lg overflow-hidden flex flex-col max-h-80">
 
                                         {/* Add All checkbox header */}
                                         <label className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors shrink-0">
@@ -2014,7 +1978,7 @@ const BulkPasswordTab = ({ onToast }) => {
                                                 checked={allChecked}
                                                 ref={el => { if (el) el.indeterminate = someChecked; }}
                                                 onChange={e => toggleAddAll(e.target.checked)}
-                                                className="w-4 h-4 rounded accent-[#0A66C2] cursor-pointer"
+                                                className="w-4 h-4 rounded accent-canopy cursor-pointer"
                                             />
                                             <span className="text-xs font-semibold text-slate-700">
                                                 Add All
@@ -2035,16 +1999,16 @@ const BulkPasswordTab = ({ onToast }) => {
                                                     key={u.r_object_id || i}
                                                     type="button"
                                                     onClick={() => addUser(u)}
-                                                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left transition-colors border-b border-slate-50 last:border-0"
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-canopy-tint text-left transition-colors border-b border-slate-50 last:border-0"
                                                 >
-                                                    <div className="w-7 h-7 rounded-full bg-[#0A66C2]/10 flex items-center justify-center shrink-0">
-                                                        <User size={13} className="text-[#0A66C2]" />
+                                                    <div className="w-7 h-7 rounded-full bg-canopy/10 flex items-center justify-center shrink-0">
+                                                        <User size={13} className="text-canopy" />
                                                     </div>
                                                     <div className="min-w-0 flex-1">
                                                         <p className="text-sm font-medium text-slate-800 truncate">{u.object_name || u.user_login_name}</p>
                                                         <p className="text-xs text-slate-500 font-mono truncate">{u.user_login_name}</p>
                                                     </div>
-                                                    <span className="text-xs text-[#0A66C2] font-semibold shrink-0">+ Add</span>
+                                                    <span className="text-xs text-canopy font-semibold shrink-0">+ Add</span>
                                                 </button>
                                             ))}
                                         </div>
@@ -2057,7 +2021,7 @@ const BulkPasswordTab = ({ onToast }) => {
                                             <button
                                                 type="button"
                                                 onClick={() => setShowDropdown(false)}
-                                                className="px-4 py-1.5 bg-[#0A66C2] hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors">
+                                                className="px-4 py-1.5 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors">
                                                 Done
                                             </button>
                                         </div>
@@ -2073,17 +2037,17 @@ const BulkPasswordTab = ({ onToast }) => {
                                             {selectedUsers.length} user{selectedUsers.length > 1 ? 's' : ''} selected
                                         </p>
                                         <button type="button" onClick={() => setSelectedUsers([])}
-                                            className="text-xs text-slate-400 hover:text-red-500 transition-colors">
+                                            className="text-xs text-slate-400 hover:text-danger transition-colors">
                                             Remove all
                                         </button>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                         {selectedUsers.map(u => (
                                             <div key={u.r_object_id}
-                                                className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 border border-blue-100 rounded-lg text-xs font-medium text-blue-700">
+                                                className="flex items-center gap-1.5 px-2.5 py-1 bg-canopy-tint border border-canopy/20 rounded-lg text-xs font-medium text-canopy">
                                                 <span>{u.object_name || u.user_login_name}</span>
                                                 <button type="button" onClick={() => removeUser(u.r_object_id)}
-                                                    className="text-blue-400 hover:text-red-500 transition-colors">
+                                                    className="text-canopy/70 hover:text-danger transition-colors">
                                                     <X size={12} />
                                                 </button>
                                             </div>
@@ -2094,16 +2058,17 @@ const BulkPasswordTab = ({ onToast }) => {
 
                             <div className="border-t border-slate-100" />
 
-                            {/* New password */}
+                            {/* New / Confirm password — paired */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1.5">
                                     <span className="flex items-center gap-1.5">
                                         <Lock size={14} className="text-slate-400" />
                                         New Password
-                                        <span className="text-red-400">*</span>
+                                        <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-all ${errors.newPassword ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-[#0A66C2]`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.newPassword ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <input
                                         type={showNew ? 'text' : 'password'}
                                         value={newPassword}
@@ -2117,13 +2082,13 @@ const BulkPasswordTab = ({ onToast }) => {
                                     </button>
                                 </div>
                                 {errors.newPassword && (
-                                    <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12} />{errors.newPassword}</p>
+                                    <p className="mt-1.5 text-xs text-danger flex items-center gap-1"><AlertCircle size={12} />{errors.newPassword}</p>
                                 )}
                                 {newPassword && strength && (
                                     <div className="mt-2">
                                         <div className="flex gap-1 mb-1">
                                             {[1,2,3,4,5].map(n => (
-                                                <div key={n} className={`h-1 flex-1 rounded-full transition-all ${n <= strength.bars ? strength.color : 'bg-slate-100'}`} />
+                                                <div key={n} className={`h-1 flex-1 rounded-full transition-colors ${n <= strength.bars ? strength.color : 'bg-slate-100'}`} />
                                             ))}
                                         </div>
                                         <p className={`text-xs font-medium ${strength.text}`}>{strength.label}</p>
@@ -2137,10 +2102,10 @@ const BulkPasswordTab = ({ onToast }) => {
                                     <span className="flex items-center gap-1.5">
                                         <Lock size={14} className="text-slate-400" />
                                         Confirm Password
-                                        <span className="text-red-400">*</span>
+                                        <span className="text-danger/70">*</span>
                                     </span>
                                 </label>
-                                <div className={`flex items-center border rounded-xl overflow-hidden transition-all ${errors.confirmPassword ? 'border-red-300 bg-red-50' : confirmPassword && confirmPassword === newPassword ? 'border-emerald-300 bg-emerald-50/30' : 'border-slate-200 bg-white hover:border-slate-300'} focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-[#0A66C2]`}>
+                                <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${errors.confirmPassword ? 'border-danger/40 bg-danger-tint' : confirmPassword && confirmPassword === newPassword ? 'border-canopy/40 bg-canopy-tint/30' : 'border-slate-200 bg-surface hover:border-slate-300'} focus-within:ring-2 focus-within:ring-canopy/20 focus-within:border-canopy`}>
                                     <input
                                         type={showConfirm ? 'text' : 'password'}
                                         value={confirmPassword}
@@ -2149,7 +2114,7 @@ const BulkPasswordTab = ({ onToast }) => {
                                         className="flex-1 px-4 py-2.5 text-sm bg-transparent focus:outline-none placeholder:text-slate-400"
                                     />
                                     {confirmPassword && confirmPassword === newPassword ? (
-                                        <CheckCircle2 size={15} className="mr-3 text-emerald-500 shrink-0" />
+                                        <CheckCircle2 size={15} className="mr-3 text-canopy shrink-0" />
                                     ) : (
                                         <button type="button" onClick={() => setShowConfirm(p => !p)}
                                             className="mr-3 text-slate-400 hover:text-slate-600 transition-colors" tabIndex={-1}>
@@ -2158,8 +2123,9 @@ const BulkPasswordTab = ({ onToast }) => {
                                     )}
                                 </div>
                                 {errors.confirmPassword && (
-                                    <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12} />{errors.confirmPassword}</p>
+                                    <p className="mt-1.5 text-xs text-danger flex items-center gap-1"><AlertCircle size={12} />{errors.confirmPassword}</p>
                                 )}
+                            </div>
                             </div>
 
                             {/* Actions */}
@@ -2169,12 +2135,12 @@ const BulkPasswordTab = ({ onToast }) => {
                                 </p>
                                 <div className="flex gap-3">
                                     <button type="button" onClick={clearAll}
-                                        className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
+                                        className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
                                         Clear All
                                     </button>
                                     <button type="button" onClick={handleUpdateAll}
                                         disabled={updating || selectedUsers.length === 0}
-                                        className="flex items-center gap-2 px-6 py-2 bg-violet-500 hover:bg-violet-600 active:bg-violet-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                                        className="flex items-center gap-2 px-6 py-2 bg-canopy hover:bg-canopy active:bg-canopy-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
                                         {updating
                                             ? <><Loader2 size={15} className="animate-spin" /> Updating…</>
                                             : <><KeyRound size={15} /> Update All{selectedUsers.length > 0 ? ` (${selectedUsers.length})` : ''}</>
@@ -2187,7 +2153,7 @@ const BulkPasswordTab = ({ onToast }) => {
 
                     {/* Results card */}
                     {results.length > 0 && (
-                        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                        <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-semibold text-slate-900">Update Results</p>
@@ -2198,7 +2164,7 @@ const BulkPasswordTab = ({ onToast }) => {
                                     </p>
                                 </div>
                                 {doneCount === results.length && (
-                                    <div className={`text-xs font-semibold px-3 py-1 rounded-full ${successCount === results.length ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                                    <div className={`text-xs font-semibold px-3 py-1 rounded-full ${successCount === results.length ? 'bg-canopy-tint text-canopy' : 'bg-harvest/10 text-harvest'}`}>
                                         {successCount === results.length ? 'All done' : `${results.length - successCount} failed`}
                                     </div>
                                 )}
@@ -2208,9 +2174,9 @@ const BulkPasswordTab = ({ onToast }) => {
                                     <div key={i} className="flex items-center gap-3 px-6 py-3">
                                         <div className="shrink-0">
                                             {r.status === 'pending'    && <div className="w-5 h-5 rounded-full border-2 border-slate-200" />}
-                                            {r.status === 'processing' && <Loader2 size={16} className="animate-spin text-blue-500" />}
-                                            {r.status === 'success'    && <CheckCircle2 size={16} className="text-emerald-500" />}
-                                            {r.status === 'error'      && <AlertCircle size={16} className="text-red-500" />}
+                                            {r.status === 'processing' && <Loader2 size={16} className="animate-spin text-canopy" />}
+                                            {r.status === 'success'    && <CheckCircle2 size={16} className="text-canopy" />}
+                                            {r.status === 'error'      && <AlertCircle size={16} className="text-danger" />}
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-medium text-slate-800 truncate">{r.user.object_name || r.user.user_login_name}</p>
@@ -2218,9 +2184,9 @@ const BulkPasswordTab = ({ onToast }) => {
                                         </div>
                                         <div className="text-xs font-medium shrink-0">
                                             {r.status === 'pending'    && <span className="text-slate-400">Waiting…</span>}
-                                            {r.status === 'processing' && <span className="text-blue-500">Updating…</span>}
-                                            {r.status === 'success'    && <span className="text-emerald-600">Updated</span>}
-                                            {r.status === 'error'      && <span className="text-red-500" title={r.message}>Failed — {r.message?.slice(0, 40)}</span>}
+                                            {r.status === 'processing' && <span className="text-canopy">Updating…</span>}
+                                            {r.status === 'success'    && <span className="text-canopy">Updated</span>}
+                                            {r.status === 'error'      && <span className="text-danger" title={r.message}>Failed — {r.message?.slice(0, 40)}</span>}
                                         </div>
                                     </div>
                                 ))}
@@ -2229,7 +2195,6 @@ const BulkPasswordTab = ({ onToast }) => {
                     )}
                 </div>
             </div>
-        </div>
     );
 };
 
@@ -2237,7 +2202,7 @@ const BulkPasswordTab = ({ onToast }) => {
 const PasswordTab = ({ onToast }) => {
     const [mode, setMode] = useState('single');
     return (
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex flex-col">
             {/* Sub-nav */}
             <div className="flex items-center gap-1 mb-5 border-b border-slate-200">
                 {[
@@ -2245,9 +2210,9 @@ const PasswordTab = ({ onToast }) => {
                     { id: 'multiple', label: 'Multiple User', icon: UserCog },
                 ].map(({ id, label, icon: Icon }) => (
                     <button key={id} type="button" onClick={() => setMode(id)}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px ${
+                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
                             mode === id
-                                ? 'border-[#0A66C2] text-[#0A66C2]'
+                                ? 'border-canopy text-canopy'
                                 : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                         }`}>
                         <Icon size={16} />{label}
@@ -2272,7 +2237,19 @@ const UserAccessTab = ({ onToast }) => {
     const fetchIdRef = useRef(0); // guard against stale fetches
     const [cgmSects,      setCgmSects]      = useState(new Set()); // set of object_names in cgm_sec groups
     const [loadingCgm,    setLoadingCgm]    = useState(false);
+    const [exportOpen,    setExportOpen]    = useState(false);     // export dropdown visibility
+    const [exportingRole, setExportingRole] = useState(null);      // 'localAdmin' | 'cgmSect' while fetching
+    const exportRef = useRef(null);
     const PAGE_SIZE = 15;
+
+    // Close export dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (exportRef.current && !exportRef.current.contains(e.target)) setExportOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // ─── Local Admin role & profile context ──────────────────────────────────
     const storedUser    = JSON.parse(localStorage.getItem('user') || '{}');
@@ -2545,7 +2522,7 @@ const UserAccessTab = ({ onToast }) => {
         const matchesSearch = (u.object_name || '').toLowerCase().includes(q)
             || (u.user_login_name || '').toLowerCase().includes(q)
             || (u.designation || '').toLowerCase().includes(q)
-            || (u.department_name || '').toLowerCase().includes(q)
+            || (Array.isArray(u.department_short_code_multi) && u.department_short_code_multi.some(d => (d || '').toLowerCase().includes(q)))
             || (u.location || '').toLowerCase().includes(q);
         if (!matchesSearch) return false;
         if (roleFilter === 'localAdmin') return localAdmins.has(u.object_name);
@@ -2558,10 +2535,227 @@ const UserAccessTab = ({ onToast }) => {
     const start        = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
     const end          = Math.min(currentPage * PAGE_SIZE, filtered.length);
 
+    const csvEscape = (val) => {
+        const s = String(val ?? '');
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const downloadCsv = (headers, rows, filename) => {
+        const csv = [headers, ...rows].map(r => r.map(csvEscape).join(',')).join('\r\n');
+        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleExport = () => {
+        const headers = ['Name', 'Login', 'Designation', isRoTe ? 'Location' : 'Department', 'Local Admin', 'CGM Sect.'];
+        const rows = filtered.map(u => [
+            u.object_name || '',
+            u.user_login_name || '',
+            u.designation || '',
+            (isRoTe ? u.location : u.department_name) || '',
+            localAdmins.has(u.object_name) ? 'Yes' : 'No',
+            cgmSects.has(u.object_name) ? 'Yes' : 'No',
+        ]);
+        const roleSuffix = roleFilter ? `_${roleFilter}` : '';
+        const locSuffix = filterLocation ? `_${filterLocation}` : '';
+        const dateStr = new Date().toISOString().slice(0, 10);
+        downloadCsv(headers, rows, `user-access_${officeType}${locSuffix}${roleSuffix}_${dateStr}.csv`);
+        recordExport({
+            action: 'Export user access list',
+            target: `${officeType}${locSuffix}${roleSuffix}`,
+            targetType: 'user',
+            count: rows.length,
+            detail: 'CSV',
+        });
+    };
+
+    // One row per department (HO) or per location (RO/TE); members stacked within each row
+    const groupRoleMembers = (list) => {
+        const groups = new Map();
+        for (const u of list) {
+            const ot = (u.office_type || '').toUpperCase() || '—';
+            const groupName = (ot === 'HO' ? u.department_name : u.location) || '— Unspecified —';
+            const key = `${ot}||${groupName}`;
+            if (!groups.has(key)) groups.set(key, { officeType: ot, groupName, members: [] });
+            groups.get(key).members.push(u);
+        }
+        for (const g of groups.values()) {
+            g.members.sort((a, b) => (a.object_name || '').localeCompare(b.object_name || ''));
+        }
+        return [...groups.values()].sort(
+            (a, b) => a.officeType.localeCompare(b.officeType) || a.groupName.localeCompare(b.groupName)
+        );
+    };
+
+    const downloadGroupedXlsx = async (groups, filename) => {
+        // Loaded on demand so the library is not part of the initial bundle
+        const ExcelJS = (await import('exceljs')).default;
+        const wb = new ExcelJS.Workbook();
+        wb.created = new Date();
+
+        const thin   = { style: 'thin', color: { argb: 'FF808080' } };
+        const boxed  = { top: thin, left: thin, bottom: thin, right: thin };
+
+        // One sheet per office type (HO, RO, TE), in that order
+        const officeTypes = [...new Set(groups.map(g => g.officeType))].sort();
+
+        for (const ot of officeTypes) {
+            const ws = wb.addWorksheet(ot === '—' ? 'Other' : ot);
+            ws.columns = [
+                { header: ot === 'HO' ? 'Department' : 'Location', key: 'groupName', width: 46 },
+                { header: 'Name',                                  key: 'names',     width: 40 },
+            ];
+
+            const headerRow = ws.getRow(1);
+            headerRow.font = { bold: true };
+            headerRow.alignment = { vertical: 'middle' };
+            headerRow.height = 20;
+            headerRow.eachCell(cell => { cell.border = boxed; });
+
+            for (const g of groups.filter(g => g.officeType === ot)) {
+                ws.addRow({
+                    groupName: g.groupName,
+                    // One member per line within the cell
+                    names:     g.members.map(m => m.object_name || '—').join('\n'),
+                });
+            }
+
+            ws.eachRow((row, rowNumber) => {
+                if (rowNumber === 1) return;
+                row.alignment = { vertical: 'top', wrapText: true };
+                row.eachCell(cell => { cell.border = boxed; });
+            });
+
+            ws.views = [{ state: 'frozen', ySplit: 1 }];
+        }
+
+        const buffer = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buffer], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    // Export ALL members of a role group (Local Admin / CGM Sect.), independent of filters
+    const handleExportRole = async (role) => {
+        setExportOpen(false);
+        setExportingRole(role);
+        try {
+            const PAGE = 500;
+            let page = 1;
+            let all  = [];
+            while (true) {
+                const res = await api.get('/users/role-members', { params: { role, page, size: PAGE } });
+                all = all.concat(res.data.users || []);
+                if (!res.data.hasNext) break;
+                page++;
+            }
+            if (all.length === 0) {
+                onToast({ type: 'error', message: 'No users found for this export.' });
+                return;
+            }
+            const groups = groupRoleMembers(all);
+            const label  = role === 'localAdmin' ? 'local-admins' : 'cgm-sect';
+            await downloadGroupedXlsx(groups, `${label}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            const sheets = [...new Set(groups.map(g => g.officeType))].sort().join(', ');
+            onToast({
+                type: 'success',
+                message: `Exported ${all.length} user${all.length !== 1 ? 's' : ''} across ${groups.length} groups (sheets: ${sheets}).`,
+            });
+            recordExport({
+                action: 'Export role members',
+                target: role === 'localAdmin' ? 'Local Admins' : 'CGM Sect.',
+                targetType: 'user',
+                count: all.length,
+                detail: 'XLSX',
+            });
+        } catch {
+            onToast({ type: 'error', message: 'Export failed. Please try again.' });
+        } finally {
+            setExportingRole(null);
+        }
+    };
+
+    const actionBtnCls = (danger) => `flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed md:mx-auto ${
+        danger ? 'bg-danger-tint hover:bg-danger-tint text-danger border border-danger/20' : 'bg-canopy hover:bg-canopy-dark text-white'
+    }`;
+    const accessColumns = [
+        { key: 'idx', header: '#', width: 'w-10', align: 'center', card: 'hide',
+          render: (_u, idx) => <span className="text-slate-400 text-xs">{(currentPage - 1) * PAGE_SIZE + idx + 1}</span> },
+        { key: 'name', header: 'Name', primary: true,
+          render: (u) => (
+              <div className="flex flex-wrap items-center gap-2 font-medium text-slate-800">
+                  {u.object_name || '—'}
+                  {localAdmins.has(u.object_name) && (
+                      <span className="px-1.5 py-0.5 text-xs bg-canopy-tint text-canopy rounded font-medium flex items-center gap-1">
+                          <Shield size={10} /> Local Admin
+                      </span>
+                  )}
+                  {cgmSects.has(u.object_name) && (
+                      <span className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded font-medium flex items-center gap-1">
+                          <Shield size={10} /> CGM Sect.
+                      </span>
+                  )}
+              </div>
+          ) },
+        { key: 'login', header: 'Login', mono: true, cardLabel: 'Login',
+          render: (u) => <span className="text-xs text-slate-500">{u.user_login_name || '—'}</span> },
+        { key: 'designation', header: 'Designation', cardLabel: 'Designation',
+          render: (u) => <span className="text-slate-600">{u.designation || '—'}</span> },
+        isRoTe
+            ? { key: 'location', header: 'Location', cardLabel: 'Location', render: (u) => <span className="text-slate-600">{u.location || '—'}</span> }
+            : { key: 'department', header: 'Department', cardLabel: 'Department', render: (u) => <span className="text-slate-600">{u.department_name || '—'}</span> },
+        ...(!isLocalAdmin ? [{ key: 'localAdmin', header: 'Local Admin', align: 'center', card: 'footer',
+          render: (u) => {
+              const isAdmin = localAdmins.has(u.object_name);
+              const inProgress = actionInProgress?.user === u.object_name;
+              const busy = inProgress && (actionInProgress?.action === 'markAdmin' || actionInProgress?.action === 'removeAdmin');
+              return isAdmin ? (
+                  <button onClick={() => handleRemoveLocalAdmin(u)} disabled={inProgress} title="Remove from Local Admin group" className={actionBtnCls(true)}>
+                      {busy ? <><Loader2 size={12} className="animate-spin" /> Removing…</> : <><X size={12} /> Remove Local Admin</>}
+                  </button>
+              ) : (
+                  <button onClick={() => handleMarkLocalAdmin(u)} disabled={inProgress} className={actionBtnCls(false)}>
+                      {busy ? <><Loader2 size={12} className="animate-spin" /> Marking…</> : <><Shield size={12} /> Mark as Local Admin</>}
+                  </button>
+              );
+          } }] : []),
+        { key: 'cgmSect', header: 'CGM Sect.', align: 'center', card: 'footer',
+          render: (u) => {
+              const isCgmSect = cgmSects.has(u.object_name);
+              const inProgress = actionInProgress?.user === u.object_name;
+              const busy = inProgress && (actionInProgress?.action === 'markCgm' || actionInProgress?.action === 'removeCgm');
+              if (loadingCgm) return <Loader2 size={12} className="animate-spin text-slate-400 md:mx-auto" />;
+              return isCgmSect ? (
+                  <button onClick={() => handleRemoveCGMSect(u)} disabled={inProgress} title="Remove CGM Sect. groups" className={actionBtnCls(true)}>
+                      {busy ? <><Loader2 size={12} className="animate-spin" /> Removing…</> : <><X size={12} /> Remove CGM Sect.</>}
+                  </button>
+              ) : (
+                  <button onClick={() => handleMarkCGMSect(u)} disabled={inProgress} className={actionBtnCls(false)}>
+                      {busy ? <><Loader2 size={12} className="animate-spin" /> Marking…</> : <><Shield size={12} /> Mark as CGM Sect.</>}
+                  </button>
+              );
+          } },
+    ];
+
     return (
         <div className="flex-1 flex flex-col overflow-hidden gap-4">
             {/* Filters */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-end gap-4 flex-wrap">
+            <div className="bg-surface border border-slate-200 rounded-xl p-4 shadow-sm flex items-end gap-4 flex-wrap">
                 <div className="min-w-[180px]">
                     <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
                         Office Type
@@ -2606,12 +2800,12 @@ const UserAccessTab = ({ onToast }) => {
                             value={filterDeptName}
                             onChange={handleDeptChange}
                             placeholder="— All departments —"
-                            options={filterDepartments.map(d => ({ value: d.name, label: d.name }))}
+                            options={filterDepartments.map(d => ({ value: d.shortCode, label: d.name }))}
                         />
                     </div>
                 )}
 
-                {users.length > 0 && (
+                {users.length > 0 && !isLocalAdmin && (
                     <div className="min-w-[160px]">
                         <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
                             <Shield size={11} className="inline -mt-0.5 mr-0.5" />
@@ -2641,7 +2835,7 @@ const UserAccessTab = ({ onToast }) => {
                                 value={searchQuery}
                                 onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                                 placeholder="Search by name, login, designation…"
-                                className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2]"
+                                className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy"
                             />
                             {searchQuery && (
                                 <button onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
@@ -2658,137 +2852,76 @@ const UserAccessTab = ({ onToast }) => {
                         <span className="font-semibold text-slate-800">{filtered.length}</span> user{filtered.length !== 1 ? 's' : ''}
                     </span>
                 )}
+
+                {users.length > 0 && (
+                    <div className="relative mb-0.5" ref={exportRef}>
+                        <button
+                            onClick={() => setExportOpen(o => !o)}
+                            disabled={!!exportingRole}
+                            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-canopy border border-canopy/30 rounded-lg hover:bg-canopy-tint transition-colors disabled:opacity-60 disabled:cursor-wait"
+                        >
+                            {exportingRole
+                                ? <><Loader2 size={13} className="animate-spin" /> Exporting…</>
+                                : <><Download size={13} /> Export <ChevronDown size={12} className={`transition-transform ${exportOpen ? 'rotate-180' : ''}`} /></>}
+                        </button>
+                        {exportOpen && (
+                            <div className="absolute right-0 top-full mt-1.5 w-56 bg-surface rounded-lg shadow-lg border border-slate-200 overflow-hidden z-30 text-sm">
+                                <button
+                                    onClick={() => { setExportOpen(false); handleExport(); }}
+                                    disabled={filtered.length === 0 || loading}
+                                    className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    <Download size={14} className="text-slate-400" /> Current view <span className="ml-auto text-[10px] text-slate-400">.csv</span>
+                                </button>
+                                {!isLocalAdmin && (
+                                    <>
+                                        <button
+                                            onClick={() => handleExportRole('localAdmin')}
+                                            className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-50 border-t border-slate-100"
+                                        >
+                                            <Shield size={14} className="text-canopy" /> All Local Admins <span className="ml-auto text-[10px] text-slate-400">.xlsx</span>
+                                        </button>
+                                        <button
+                                            onClick={() => handleExportRole('cgmSect')}
+                                            className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-slate-700 hover:bg-slate-50 border-t border-slate-100"
+                                        >
+                                            <Shield size={14} className="text-purple-600" /> All CGM Sect. <span className="ml-auto text-[10px] text-slate-400">.xlsx</span>
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Table */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
+            <div className="bg-surface border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
                 {!officeType && (
                     <EmptyState icon={Shield} title="Select Office Type" description="Select an office type to view users" />
                 )}
 
                 {officeType && loading && (
-                    <div className="p-0 border-t border-slate-100">
-                        <SkeletonLoader columns={7} rows={5} />
+                    <div className="flex items-center justify-center flex-1 py-16">
+                        <Loader2 size={24} className="animate-spin text-canopy" />
                     </div>
                 )}
 
-                {officeType && !loading && users.length === 0 && (
-                    <EmptyState icon={Users} title={`No users found for ${officeType}`} description="Try adjusting your search filters" />
-                )}
-
-                {officeType && !loading && users.length > 0 && (
+                {officeType && !loading && (
                     <>
-                        <div className="overflow-x-auto flex-1">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
-                                    <tr>
-                                        <th className="px-4 py-3 font-semibold text-slate-600 w-10 text-center">#</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-600">Name</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-600">Login</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-600">Designation</th>
-                                        {!isRoTe && <th className="px-4 py-3 font-semibold text-slate-600">Department</th>}
-                                        {isRoTe && <th className="px-4 py-3 font-semibold text-slate-600">Location</th>}
-                                        <th className="px-4 py-3 font-semibold text-slate-600 text-center">Local Admin</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-600 text-center">CGM Sect.</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {paged.map((u, idx) => {
-                                        const isAdmin    = localAdmins.has(u.object_name);
-                                        const isCgmSect  = cgmSects.has(u.object_name);
-                                        const adminInProgress = actionInProgress?.user === u.object_name && (actionInProgress?.action === 'markAdmin' || actionInProgress?.action === 'removeAdmin');
-                                        const cgmInProgress   = actionInProgress?.user === u.object_name && (actionInProgress?.action === 'markCgm' || actionInProgress?.action === 'removeCgm');
-                                        const inProgress      = actionInProgress?.user === u.object_name;
-                                        return (
-                                        <tr key={u.user_login_name || idx} className="hover:bg-slate-50 transition-colors">
-                                            <td className="px-4 py-3 text-slate-400 text-center text-xs">
-                                                {(currentPage - 1) * PAGE_SIZE + idx + 1}
-                                            </td>
-                                            <td className="px-4 py-3 font-medium text-slate-800">
-                                                <div className="flex items-center gap-2">
-                                                    {u.object_name || '—'}
-                                                    {isAdmin && (
-                                                        <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded font-medium flex items-center gap-1">
-                                                            <Shield size={10} /> Local Admin
-                                                        </span>
-                                                    )}
-                                                    {isCgmSect && (
-                                                        <span className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded font-medium flex items-center gap-1">
-                                                            <Shield size={10} /> CGM Sect.
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-500 font-mono text-xs">{u.user_login_name || '—'}</td>
-                                            <td className="px-4 py-3 text-slate-600">{u.designation || '—'}</td>
-                                            {!isRoTe && <td className="px-4 py-3 text-slate-600 font-mono text-xs">{u.department_short_code || '—'}</td>}
-                                            {isRoTe && <td className="px-4 py-3 text-slate-600">{u.location || '—'}</td>}
-                                            <td className="px-4 py-3 text-center">
-                                                {isAdmin ? (
-                                                    <button
-                                                        onClick={() => handleRemoveLocalAdmin(u)}
-                                                        disabled={inProgress}
-                                                        title="Remove from Local Admin group"
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
-                                                    >
-                                                        {adminInProgress
-                                                            ? <><Loader2 size={12} className="animate-spin" /> Removing…</>
-                                                            : <><X size={12} /> Remove Local Admin</>
-                                                        }
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => handleMarkLocalAdmin(u)}
-                                                        disabled={inProgress}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0A66C2] hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
-                                                    >
-                                                        {adminInProgress
-                                                            ? <><Loader2 size={12} className="animate-spin" /> Marking…</>
-                                                            : <><Shield size={12} /> Mark as Local Admin</>
-                                                        }
-                                                    </button>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                {loadingCgm ? (
-                                                    <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
-                                                        <Loader2 size={12} className="animate-spin" />
-                                                    </div>
-                                                ) : isCgmSect ? (
-                                                    <button
-                                                        onClick={() => handleRemoveCGMSect(u)}
-                                                        disabled={inProgress}
-                                                        title="Remove CGM Sect. groups"
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
-                                                    >
-                                                        {cgmInProgress
-                                                            ? <><Loader2 size={12} className="animate-spin" /> Removing…</>
-                                                            : <><X size={12} /> Remove CGM Sect.</>
-                                                        }
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => handleMarkCGMSect(u)}
-                                                        disabled={inProgress}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0A66C2] hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed mx-auto"
-                                                    >
-                                                        {cgmInProgress
-                                                            ? <><Loader2 size={12} className="animate-spin" /> Marking…</>
-                                                            : <><Shield size={12} /> Mark as CGM Sect.</>
-                                                        }
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+                        <DataTable
+                            columns={accessColumns}
+                            rows={paged}
+                            rowKey={(u, idx) => u.user_login_name || idx}
+                            empty={{ icon: Users, title: `No users found for ${officeType}` }}
+                            stickyHeader
+                            maxHeight="70vh"
+                            className="p-3 md:p-0"
+                        />
 
                         {/* Pagination */}
                         {totalPages > 1 && (
-                            <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-white text-xs text-slate-500">
+                            <div className="px-4 py-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-surface text-xs text-slate-500">
                                 <span>Showing {start}–{end} of {filtered.length}</span>
                                 <div className="flex items-center gap-1">
                                     <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}
@@ -2801,7 +2934,7 @@ const UserAccessTab = ({ onToast }) => {
                                         .map((item, i) => item === '…'
                                             ? <span key={`e${i}`} className="px-1">…</span>
                                             : <button key={item} onClick={() => setCurrentPage(item)}
-                                                className={`min-w-[28px] h-7 rounded-lg font-medium ${item === currentPage ? 'bg-[#0A66C2] text-white' : 'hover:bg-slate-100 text-slate-600'}`}>
+                                                className={`min-w-[28px] h-7 rounded-lg font-medium ${item === currentPage ? 'bg-canopy text-white' : 'hover:bg-slate-100 text-slate-600'}`}>
                                                 {item}
                                               </button>
                                         )
@@ -2830,6 +2963,9 @@ const AlternateCgmTab = ({ onToast }) => {
     const [loadingAltCgm,    setLoadingAltCgm]    = useState(false);
     const [departments,      setDepartments]      = useState([]);
     const [searchQuery,      setSearchQuery]      = useState('');
+    const [filterDept,       setFilterDept]       = useState('');
+    // '' = all, '__any' / '__none' = has / has no Alternate CGM assignment, else a dept code
+    const [filterAltCgm,     setFilterAltCgm]     = useState('');
     const [currentPage,      setCurrentPage]      = useState(1);
     // user being managed in the modal (null = closed)
     const [managingUser,     setManagingUser]     = useState(null);
@@ -2912,23 +3048,103 @@ const AlternateCgmTab = ({ onToast }) => {
         } finally { setActionInProgress(null); }
     };
 
+    // Only departments that actually have users in this list
+    const deptFilterOptions = useMemo(() => {
+        const codes = [...new Set(users.map(u => u.department_short_code).filter(Boolean))];
+        return codes
+            .map(code => {
+                const dept = departments.find(d => d.shortCode.toLowerCase() === code.toLowerCase());
+                const sameAsCode = !dept || dept.name.toLowerCase() === code.toLowerCase();
+                return { value: code, label: sameAsCode ? (dept?.name || code).toUpperCase() : `${dept.name} (${code})` };
+            })
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [users, departments]);
+
+    // Departments that at least one listed user is Alternate CGM for, plus the any/none shortcuts
+    const altCgmFilterOptions = useMemo(() => {
+        const codes = new Set();
+        users.forEach(u => (alternateCgmMap.get(u.object_name) || []).forEach(c => codes.add(c)));
+        const deptOptions = [...codes]
+            .map(code => {
+                const dept = departments.find(d => d.shortCode.toLowerCase() === code);
+                const sameAsCode = !dept || dept.name.toLowerCase() === code;
+                return { value: code, label: sameAsCode ? code.toUpperCase() : `${dept.name} (${code})` };
+            })
+            .sort((a, b) => a.label.localeCompare(b.label));
+        return [
+            { value: '__any',  label: 'Any department assigned' },
+            { value: '__none', label: 'None assigned' },
+            ...deptOptions,
+        ];
+    }, [users, alternateCgmMap, departments]);
+
     const filtered = useMemo(() => {
         const q = searchQuery.toLowerCase();
-        return users.filter(u =>
-            !q || [u.object_name, u.user_login_name, u.designation, u.department_name]
-                .some(f => (f || '').toLowerCase().includes(q))
-        );
-    }, [users, searchQuery]);
+        return users.filter(u => {
+            if (filterDept && (u.department_short_code || '').toLowerCase() !== filterDept.toLowerCase()) return false;
+            if (filterAltCgm) {
+                const assigned = alternateCgmMap.get(u.object_name) || [];
+                if (filterAltCgm === '__any' && assigned.length === 0) return false;
+                if (filterAltCgm === '__none' && assigned.length > 0) return false;
+                if (filterAltCgm !== '__any' && filterAltCgm !== '__none' && !assigned.includes(filterAltCgm)) return false;
+            }
+            return !q || [u.object_name, u.user_login_name, u.uin, u.designation, u.department_name]
+                .some(f => (f || '').toLowerCase().includes(q));
+        });
+    }, [users, searchQuery, filterDept, filterAltCgm, alternateCgmMap]);
 
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const paged      = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
     const rangeStart = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
     const rangeEnd   = Math.min(currentPage * PAGE_SIZE, filtered.length);
 
+    const altCgmColumns = [
+        { key: 'idx', header: '#', width: 'w-10', align: 'center', mono: true, card: 'hide',
+          render: (_u, idx) => <span className="text-slate-400 text-xs">{(currentPage - 1) * PAGE_SIZE + idx + 1}</span> },
+        { key: 'name', header: 'Name', primary: true,
+          render: (u) => (
+              <>
+                  <div className="font-medium text-slate-900">{u.object_name || '—'}</div>
+                  <div className="text-xs text-slate-500 group-hover:text-canopy transition-colors">{u.user_login_name}</div>
+              </>
+          ) },
+        { key: 'uin', header: 'UIN', mono: true, cardLabel: 'UIN',
+          render: (u) => <span className="text-xs text-slate-600">{u.uin || '—'}</span> },
+        { key: 'designation', header: 'Designation', cardLabel: 'Designation',
+          render: (u) => <span className="text-slate-600">{u.designation || '—'}</span> },
+        { key: 'department', header: 'Department', mono: true, cardLabel: 'Department',
+          render: (u) => <span className="text-xs text-slate-600">{u.department_short_code || <span className="text-slate-400">—</span>}</span> },
+        { key: 'altCgm', header: 'Alternate CGM Depts.', cardLabel: 'Alt. CGM',
+          render: (u) => {
+              const assignedCodes = alternateCgmMap.get(u.object_name) || [];
+              if (loadingAltCgm) return <Loader2 size={13} className="animate-spin text-slate-300" />;
+              if (assignedCodes.length === 0) return <span className="text-xs text-slate-400">—</span>;
+              return (
+                  <div className="flex flex-wrap gap-1">
+                      {assignedCodes.map(code => (
+                          <span key={code} className="px-2 py-0.5 bg-harvest/15 text-harvest border border-harvest/25 rounded-full text-xs font-medium">
+                              {code.toUpperCase()}
+                          </span>
+                      ))}
+                  </div>
+              );
+          } },
+        { key: 'manage', header: 'Manage', width: 'w-20', align: 'center', card: 'footer',
+          render: (u) => (
+              <button
+                  onClick={() => { setManagingUser(u); setModalDeptSelect(''); }}
+                  className="p-2 hover:bg-surface border border-transparent hover:border-slate-200 text-slate-400 hover:text-canopy hover:shadow-sm rounded-lg transition-[color,background-color,border-color,box-shadow]"
+                  title="Manage Alternate CGM departments"
+              >
+                  <Edit2 size={15} />
+              </button>
+          ) },
+    ];
+
     return (
         <div className="flex-1 flex flex-col overflow-hidden gap-4">
             {/* Filters bar */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-end gap-4 flex-wrap">
+            <div className="bg-surface border border-slate-200 rounded-xl p-4 shadow-sm flex items-end gap-4 flex-wrap">
                 <div className="flex-1 min-w-[220px]">
                     <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Search</label>
                     <div className="relative">
@@ -2937,14 +3153,46 @@ const AlternateCgmTab = ({ onToast }) => {
                             type="text"
                             value={searchQuery}
                             onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                            placeholder="Search by name, login, designation…"
-                            className="w-full pl-8 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2]"
+                            placeholder="Search by name, login, UIN, designation…"
+                            className="w-full pl-8 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy"
                         />
                         {searchQuery && (
                             <button onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
                                 className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded">
                                 <X size={13} />
                             </button>
+                        )}
+                    </div>
+                </div>
+                <div className="flex min-w-[220px] flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Department</label>
+                    <div className="flex items-center gap-1">
+                        <div className="flex-1">
+                            <CustomSelect value={filterDept}
+                                onChange={v => { setFilterDept(v); setCurrentPage(1); }}
+                                placeholder="All departments" options={deptFilterOptions} />
+                        </div>
+                        {filterDept && (
+                            <Button size="icon" variant="ghost" title="Clear department filter"
+                                onClick={() => { setFilterDept(''); setCurrentPage(1); }}>
+                                <X size={14} />
+                            </Button>
+                        )}
+                    </div>
+                </div>
+                <div className="flex min-w-[220px] flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Alternate CGM</label>
+                    <div className="flex items-center gap-1">
+                        <div className="flex-1">
+                            <CustomSelect value={filterAltCgm}
+                                onChange={v => { setFilterAltCgm(v); setCurrentPage(1); }}
+                                placeholder="All users" options={altCgmFilterOptions} />
+                        </div>
+                        {filterAltCgm && (
+                            <Button size="icon" variant="ghost" title="Clear Alternate CGM filter"
+                                onClick={() => { setFilterAltCgm(''); setCurrentPage(1); }}>
+                                <X size={14} />
+                            </Button>
                         )}
                     </div>
                 </div>
@@ -2956,52 +3204,50 @@ const AlternateCgmTab = ({ onToast }) => {
             </div>
 
             {/* Manage Alt CGM Modal */}
-            {managingUser && (() => {
-                const u            = managingUser;
-                const assignedCodes = alternateCgmMap.get(u.object_name) || [];
-                const availableDepts = departments.filter(d => !assignedCodes.includes(d.shortCode.toLowerCase()));
-                const inProgress   = actionInProgress?.user === u.object_name;
-                const addInProg    = inProgress && actionInProgress.action === 'add';
-                return (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
-                            {/* Modal header */}
-                            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm">
-                                        <Shield size={17} className="text-white" />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-slate-900">Alternate CGM Departments</p>
-                                        <p className="text-xs text-slate-500">{u.object_name}</p>
-                                    </div>
-                                </div>
-                                <button onClick={() => { setManagingUser(null); setModalDeptSelect(''); }}
-                                    className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all">
-                                    <X size={18} />
-                                </button>
-                            </div>
+            <Modal
+                isOpen={!!managingUser}
+                onClose={() => { setManagingUser(null); setModalDeptSelect(''); }}
+                size="md"
+                title={<span className="flex items-center gap-2"><Shield size={16} className="text-canopy" />Alternate CGM Departments</span>}
+                footer={
+                    <button onClick={() => { setManagingUser(null); setModalDeptSelect(''); }}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition-colors">
+                        Close
+                    </button>
+                }
+            >
+                {managingUser && (() => {
+                    const u             = managingUser;
+                    const assignedCodes  = alternateCgmMap.get(u.object_name) || [];
+                    const availableDepts = departments.filter(d => !assignedCodes.includes(d.shortCode.toLowerCase()));
+                    const inProgress    = actionInProgress?.user === u.object_name;
+                    const addInProg     = inProgress && actionInProgress.action === 'add';
+                    return (
+                        <>
+                            <p className="text-caption text-slate-500 mb-4">{u.object_name}</p>
 
                             {/* Existing assignments */}
-                            <div className="px-6 pt-5 pb-2">
+                            <div>
                                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Current Assignments</p>
                                 {assignedCodes.length === 0 ? (
                                     <p className="text-sm text-slate-400 italic py-2">No alternate CGM departments assigned.</p>
                                 ) : (
-                                    <div className="space-y-2 max-h-52 overflow-y-auto overscroll-contain pr-1 scrollbar-thin">
+                                    /* Chains to the modal body once it ends; the modal body is
+                                       the contained boundary, so nothing leaks to the page. */
+                                    <div className="space-y-2 max-h-52 overflow-y-auto pr-1 scrollbar-thin">
                                         {assignedCodes.map(code => {
                                             const deptObj = departments.find(d => d.shortCode.toLowerCase() === code);
                                             const isRemovingThis = inProgress && actionInProgress.action === 'remove' && actionInProgress.deptCode === code;
                                             return (
-                                                <div key={code} className="flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                                                <div key={code} className="flex items-center justify-between px-3 py-2 bg-harvest/10 border border-harvest/25 rounded-lg">
                                                     <div>
-                                                        <span className="text-sm font-semibold text-amber-800">{code.toUpperCase()}</span>
-                                                        {deptObj && <span className="ml-2 text-xs text-amber-600">{deptObj.name}</span>}
+                                                        <span className="text-sm font-semibold text-harvest">{code.toUpperCase()}</span>
+                                                        {deptObj && <span className="ml-2 text-xs text-harvest">{deptObj.name}</span>}
                                                     </div>
                                                     <button
                                                         onClick={() => handleRemoveAltCgm(u, code)}
                                                         disabled={inProgress}
-                                                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-danger bg-surface border border-danger/20 hover:bg-danger-tint rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         {isRemovingThis ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
                                                         {isRemovingThis ? 'Removing…' : 'Remove'}
@@ -3015,125 +3261,64 @@ const AlternateCgmTab = ({ onToast }) => {
 
                             {/* Add new department */}
                             {availableDepts.length > 0 && (
-                                <div className="px-6 py-4 border-t border-slate-100 mt-2">
+                                <div className="mt-4 border-t border-line pt-4">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Add Department</p>
                                     <div className="flex gap-2">
-                                        <div className="flex-1">
-                                            <CustomSelect
-                                                value={modalDeptSelect}
-                                                onChange={setModalDeptSelect}
-                                                disabled={inProgress}
-                                                placeholder="— Select department —"
-                                                options={availableDepts.map(d => ({ value: d.shortCode.toLowerCase(), label: d.name }))}
-                                            />
-                                        </div>
+                                        <CustomSelect
+                                            value={modalDeptSelect}
+                                            onChange={setModalDeptSelect}
+                                            disabled={inProgress}
+                                            placeholder="— Select department —"
+                                            className="flex-1"
+                                            options={availableDepts.map(d => ({ value: d.shortCode.toLowerCase(), label: d.name }))}
+                                        />
                                         <button
                                             onClick={() => handleAddAltCgm(u)}
                                             disabled={!modalDeptSelect || inProgress}
-                                            className="flex items-center gap-1.5 px-4 py-2 bg-[#0A66C2] hover:bg-[#094d92] text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-canopy hover:bg-canopy-dark text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                                         >
                                             {addInProg ? <><Loader2 size={13} className="animate-spin" /> Adding…</> : <><Shield size={13} /> Add</>}
                                         </button>
                                     </div>
                                 </div>
                             )}
-
-                            <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
-                                <button onClick={() => { setManagingUser(null); setModalDeptSelect(''); }}
-                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition-colors">
-                                    Close
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                );
-            })()}
+                        </>
+                    );
+                })()}
+            </Modal>
 
             {/* Table */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
-                {loading ? (
-                    <div className="p-0"><SkeletonLoader columns={6} rows={8} /></div>
-                ) : users.length === 0 ? (
-                    <EmptyState icon={Users} title="No Grade-F users found" description="No CGM-grade HO users exist in the system." />
-                ) : (
-                    <>
-                        <div className="overflow-x-auto flex-1">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-4 py-3 font-semibold text-slate-700 w-10 text-center">#</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700">Name</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700">Designation</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700">Department</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700">Alternate CGM Depts.</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700 w-20 text-center">Manage</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {paged.map((u, idx) => {
-                                        const assignedCodes = alternateCgmMap.get(u.object_name) || [];
-                                        return (
-                                            <tr key={u.user_login_name || idx} className="hover:bg-blue-50/30 transition-colors group">
-                                                <td className="px-4 py-3 text-slate-400 font-mono text-xs text-center">
-                                                    {(currentPage - 1) * PAGE_SIZE + idx + 1}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="font-medium text-slate-900">{u.object_name || '—'}</div>
-                                                    <div className="text-xs text-slate-500 group-hover:text-[#0A66C2] transition-colors">{u.user_login_name}</div>
-                                                </td>
-                                                <td className="px-4 py-3 text-slate-600">{u.designation || '—'}</td>
-                                                <td className="px-4 py-3 text-slate-600 font-mono text-xs">{u.department_short_code || <span className="text-slate-400">—</span>}</td>
-                                                <td className="px-4 py-3">
-                                                    {loadingAltCgm ? (
-                                                        <Loader2 size={13} className="animate-spin text-slate-300" />
-                                                    ) : assignedCodes.length === 0 ? (
-                                                        <span className="text-xs text-slate-400">—</span>
-                                                    ) : (
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {assignedCodes.map(code => (
-                                                                <span key={code} className="px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-full text-xs font-medium">
-                                                                    {code.toUpperCase()}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    <button
-                                                        onClick={() => { setManagingUser(u); setModalDeptSelect(''); }}
-                                                        className="p-2 hover:bg-white border border-transparent hover:border-slate-200 text-slate-400 hover:text-[#0A66C2] hover:shadow-sm rounded-lg transition-all"
-                                                        title="Manage Alternate CGM departments"
-                                                    >
-                                                        <Edit2 size={15} />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
+            <div className="bg-surface border border-slate-200 rounded-xl shadow-sm flex-1 flex flex-col overflow-hidden">
+                <DataTable
+                    columns={altCgmColumns}
+                    rows={paged}
+                    rowKey={(u, idx) => u.user_login_name || idx}
+                    loading={loading}
+                    skeletonRows={8}
+                    empty={{ icon: Users, title: 'No Grade-F users found' }}
+                    stickyHeader
+                    maxHeight="70vh"
+                    className="p-3 md:p-0"
+                />
 
-                        {/* Pagination */}
-                        {totalPages > 1 && (
-                            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50/50 text-sm text-slate-500">
-                                <span>Showing <span className="font-medium text-slate-900">{rangeStart}</span> to <span className="font-medium text-slate-900">{rangeEnd}</span> of <span className="font-medium text-slate-900">{filtered.length}</span> results</span>
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                                        className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-[#0A66C2] disabled:opacity-40 text-slate-500 transition-colors">
-                                        <ChevronLeft size={16} />
-                                    </button>
-                                    <div className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 min-w-[3rem] text-center shadow-sm">
-                                        {currentPage}
-                                    </div>
-                                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                                        className="p-2 border border-slate-200 rounded-lg hover:bg-white hover:text-[#0A66C2] disabled:opacity-40 text-slate-500 transition-colors">
-                                        <ChevronRight size={16} />
-                                    </button>
-                                </div>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 bg-slate-50/50 text-sm text-slate-500 sm:px-6 sm:py-4">
+                        <span>Showing <span className="font-medium text-slate-900">{rangeStart}</span> to <span className="font-medium text-slate-900">{rangeEnd}</span> of <span className="font-medium text-slate-900">{filtered.length}</span> results</span>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                                className="p-2 border border-slate-200 rounded-lg hover:bg-surface hover:text-canopy disabled:opacity-40 text-slate-500 transition-colors">
+                                <ChevronLeft size={16} />
+                            </button>
+                            <div className="px-4 py-1.5 bg-surface border border-slate-200 rounded-lg text-sm font-medium text-slate-700 min-w-[3rem] text-center shadow-sm">
+                                {currentPage}
                             </div>
-                        )}
-                    </>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                                className="p-2 border border-slate-200 rounded-lg hover:bg-surface hover:text-canopy disabled:opacity-40 text-slate-500 transition-colors">
+                                <ChevronRight size={16} />
+                            </button>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
@@ -3142,7 +3327,7 @@ const AlternateCgmTab = ({ onToast }) => {
 
 // ─── Main UsersPage ───────────────────────────────────────────────────────────
 const UsersPage = () => {
-    const [toast, setToast] = useState(null);
+    const toast = useToast();
 
     const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
     const adminRole = storedUser.properties?.admin_role || storedUser.admin_role || null;
@@ -3150,9 +3335,10 @@ const UsersPage = () => {
     const allTabs = [
         { id: 'creation',  label: 'User Creation',        icon: UserPlus, roles: ['Super Admin'] },
         { id: 'directory', label: 'User Directory',       icon: Users,    roles: ['Super Admin', 'Local Admin'] },
-        { id: 'access',       label: 'User Access',          icon: Shield,   roles: ['Super Admin'] },
-        { id: 'alternateCgm', label: 'Alternate CGM',        icon: Layers,   roles: ['Super Admin'] },
-        { id: 'password',     label: 'User Password Update', icon: KeyRound, roles: ['Super Admin'] },
+        { id: 'access',    label: 'User Access',          icon: Shield,   roles: ['Super Admin', 'Local Admin'] },
+        { id: 'export',    label: 'User Data Export',     icon: Download, roles: ['Super Admin'] },
+        { id: 'alternateCgm', label: 'Alternate CGM',     icon: Layers,   roles: ['Super Admin'] },
+        { id: 'password',  label: 'User Password Update', icon: KeyRound, roles: ['Super Admin'] },
     ];
 
     const tabs = allTabs.filter(tab => tab.roles.includes(adminRole));
@@ -3160,44 +3346,24 @@ const UsersPage = () => {
     const [activeTab, setActiveTab] = useState(() => tabs[0]?.id || '');
 
     return (
-        <div className="p-6 max-w-7xl mx-auto h-full flex flex-col">
-            <Toast toast={toast} onDismiss={() => setToast(null)} />
+        <div className="flex flex-1 flex-col">
+            <PageHeader title="Users" icon={Users} description="Create, browse and manage Documentum user accounts." />
 
-            {/* Page header */}
-            <div className="flex items-center gap-2 mb-5">
-                <Users size={20} className="text-[#0A66C2]" />
-                <h1 className="text-xl font-bold text-slate-900">Users</h1>
-            </div>
-
-            {/* Tab bar */}
-            <div className="flex items-center gap-1 mb-5 border-b border-slate-200">
-                {tabs.map(tab => {
-                    const Icon = tab.icon;
-                    const active = activeTab === tab.id;
-                    return (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px ${
-                                active
-                                    ? 'border-[#0A66C2] text-[#0A66C2]'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                            }`}
-                        >
-                            <Icon size={16} />
-                            {tab.label}
-                        </button>
-                    );
-                })}
-            </div>
+            <Tabs
+                tabs={tabs.map(({ id, label, icon }) => ({ id, label, icon }))}
+                value={activeTab}
+                onChange={setActiveTab}
+                className="mb-5"
+            />
 
             {/* Tab content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-                {activeTab === 'creation'  && <UserCreateTab    onToast={setToast} />}
-                {activeTab === 'password'  && <PasswordTab      onToast={setToast} />}
-                {activeTab === 'directory' && <UserDirectoryTab  onToast={setToast} />}
-                {activeTab === 'access'       && <UserAccessTab     onToast={setToast} />}
-                {activeTab === 'alternateCgm' && <AlternateCgmTab  onToast={setToast} />}
+            <div className="flex flex-1 flex-col">
+                {activeTab === 'creation'  && <UserCreateTab    onToast={toast.show} />}
+                {activeTab === 'password'  && <PasswordTab      onToast={toast.show} />}
+                {activeTab === 'directory' && <UserDirectoryTab  onToast={toast.show} />}
+                {activeTab === 'access'    && <UserAccessTab     onToast={toast.show} />}
+                {activeTab === 'export'    && <UserExportTab     onToast={toast.show} />}
+                {activeTab === 'alternateCgm' && <AlternateCgmTab onToast={toast.show} />}
             </div>
         </div>
     );

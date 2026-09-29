@@ -176,13 +176,13 @@ public class DelegateService {
     // ─── Movement Register ────────────────────────────────────────────────────────
 
     /**
-     * Fetch all cms_movement_register records linked to a case folder.
-     * SELECT * FROM cms_movement_register WHERE ANY i_folder_id = '<caseId>'
+     * Fetch all valid cms_movement_register records linked to a case folder.
+     * SELECT * FROM cms_movement_register WHERE ANY i_folder_id = '<caseId>' AND is_valid_entry = true
      */
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getMovementRegister(String caseId) {
         String safe = caseId.replace("'", "''");
-        String dql  = "SELECT * FROM cms_movement_register WHERE ANY i_folder_id = '" + safe + "' ORDER BY r_creation_date DESC";
+        String dql  = "SELECT * FROM cms_movement_register WHERE ANY i_folder_id = '" + safe + "' AND is_valid_entry = true ORDER BY r_creation_date DESC";
         log.info("Movement register DQL for case {}", caseId);
 
         try {

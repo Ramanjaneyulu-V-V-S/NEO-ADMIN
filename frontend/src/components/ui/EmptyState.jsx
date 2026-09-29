@@ -1,33 +1,22 @@
-import React from 'react';
-import { DatabaseBackup } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { cn } from '../../utils/cn';
 
-const EmptyState = ({ 
-    icon: Icon = DatabaseBackup, 
-    title = 'No Data Found', 
-    description = 'Try adjusting your search or filters.', 
-    action 
-}) => {
+/**
+ * Empty / no-results state. An empty screen is an invitation to act —
+ * pass `action` (a Button) where there's a next step.
+ */
+export function EmptyState({ icon: Icon, title, description, action, className = '' }) {
     return (
-        <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.3 }}
-            className="flex flex-col items-center justify-center p-12 text-center"
-        >
-            <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mb-4 shadow-sm border border-slate-100">
-                <Icon size={32} strokeWidth={1.5} />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-800 mb-1">{title}</h3>
-            <p className="text-sm text-slate-500 mb-6 max-w-sm">{description}</p>
-            {action && (
-                <div className="mt-2">
-                    {action}
+        <div className={cn('flex animate-fade-rise flex-col items-center justify-center px-6 py-16 text-center', className)}>
+            {Icon && (
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-canopy-tint">
+                    <Icon size={22} className="text-canopy" />
                 </div>
             )}
-        </motion.div>
+            {title && <p className="font-display text-title text-ink">{title}</p>}
+            {description && <p className="mt-1 max-w-sm text-body text-slate-500">{description}</p>}
+            {action && <div className="mt-4">{action}</div>}
+        </div>
     );
-};
+}
 
 export default EmptyState;

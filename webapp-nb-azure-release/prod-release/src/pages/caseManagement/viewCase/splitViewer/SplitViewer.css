@@ -1,0 +1,37 @@
+.split-viewer-status-container {
+  height: 600px;
+}
+
+.split-viewer-wrapper {
+  position: relative;
+  width: 100%;
+  height: 90%;
+}
+
+.split-viewer-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #ffffff;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.refresh-icon-loading {
+  pointer-events: none;
+  animation: spin 2s linear infinite;
+}
+
+.note-btn-container.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.note-btn-container:not(.disabled) {
+  cursor: pointer;
+}

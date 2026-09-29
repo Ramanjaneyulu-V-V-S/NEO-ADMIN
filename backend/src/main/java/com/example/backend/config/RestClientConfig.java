@@ -19,8 +19,14 @@ public class RestClientConfig {
                 .requestFactory(new TrustAllRequestFactory());
     }
 
-    // Custom RequestFactory to bypass SSL verification
+    // Custom RequestFactory to bypass SSL verification and add timeout
     static class TrustAllRequestFactory extends SimpleClientHttpRequestFactory {
+        public TrustAllRequestFactory() {
+            // Set connection and read timeouts (30 seconds each)
+            this.setConnectTimeout(30000);
+            this.setReadTimeout(30000);
+        }
+
         @Override
         protected void prepareConnection(HttpURLConnection connection, String httpMethod) throws IOException {
             if (connection instanceof HttpsURLConnection) {

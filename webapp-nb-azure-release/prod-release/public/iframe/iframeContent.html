@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Performance: Preload hints for faster resource loading -->
+    <!-- Preconnect to IV server early (DNS + TCP + TLS handshake) -->
+    <link rel="dns-prefetch" href="https://iv-server.opentext.com" />
+    <link rel="preconnect" href="https://iv-server.opentext.com" crossorigin />
+
+    <!-- CSP: frame-ancestors directive only works in HTTP headers, not meta tags -->
+    <!-- Note: 'unsafe-inline' needed for style tags, but scripts use external files -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-eval' https://*.opentext.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://*.opentext.com;"
+    />
+    <title>Brava Viewer Iframe</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #f5f5f5;
+        overflow: hidden;
+      }
+      #root {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- Load the React iframe bundle -->
+    <!-- In development: Vite dev server serves /src/iframe/main.jsx -->
+    <!-- In production: Built bundle served from /iframe/iframeBundle-[hash].js -->
+    <!-- Note: Using external script to avoid CSP violations -->
+    <script type="module" src="/src/iframe/main.jsx"></script>
+  </body>
+</html>

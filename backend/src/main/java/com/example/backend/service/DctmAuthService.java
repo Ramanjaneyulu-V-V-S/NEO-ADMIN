@@ -49,7 +49,9 @@ public class DctmAuthService {
             return getUserAuthHeader();
         }
 
-        return "DmTicket " + getServiceLoginTicket();
+        String ticket = getServiceLoginTicket();
+        // The ticket lookup falls back to a complete "Basic ..." header when login-tickets is unavailable
+        return ticket.startsWith("Basic ") ? ticket : "DmTicket " + ticket;
     }
 
     /**

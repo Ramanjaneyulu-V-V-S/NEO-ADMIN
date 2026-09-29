@@ -2,6 +2,7 @@ package com.example.backend.service;
 
 import com.example.backend.config.DctmConfig;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -17,13 +18,15 @@ public class UserService {
     private final OtdsService otdsService;
     private final EmailService emailService;
     private final RestClient restClient;
+    private final ObjectProvider<GroupService> groupServiceProvider;
 
     public UserService(DctmConfig dctmConfig, OtdsService otdsService, EmailService emailService,
-                       RestClient.Builder restClientBuilder) {
+                       RestClient.Builder restClientBuilder, ObjectProvider<GroupService> groupServiceProvider) {
         this.dctmConfig = dctmConfig;
         this.otdsService = otdsService;
         this.emailService = emailService;
         this.restClient = restClientBuilder.build();
+        this.groupServiceProvider = groupServiceProvider;
     }
 
     private String getAuthHeader() {
@@ -33,21 +36,42 @@ public class UserService {
                 (username + ":" + password).getBytes(StandardCharsets.UTF_8));
     }
 
-    @SuppressWarnings("unchecked")
+    /** Whitelist of DQL columns the User Directory may sort by (guards against injection via sortBy). */
+    private static final Map<String, String> SORT_COLUMNS = Map.of(
+            "object_name",           "object_name",
+            "uin",                   "uin",
+            "user_grade",            "user_grade",
+            "designation",           "designation",
+            "department_short_code", "department_short_code",
+            "ro_short_code",         "ro_short_code");
+
+    /** Backwards-compatible overload (no extra filters / sort / total). */
     public Map<String, Object> searchUserProfiles(String query, int page, int itemsPerPage,
                                                     String officeTypeFilter, String locationFilter,
                                                     String deptNames) {
+        return searchUserProfiles(query, page, itemsPerPage, officeTypeFilter, locationFilter, deptNames,
+                null, null, null, null, null, null, false);
+    }
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> searchUserProfiles(String query, int page, int itemsPerPage,
+                                                    String officeTypeFilter, String locationFilter,
+                                                    String deptNames,
+                                                    String uin, String grade, String deptCode, String roCode,
+                                                    String sortBy, String sortDir, boolean includeTotal) {
         StringBuilder dqlBuilder = new StringBuilder();
         dqlBuilder.append("SELECT r_object_id, object_name, uin, department_name, department_short_code, ro_short_code, user_grade, designation, ");
         dqlBuilder.append("user_email_address, user_login_name, primary_mobile_number, location, office_type, ");
-        dqlBuilder.append("is_active, hindi_user_name, hindi_designation, user_role ");
+        dqlBuilder.append("is_active, hindi_user_name, hindi_designation, user_role, department_short_code_multi ");
         dqlBuilder.append("FROM cms_user_profile WHERE object_name IS NOT NULL AND object_name != ' ' ");
 
-        // Local Admin office type restriction
+        // Office type restriction — exact match for HO / RO / TE
         if ("HO".equalsIgnoreCase(officeTypeFilter)) {
             dqlBuilder.append("AND office_type = 'HO' ");
         } else if ("RO".equalsIgnoreCase(officeTypeFilter)) {
-            dqlBuilder.append("AND office_type != 'HO' ");
+            dqlBuilder.append("AND office_type = 'RO' ");
+        } else if ("TE".equalsIgnoreCase(officeTypeFilter)) {
+            dqlBuilder.append("AND office_type = 'TE' ");
         }
 
         // Location filter (for RO/TE Local Admin)
@@ -55,19 +79,20 @@ public class UserService {
             dqlBuilder.append("AND location = '").append(locationFilter.trim().replace("'", "''")).append("' ");
         }
 
-        // Multi-department filter (for HO Local Admin)
+        // Multi-department filter (for HO Local Admin) — filter by department_short_code_multi repeating attribute
         if (deptNames != null && !deptNames.isBlank()) {
             String[] names = deptNames.split(",");
-            dqlBuilder.append("AND department_name IN (");
+            dqlBuilder.append("AND (");
             for (int i = 0; i < names.length; i++) {
-                if (i > 0) dqlBuilder.append(", ");
-                dqlBuilder.append("'").append(names[i].trim().replace("'", "''")).append("'");
+                if (i > 0) dqlBuilder.append(" OR ");
+                String shortCode = names[i].trim().toLowerCase().replace("'", "''");
+                dqlBuilder.append("ANY department_short_code_multi = '").append(shortCode).append("'");
             }
             dqlBuilder.append(") ");
         }
 
         if (query != null && !query.trim().isEmpty()) {
-            String q = query.trim();
+            String q = query.trim().replace("'", "''");
             dqlBuilder.append("AND (object_name LIKE '%").append(q).append("%' ");
             dqlBuilder.append("OR uin LIKE '%").append(q).append("%' ");
             dqlBuilder.append("OR user_login_name LIKE '%").append(q).append("%' ");
@@ -75,11 +100,101 @@ public class UserService {
             dqlBuilder.append("OR designation LIKE '%").append(q).append("%') ");
         }
 
+        // Dedicated UIN filter (User Directory)
+        if (uin != null && !uin.isBlank()) {
+            dqlBuilder.append("AND uin LIKE '%").append(uin.trim().replace("'", "''")).append("%' ");
+        }
+        // Grade filter (exact)
+        if (grade != null && !grade.isBlank()) {
+            dqlBuilder.append("AND user_grade = '").append(grade.trim().replace("'", "''")).append("' ");
+        }
+        // HO department filter (Super Admin) — repeating attribute
+        if (deptCode != null && !deptCode.isBlank()) {
+            dqlBuilder.append("AND ANY department_short_code_multi = '")
+                      .append(deptCode.trim().toLowerCase().replace("'", "''")).append("' ");
+        }
+        // RO/TE location code filter (Super Admin)
+        if (roCode != null && !roCode.isBlank()) {
+            dqlBuilder.append("AND ro_short_code = '").append(roCode.trim().toLowerCase().replace("'", "''")).append("' ");
+        }
+
+        String sortCol = sortBy != null ? SORT_COLUMNS.getOrDefault(sortBy, "object_name") : "object_name";
+        String dir = "desc".equalsIgnoreCase(sortDir) ? "DESC" : "ASC";
+        dqlBuilder.append("ORDER BY ").append(sortCol).append(" ").append(dir);
+
+        log.info("User profile search — officeType: {}, location: {}, deptNames: {}, sort: {} {}",
+                officeTypeFilter, locationFilter, deptNames, sortCol, dir);
+
+        return executeDql(dqlBuilder.toString(), page, itemsPerPage, includeTotal);
+    }
+
+    /**
+     * Fetch user profiles for all members of a role group, independent of office
+     * type filters. Supported roles: localAdmin (ecm_local_admin members) and
+     * cgmSect (members of any ecm_*cgm_sec group across HO/RO/TE).
+     */
+    public Map<String, Object> getRoleMemberProfiles(String role, int page, int itemsPerPage) {
+        String groupCondition;
+        if ("localAdmin".equals(role)) {
+            groupCondition = "group_name = 'ecm_local_admin'";
+        } else if ("cgmSect".equals(role)) {
+            groupCondition = "group_name LIKE 'ecm_%cgm_sec'";
+        } else {
+            throw new IllegalArgumentException("Unknown role: " + role);
+        }
+
+        String dql = "SELECT r_object_id, object_name, uin, department_name, department_short_code, "
+                + "ro_short_code, designation, user_email_address, user_login_name, location, office_type "
+                + "FROM cms_user_profile "
+                + "WHERE object_name IN (SELECT users_names FROM dm_group WHERE " + groupCondition + ") "
+                + "ORDER BY object_name";
+
+        log.info("Role member profile export — role: {}", role);
+        return executeDql(dql, page, itemsPerPage);
+    }
+
+    /**
+     * Bulk fetch of the repeating department_short_code_multi attribute, keyed by r_object_id,
+     * for every cms_user_profile matching the office-type filter. Used by the User Data Export
+     * feature to expand multi-department users (e.g. CGMs/RO heads) into one export row per department.
+     * officeTypeFilter: 'HO' → only HO users; 'RO' → non-HO users (RO/TE); null/blank → all.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, List<String>> getDeptMultiByOfficeType(String officeTypeFilter) {
+        StringBuilder dqlBuilder = new StringBuilder();
+        dqlBuilder.append("SELECT r_object_id, department_short_code_multi FROM cms_user_profile ");
+        dqlBuilder.append("WHERE object_name IS NOT NULL AND object_name != ' ' ");
+        if ("HO".equalsIgnoreCase(officeTypeFilter)) {
+            dqlBuilder.append("AND office_type = 'HO' ");
+        } else if ("RO".equalsIgnoreCase(officeTypeFilter)) {
+            dqlBuilder.append("AND office_type != 'HO' ");
+        }
         dqlBuilder.append("ORDER BY object_name");
+        String dql = dqlBuilder.toString();
 
-        log.info("User profile search — officeType: {}, location: {}, deptNames: {}", officeTypeFilter, locationFilter, deptNames);
-
-        return executeDql(dqlBuilder.toString(), page, itemsPerPage);
+        Map<String, List<String>> result = new HashMap<>();
+        int page = 1;
+        while (true) {
+            Map<String, Object> response = executeDql(dql, page, 2000);
+            List<Map<String, Object>> users = (List<Map<String, Object>>) response.get("users");
+            if (users == null || users.isEmpty()) break;
+            for (Map<String, Object> u : users) {
+                String objectId = (String) u.get("r_object_id");
+                if (objectId == null) continue;
+                List<String> codes = result.computeIfAbsent(objectId, k -> new ArrayList<>());
+                Object raw = u.get("department_short_code_multi");
+                if (raw instanceof List<?> list) {
+                    for (Object v : list) {
+                        if (v instanceof String s && !s.isBlank() && !codes.contains(s)) codes.add(s);
+                    }
+                } else if (raw instanceof String s && !s.isBlank() && !codes.contains(s)) {
+                    codes.add(s);
+                }
+            }
+            if (!Boolean.TRUE.equals(response.get("hasNext"))) break;
+            page++;
+        }
+        return result;
     }
 
     /**
@@ -398,7 +513,7 @@ public class UserService {
         boolean needsSync = properties.containsKey("is_active") || properties.containsKey("user_email_address");
         String dmUserName   = null; // cms_user_profile.object_name  = dm_user.user_name  (for REST PATCH URL)
         String dmLoginName  = null; // cms_user_profile.user_login_name = dm_user.user_login_name (for OTDS)
-        if (needsSync) {
+        if (needsSync || properties.containsKey("department_name") || properties.containsKey("department_short_code_multi")) {
             Map<String, String> names = getNamesByProfileId(objectId);
             dmUserName  = names.get("object_name");
             dmLoginName = names.get("user_login_name");
@@ -426,6 +541,12 @@ public class UserService {
             patchDmUser(dmUserName, Map.of("user_address", email != null ? email : ""));
         }
 
+        // 1c. Department change → remove department-related groups and clear vertical_ids
+        if ((properties.containsKey("department_name") || properties.containsKey("department_short_code_multi")) && dmUserName != null && !dmUserName.isBlank()) {
+            log.info("[DeptChange] Department changed for user '{}' — cleaning up groups and clearing vertical_ids", dmUserName);
+            handleDepartmentChange(objectId, dmUserName, properties);
+        }
+
         // 2. Prepare properties for cms_user_profile update
         Map<String, Object> body = new HashMap<>();
         Map<String, Object> props = new HashMap<>();
@@ -451,6 +572,10 @@ public class UserService {
             if (deptCode != null && !deptCode.isBlank())
                 props.put("department_short_code_multi", List.of(deptCode));
         }
+        // Clear vertical_ids when department changes
+        if (properties.containsKey("department_name") || properties.containsKey("department_short_code_multi")) {
+            props.put("vertical_ids", new ArrayList<>()); // Clear vertical_ids
+        }
         body.put("properties", props);
 
         try {
@@ -467,6 +592,170 @@ public class UserService {
             log.error("Error updating user profile " + objectId, e);
             throw new RuntimeException("Failed to update user profile: " + e.getMessage());
         }
+    }
+
+    /**
+     * Handle department change:
+     * - HO users: Remove only groups for departments that were actually removed (smart cleanup)
+     * - RO/TE users: Remove only department-related groups, ensure dm_superusers_dynamic exists
+     */
+    private void handleDepartmentChange(String objectId, String dmUserName, Map<String, Object> properties) {
+        try {
+            GroupService groupService = groupServiceProvider.getIfAvailable();
+            if (groupService == null) {
+                log.warn("[DeptChange] GroupService not available for department change cleanup");
+                return;
+            }
+
+            // Get user's office type
+            String officeType = getFieldFromProfile(objectId, "office_type");
+            boolean isHO = "HO".equalsIgnoreCase(officeType);
+
+            log.info("[DeptChange] User '{}' office_type: {} — {}", dmUserName, officeType, isHO ? "HO" : "RO/TE");
+
+            // Get all groups the user belongs to
+            List<Map<String, String>> allGroups = groupService.getGroupsByUser(dmUserName);
+            log.info("[DeptChange] User '{}' is member of {} groups", dmUserName, allGroups.size());
+
+            if (isHO) {
+                // HO users: Smart cleanup — only remove groups for departments no longer selected
+                // Extract new department codes from payload
+                @SuppressWarnings("unchecked")
+                List<String> newDeptCodes = (List<String>) properties.get("department_short_code_multi");
+                if (newDeptCodes == null) {
+                    String singleDept = (String) properties.get("department_short_code");
+                    newDeptCodes = singleDept != null && !singleDept.isBlank()
+                            ? List.of(singleDept)
+                            : List.of();
+                }
+
+                // Convert new dept codes to lowercase for comparison
+                List<String> newDeptCodesLower = newDeptCodes.stream()
+                        .filter(d -> d != null && !d.isBlank())
+                        .map(String::toLowerCase)
+                        .toList();
+
+                // Only remove groups for departments NOT in the new selection
+                for (Map<String, String> group : allGroups) {
+                    String groupName = group.get("group_name");
+                    if (groupName != null && !groupName.equals("dm_superusers_dynamic")) {
+                        // Extract department code from group name (e.g., ecm_ho_ddsi → ddsi)
+                        String deptCode = extractDeptCodeFromHOGroup(groupName);
+
+                        if (deptCode != null && !newDeptCodesLower.contains(deptCode)) {
+                            try {
+                                log.info("[DeptChange-HO] Removing user '{}' from group '{}' (dept no longer selected)", dmUserName, groupName);
+                                groupService.removeMember(groupName, dmUserName, "user");
+                            } catch (Exception e) {
+                                log.warn("[DeptChange-HO] Failed to remove '{}' from group '{}': {}", dmUserName, groupName, e.getMessage());
+                            }
+                        }
+                    }
+                }
+            } else {
+                // RO/TE users: Remove only department-related groups
+                String newDeptShortCode = getNewDepartmentShortCode(properties);
+                if (newDeptShortCode != null && !newDeptShortCode.isEmpty()) {
+                    String deptCodeLower = newDeptShortCode.toLowerCase();
+
+                    for (Map<String, String> group : allGroups) {
+                        String groupName = group.get("group_name");
+                        // Remove groups containing the new department code (e.g., ecm_tn_ddsi_*)
+                        if (groupName != null && groupName.contains("_" + deptCodeLower + "_") && !groupName.equals("dm_superusers_dynamic")) {
+                            try {
+                                log.info("[DeptChange-ROTE] Removing user '{}' from department group '{}'", dmUserName, groupName);
+                                groupService.removeMember(groupName, dmUserName, "user");
+                            } catch (Exception e) {
+                                log.warn("[DeptChange-ROTE] Failed to remove '{}' from group '{}': {}", dmUserName, groupName, e.getMessage());
+                            }
+                        }
+                    }
+
+                    // Ensure dm_superusers_dynamic exists, add if missing
+                    boolean hasSuperUsersGroup = allGroups.stream()
+                            .anyMatch(g -> "dm_superusers_dynamic".equals(g.get("group_name")));
+
+                    if (!hasSuperUsersGroup) {
+                        try {
+                            log.info("[DeptChange-ROTE] Adding user '{}' to dm_superusers_dynamic group", dmUserName);
+                            groupService.addMember("dm_superusers_dynamic", dmUserName, "user", null);
+                        } catch (Exception e) {
+                            log.warn("[DeptChange-ROTE] Failed to add '{}' to dm_superusers_dynamic: {}", dmUserName, e.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[DeptChange] Failed to handle department change groups for '{}': {}", dmUserName, e.getMessage());
+        }
+    }
+
+    /**
+     * Extract the new department short code from properties
+     */
+    private String getNewDepartmentShortCode(Map<String, Object> properties) {
+        // Check department_short_code_multi (list)
+        Object multiRaw = properties.get("department_short_code_multi");
+        if (multiRaw instanceof List<?> multiList && !multiList.isEmpty()) {
+            return (String) multiList.get(0);
+        }
+        // Fallback to department_short_code
+        Object singleRaw = properties.get("department_short_code");
+        if (singleRaw instanceof String) {
+            return (String) singleRaw;
+        }
+        return null;
+    }
+
+    /**
+     * Extract department code from HO group name.
+     * Handles groups with suffixes like: ecm_ho_ddsi, ecm_ho_ddsi_bpe, ecm_ho_ddsi_dtv_grade_e
+     * Returns only the department code part: "ddsi" in all cases
+     */
+    private String extractDeptCodeFromHOGroup(String groupName) {
+        if (groupName == null || !groupName.startsWith("ecm_ho_")) {
+            return null;
+        }
+        // Remove "ecm_ho_" prefix
+        String afterPrefix = groupName.substring(7); // length of "ecm_ho_"
+        if (afterPrefix.isEmpty()) {
+            return null;
+        }
+
+        // Extract only the first segment (department code) before any underscore
+        // e.g., "ddsi_bpe" → "ddsi", "ddsi" → "ddsi", "ddsi_dtv_grade_e" → "ddsi"
+        int nextUnderscore = afterPrefix.indexOf('_');
+        if (nextUnderscore > 0) {
+            return afterPrefix.substring(0, nextUnderscore);
+        }
+        return afterPrefix;
+    }
+
+    /**
+     * Get a specific field from user profile
+     */
+    @SuppressWarnings("unchecked")
+    private String getFieldFromProfile(String objectId, String fieldName) {
+        try {
+            String url = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository() + "/objects/" + objectId;
+            Map<String, Object> response = restClient.get()
+                    .uri(url)
+                    .header("Authorization", getAuthHeader())
+                    .header("Accept", "application/vnd.emc.documentum+json")
+                    .retrieve()
+                    .body(Map.class);
+
+            if (response != null) {
+                Map<String, Object> props = (Map<String, Object>) response.get("properties");
+                if (props != null) {
+                    Object value = props.get(fieldName);
+                    return value != null ? value.toString() : null;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[DeptChange] Failed to get field '{}' from profile {}: {}", fieldName, objectId, e.getMessage());
+        }
+        return null;
     }
 
     /**
@@ -690,7 +979,7 @@ public class UserService {
     public List<Map<String, Object>> getUsersByDeptShortCode(String shortCode, String officeType) {
         String safe = shortCode.replace("'", "''");
         String dql  = "SELECT r_object_id, object_name, user_login_name, office_type, department_short_code, department_short_code_multi FROM cms_user_profile"
-                    + " WHERE ANY department_short_code_multi = '" + safe + "'";
+                    + " WHERE object_name IS NOT NULL AND object_name != ' ' AND ANY department_short_code_multi = '" + safe + "'";
 
         // Filter by office type if provided
         if (officeType != null && !officeType.isBlank()) {
@@ -722,15 +1011,40 @@ public class UserService {
 
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getUsersByLocation(String location) {
+        return getUsersByLocation(location, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> getUsersByLocation(String location, String officeType) {
         String safe = location.replace("'", "''");
         String dql  = "SELECT r_object_id, object_name, user_login_name, department_short_code_multi, office_type FROM cms_user_profile"
-                    + " WHERE location = '" + safe + "'"
-                    + " ORDER BY object_name";
+                    + " WHERE object_name IS NOT NULL AND object_name != ' ' AND location = '" + safe + "'";
+
+        // Filter by office type if provided (RO or TE)
+        if (officeType != null && !officeType.isBlank()) {
+            String safeOfficeType = officeType.replace("'", "''");
+            dql += " AND office_type = '" + safeOfficeType + "'";
+        }
+
+        dql += " ORDER BY object_name";
+
         Map<String, Object> result = executeDql(dql, 1, 500);
         List<?> raw = (List<?>) result.get("users");
         if (raw == null) return Collections.emptyList();
         List<Map<String, Object>> list = new ArrayList<>();
-        for (Object o : raw) { if (o instanceof Map<?,?> m) list.add((Map<String, Object>) m); }
+        for (Object o : raw) {
+            if (o instanceof Map<?,?> m) {
+                Map<String, Object> user = (Map<String, Object>) m;
+                // Additional safety: ensure office_type matches filter if provided
+                if (officeType != null && !officeType.isBlank()) {
+                    String userOfficeType = (String) user.get("office_type");
+                    if (!officeType.equalsIgnoreCase(userOfficeType)) {
+                        continue; // Skip if office type doesn't match
+                    }
+                }
+                list.add(user);
+            }
+        }
         return list;
     }
 
@@ -871,11 +1185,16 @@ public class UserService {
     }
 
     private Map<String, Object> executeDql(String dql, int page, int itemsPerPage) {
+        return executeDql(dql, page, itemsPerPage, false);
+    }
+
+    private Map<String, Object> executeDql(String dql, int page, int itemsPerPage, boolean includeTotal) {
         String url = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository();
         try {
+            String uriTemplate = url + "?dql={dql}&items-per-page={itemsPerPage}&page={page}&inline=true"
+                    + (includeTotal ? "&include-total=true" : "");
             Map<String, Object> response = restClient.get()
-                    .uri(url + "?dql={dql}&items-per-page={itemsPerPage}&page={page}&inline=true", 
-                         dql, itemsPerPage, page)
+                    .uri(uriTemplate, dql, itemsPerPage, page)
                     .header("Authorization", getAuthHeader())
                     .header("Accept", "application/vnd.emc.documentum+json")
                     .retrieve()
@@ -975,6 +1294,12 @@ public class UserService {
         result.put("users", users);
         result.put("page", page);
         result.put("itemsPerPage", itemsPerPage);
+
+        // total is present only when the DQL feed was requested with include-total=true
+        Object total = response.get("total");
+        if (total != null) {
+            result.put("total", total);
+        }
 
         List<Map<String, Object>> links = (List<Map<String, Object>>) response.get("links");
         boolean hasNext = false;

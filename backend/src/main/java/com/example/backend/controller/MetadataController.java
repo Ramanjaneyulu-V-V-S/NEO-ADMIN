@@ -53,6 +53,26 @@ public class MetadataController {
     }
 
     /**
+     * Validate if a cms_file_number can be deleted (check if any cases use it).
+     * GET /api/metadata/file-numbers/validate-delete?hoRo=HO&deptShortCode=ddsi&fileNumber=DDSI-001&roShortCode=
+     * Returns: { canDelete: boolean, caseCount: int, message: string }
+     */
+    @GetMapping("/file-numbers/validate-delete")
+    public ResponseEntity<Map<String, Object>> validateFileNumberDelete(
+            @RequestParam String hoRo,
+            @RequestParam String deptShortCode,
+            @RequestParam String fileNumber,
+            @RequestParam(required = false) String roShortCode) {
+        try {
+            return ResponseEntity.ok(metadataService.validateFileNumberDelete(hoRo, deptShortCode, fileNumber, roShortCode));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("canDelete", false, "caseCount", 0,
+                        "message", "Validation failed: " + e.getMessage()));
+        }
+    }
+
+    /**
      * Delete a cms_file_number object by its r_object_id.
      * DELETE /api/metadata/file-numbers/{objectId}
      */
@@ -63,6 +83,25 @@ public class MetadataController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    /**
+     * Check if a cms_file_number already exists for the given office type, department, and location.
+     * GET /api/metadata/file-numbers/check-duplicate?hoRo=HO&deptShortCode=ddsi&fileNumber=DDSI-001&roShortCode=
+     * Returns: { exists: boolean }
+     */
+    @GetMapping("/file-numbers/check-duplicate")
+    public ResponseEntity<Map<String, Object>> checkFileNumberDuplicate(
+            @RequestParam String hoRo,
+            @RequestParam String deptShortCode,
+            @RequestParam String fileNumber,
+            @RequestParam(required = false) String roShortCode) {
+        try {
+            return ResponseEntity.ok(metadataService.checkFileNumberDuplicate(hoRo, deptShortCode, fileNumber, roShortCode));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("exists", false, "error", e.getMessage()));
         }
     }
 
@@ -203,6 +242,28 @@ public class MetadataController {
     public ResponseEntity<?> listHindiComments() {
         try {
             return ResponseEntity.ok(metadataService.listHindiComments());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get filter options for Digidak reports.
+     * GET /api/metadata/digidak/filter-options
+     */
+    @GetMapping("/digidak/filter-options")
+    public ResponseEntity<?> getDigidakFilterOptions() {
+        try {
+            return ResponseEntity.ok(Map.of(
+                "languages", List.of("Bilingual", "English", "Hindi", "Others"),
+                "mode_of_receipt", List.of("Courier", "DigiDak", "Email", "Hand Delivered", "Others"),
+                "priority", List.of("Immediate", "Normal", "Urgent"),
+                "secrecy", List.of("Confidential", "Regular", "Secret"),
+                "status", List.of("Unread", "Opened", "Assigned", "Assigned Head", "Closed", "Reassigned", "Reassign Head", "Responded", "Follow-Up", "In Process", "Pushback"),
+                "type_category", List.of("Information", "Actionable"),
+                "source_vertical", List.of("NABARD", "Regional Office", "State Level")
+            ));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(Map.of("success", false, "message", e.getMessage()));

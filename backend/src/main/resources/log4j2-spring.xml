@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration packages="org.apache.logging.log4j.core">
+    <Properties>
+        <Property name="LOG_DIR">D:/NBSupportApp/backend/Reports Queries</Property>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5p %c{1} - %m%n</Property>
+    </Properties>
+
+    <Appenders>
+        <!-- Console Appender -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+        </Console>
+
+        <!-- Rajbhasha Queries Log File -->
+        <RollingFile name="RajbhashaFile"
+                     fileName="${LOG_DIR}/rajbhasha.log"
+                     filePattern="${LOG_DIR}/rajbhasha-%d{yyyy-MM-dd}-%i.log">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+
+        <!-- All Application Logs -->
+        <RollingFile name="ApplicationFile"
+                     fileName="${LOG_DIR}/app.log"
+                     filePattern="${LOG_DIR}/app-%d{yyyy-MM-dd}-%i.log">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <!-- Rajbhasha Service Logger -->
+        <Logger name="com.example.backend.service.RajbhashaService" level="DEBUG" additivity="false">
+            <AppenderRef ref="RajbhashaFile"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+
+        <!-- Rajbhasha Controller Logger -->
+        <Logger name="com.example.backend.controller.RajbhashaController" level="DEBUG" additivity="false">
+            <AppenderRef ref="RajbhashaFile"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+
+        <!-- Root Logger -->
+        <Root level="INFO">
+            <AppenderRef ref="ApplicationFile"/>
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>

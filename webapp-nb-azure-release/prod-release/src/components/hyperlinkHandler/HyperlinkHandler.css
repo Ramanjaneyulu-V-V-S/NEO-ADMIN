@@ -1,0 +1,32 @@
+/* HyperlinkHandler Component Styles */
+
+/* This component doesn't render any visible elements,
+   but we can add styles for debugging or future enhancements */
+.hyperlink-handler-debug {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: #000000cc;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 9999;
+  display: none; /* Hidden by default */
+}
+.hyperlink-handler-debug.show {
+  display: block;
+}
+/* Styles for hyperlink detection debugging */
+.hyperlink-detected {
+  outline: 2px solid #007bff !important;
+  outline-offset: 2px;
+}
+.hyperlink-document-link {
+  outline: 2px solid #28a745 !important;
+  outline-offset: 2px;
+}
+.hyperlink-external-link {
+  outline: 2px solid #ffc107 !important;
+  outline-offset: 2px;
+}

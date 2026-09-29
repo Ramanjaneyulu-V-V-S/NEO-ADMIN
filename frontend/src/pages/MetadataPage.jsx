@@ -2,39 +2,24 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../api/axios';
 import {
     FolderOpen, FileText, Layers, Building2, MapPin, Tag, MessageSquareText,
-    CheckCircle2, AlertCircle, X, Loader2, Plus, Hash, RefreshCw, Trash2, Pencil
+    CheckCircle2, AlertCircle, X, Loader2, Plus, Hash, RefreshCw, Trash2, Pencil, Download
 } from 'lucide-react';
 import { getLocations, fetchDepartments } from '../data/nabardMetadata.js';
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-const Toast = ({ toast, onDismiss }) => {
-    useEffect(() => {
-        if (!toast) return;
-        const t = setTimeout(onDismiss, toast.type === 'success' ? 3000 : 5000);
-        return () => clearTimeout(t);
-    }, [toast, onDismiss]);
-    if (!toast) return null;
-    const styles = { success: 'bg-green-50 text-green-800 border-green-200', error: 'bg-red-50 text-red-800 border-red-200' };
-    const Icon = toast.type === 'success' ? CheckCircle2 : AlertCircle;
-    return (
-        <div className={`fixed top-5 right-5 z-50 flex items-start gap-3 px-4 py-3 border rounded-xl shadow-lg max-w-sm ${styles[toast.type]}`}>
-            <Icon size={18} className="mt-0.5 shrink-0" />
-            <div className="flex-1 text-sm font-medium">{toast.message}</div>
-            <button onClick={onDismiss}><X size={16} /></button>
-        </div>
-    );
-};
+import { downloadCsv, downloadXlsx } from '../utils/userExport.js';
+import { recordExport } from '../utils/audit.js';
+import { PageHeader, Tabs, useToast, DataTable } from '../components/ui';
+import CustomSelect from '../components/ui/CustomSelect.jsx';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 const inputCls = (err) =>
-    `w-full px-4 py-2.5 border rounded-xl text-sm transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] ${
-        err ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white hover:border-slate-300'
+    `w-full px-4 py-2.5 border rounded-xl text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy ${
+        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'
     }`;
 
 const selectCls = (err, disabled) => disabled
     ? 'w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-100 text-slate-400 cursor-not-allowed appearance-none pr-10'
-    : `w-full px-4 py-2.5 border rounded-xl text-sm appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] transition-all cursor-pointer ${
-        err ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white hover:border-slate-300'
+    : `w-full px-4 py-2.5 border rounded-xl text-sm appearance-none pr-10 focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy transition-colors cursor-pointer ${
+        err ? 'border-danger/40 bg-danger-tint' : 'border-slate-200 bg-surface hover:border-slate-300'
     }`;
 
 const ChevronDown = ({ disabled }) => (
@@ -50,15 +35,31 @@ const FieldLabel = ({ icon: Icon, label, required }) => (
         <span className="flex items-center gap-1.5">
             <Icon size={14} className="text-slate-400" />
             {label}
-            {required && <span className="text-red-400">*</span>}
+            {required && <span className="text-danger/70">*</span>}
             {!required && <span className="text-xs font-normal text-slate-400">(optional)</span>}
         </span>
     </label>
 );
 
 const FieldError = ({ msg }) => msg
-    ? <p className="mt-1 text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12} />{msg}</p>
+    ? <p className="mt-1 text-xs text-danger flex items-center gap-1"><AlertCircle size={12} />{msg}</p>
     : null;
+
+// Inline edit input used inside DataTable rows
+const editInputCls = 'w-full px-2 py-1 border border-canopy/40 rounded text-sm focus:outline-none focus:ring-1 focus:ring-canopy/70 bg-surface';
+
+// Per-row validation / edit-guard note rendered under the row's headline cell
+const ValidationNote = ({ ok, message, onDismiss }) => (
+    <div className={`mt-1.5 flex items-start justify-between gap-2 rounded-lg px-2.5 py-1.5 text-caption font-medium ${ok ? 'bg-canopy-tint text-canopy' : 'bg-danger-tint text-danger'}`}>
+        <span className="flex min-w-0 items-start gap-1.5">
+            {ok ? <CheckCircle2 size={14} className="mt-0.5 shrink-0" /> : <AlertCircle size={14} className="mt-0.5 shrink-0" />}
+            <span className="whitespace-normal">{message}</span>
+        </span>
+        <button onClick={onDismiss} className="shrink-0 rounded p-0.5 opacity-70 transition-opacity hover:opacity-100" title="Dismiss">
+            <X size={14} />
+        </button>
+    </div>
+);
 
 // ─── Existing File Numbers List ───────────────────────────────────────────────
 const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast }) => {
@@ -71,6 +72,15 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
     const [editingId, setEditingId] = useState(null);
     const [editValues, setEditValues] = useState({ object_name: '', description: '' });
     const [saving, setSaving]       = useState(false);
+    const [editValidating, setEditValidating] = useState(null); // r_object_id being validated for edit
+    const [editValidationMsg, setEditValidationMsg] = useState(null); // validation message for edit
+    const [currentPage, setCurrentPage] = useState(1);
+    const [filterFileNumber, setFilterFileNumber] = useState('');
+    const [filterDescription, setFilterDescription] = useState('');
+    const [validating, setValidating] = useState(null); // r_object_id being validated
+    const [validationResults, setValidationResults] = useState({}); // { r_object_id: { message, caseCount, canDelete } }
+    const [exporting, setExporting] = useState(false);
+    const itemsPerPage = 10;
 
     const canFetch = hoRo && deptShortCode && (hoRo === 'HO' || roShortCode);
 
@@ -78,6 +88,7 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
         if (!canFetch) return;
         setLoading(true);
         setError(null);
+        setCurrentPage(1);
         try {
             const params = { hoRo, deptShortCode };
             if (roShortCode) params.roShortCode = roShortCode;
@@ -97,16 +108,36 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
         setEditingId(item.r_object_id);
         setEditValues({ object_name: item.object_name || '', description: item.description || '' });
         setConfirmId(null);
+        setEditValidationMsg(null);
     };
 
     const cancelEdit = () => {
         setEditingId(null);
         setEditValues({ object_name: '', description: '' });
+        setEditValidationMsg(null);
     };
 
     const handleSave = async (item) => {
-        setSaving(true);
+        setEditValidating(item.r_object_id);
         try {
+            const params = {
+                hoRo: item.ho_ro || hoRo,
+                deptShortCode: item.dept_short_code || deptShortCode,
+                fileNumber: item.object_name
+            };
+            if (item.ro_short_code) {
+                params.roShortCode = item.ro_short_code;
+            }
+            const res = await api.get(`/metadata/file-numbers/validate-delete`, { params });
+            const { canDelete, caseCount } = res.data || {};
+
+            if (!canDelete) {
+                setEditValidationMsg(`Cannot edit: ${caseCount} case(s) found using this file number`);
+                setEditValidating(null);
+                return;
+            }
+
+            setSaving(true);
             await api.put(`/metadata/file-numbers/${item.r_object_id}`, {
                 object_name: editValues.object_name.trim(),
                 description: editValues.description.trim(),
@@ -116,12 +147,73 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
                 ? { ...i, object_name: editValues.object_name.trim(), description: editValues.description.trim() }
                 : i));
             cancelEdit();
+            setEditValidationMsg(null);
         } catch (err) {
             const msg = err.response?.data?.message || err.message || 'Update failed';
             onToast({ type: 'error', message: msg });
         } finally {
             setSaving(false);
+            setEditValidating(null);
         }
+    };
+
+    const handleValidateDelete = async (item) => {
+        setValidating(item.r_object_id);
+        setConfirmId(null);
+        // Clear any existing validation result for this row
+        setValidationResults(prev => {
+            const updated = { ...prev };
+            delete updated[item.r_object_id];
+            return updated;
+        });
+
+        try {
+            const params = {
+                hoRo: item.ho_ro || hoRo,
+                deptShortCode: item.dept_short_code || deptShortCode,
+                fileNumber: item.object_name
+            };
+            if (item.ro_short_code) {
+                params.roShortCode = item.ro_short_code;
+            }
+            const res = await api.get(`/metadata/file-numbers/validate-delete`, { params });
+            const { canDelete, caseCount, message } = res.data || {};
+
+            // Show validation result inline (both success and failure)
+            setValidationResults(prev => ({
+                ...prev,
+                [item.r_object_id]: {
+                    message: canDelete ? 'No cases found using this file number' : `Cannot delete: ${caseCount} case(s) found using this file number`,
+                    caseCount,
+                    canDelete
+                }
+            }));
+
+            if (canDelete) {
+                // No cases found — proceed with delete confirmation after short delay
+                setTimeout(() => setConfirmId(item.r_object_id), 300);
+            }
+        } catch (err) {
+            const msg = err.response?.data?.message || err.message || 'Validation failed';
+            setValidationResults(prev => ({
+                ...prev,
+                [item.r_object_id]: {
+                    message: `Validation error: ${msg}`,
+                    caseCount: 0,
+                    canDelete: false
+                }
+            }));
+        } finally {
+            setValidating(null);
+        }
+    };
+
+    const clearValidationResult = (itemId) => {
+        setValidationResults(prev => {
+            const updated = { ...prev };
+            delete updated[itemId];
+            return updated;
+        });
     };
 
     const handleDelete = async (item) => {
@@ -130,7 +222,13 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
         try {
             await api.delete(`/metadata/file-numbers/${item.r_object_id}`);
             onToast({ type: 'success', message: `File number '${item.object_name}' deleted.` });
-            setItems(prev => prev.filter(i => i.r_object_id !== item.r_object_id));
+            const updated = items.filter(i => i.r_object_id !== item.r_object_id);
+            setItems(updated);
+            // Reset to page 1 if current page has no items after delete
+            const totalPages = Math.ceil(updated.length / itemsPerPage);
+            if (currentPage > totalPages && totalPages > 0) {
+                setCurrentPage(totalPages);
+            }
         } catch (err) {
             const msg = err.response?.data?.message || err.message || 'Delete failed';
             onToast({ type: 'error', message: msg });
@@ -139,100 +237,317 @@ const FileNumberList = ({ hoRo, deptShortCode, roShortCode, refreshKey, onToast 
         }
     };
 
+    // Filter logic
+    const filteredItems = items.filter(item => {
+        const fileNumMatch = !filterFileNumber ||
+            (item.object_name || '').toLowerCase().includes(filterFileNumber.toLowerCase());
+        const descMatch = !filterDescription ||
+            (item.description || '').toLowerCase().includes(filterDescription.toLowerCase());
+        return fileNumMatch && descMatch;
+    });
+
+    // Pagination logic
+    const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    const paginatedItems = filteredItems.slice(startIdx, startIdx + itemsPerPage);
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filterFileNumber, filterDescription]);
+
+    const isFiltered = !!(filterFileNumber || filterDescription);
+
+    // Export the currently listed file numbers (respects active filters).
+    const handleExport = async (format) => {
+        if (filteredItems.length === 0) return;
+        setExporting(true);
+        try {
+            const showLoc = hoRo !== 'HO';
+            const rows = filteredItems.map((it, i) => ({
+                sno: i + 1,
+                fileNumber: it.object_name || '',
+                description: it.description || '',
+                deptCode: it.dept_short_code || deptShortCode || '',
+                ...(showLoc ? { locationCode: it.ro_short_code || roShortCode || '' } : {}),
+            }));
+            const columns = [
+                { header: '#', key: 'sno', width: 6 },
+                { header: 'File Number', key: 'fileNumber', width: 28 },
+                { header: 'Description', key: 'description', width: 50 },
+                { header: 'Dept Code', key: 'deptCode', width: 14 },
+                ...(showLoc ? [{ header: 'Location Code', key: 'locationCode', width: 16 }] : []),
+            ];
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const base = `file-numbers_${roShortCode ? roShortCode + '_' : ''}${deptShortCode}_${dateStr}`;
+            if (format === 'csv') {
+                downloadCsv(columns.map(c => c.header), rows.map(r => columns.map(c => r[c.key] ?? '')), `${base}.csv`);
+            } else {
+                await downloadXlsx([{ name: 'File Numbers', columns, rows }], `${base}.xlsx`);
+            }
+            onToast({ type: 'success', message: `Exported ${filteredItems.length} file number${filteredItems.length !== 1 ? 's' : ''}.` });
+            recordExport({
+                action: 'Export file numbers',
+                target: `${roShortCode ? roShortCode + '/' : ''}${deptShortCode || hoRo}`,
+                targetType: 'metadata',
+                count: filteredItems.length,
+                detail: format.toUpperCase(),
+            });
+        } catch (err) {
+            onToast({ type: 'error', message: err.message || 'Export failed' });
+        } finally {
+            setExporting(false);
+        }
+    };
+
     if (!canFetch) return null;
 
+    const isEditingRow = (item) => editingId === item.r_object_id;
+    const fileNumberColumns = [
+        { key: 'idx', header: '#', mono: true, width: 'w-12', card: 'hide', render: (_item, idx) => startIdx + idx + 1 },
+        {
+            key: 'object_name', header: 'File Number', primary: true,
+            render: (item) => {
+                const validation = validationResults[item.r_object_id];
+                return (
+                    <div className="min-w-0">
+                        {isEditingRow(item) ? (
+                            <input
+                                value={editValues.object_name}
+                                onChange={e => setEditValues(v => ({ ...v, object_name: e.target.value }))}
+                                className={`${editInputCls} font-mono`}
+                            />
+                        ) : (
+                            <span className="font-mono font-semibold text-slate-800">{item.object_name || '—'}</span>
+                        )}
+                        {isEditingRow(item) && editValidationMsg && (
+                            <ValidationNote ok={false} message={editValidationMsg} onDismiss={cancelEdit} />
+                        )}
+                        {validation && (
+                            <ValidationNote ok={validation.canDelete} message={validation.message} onDismiss={() => clearValidationResult(item.r_object_id)} />
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            key: 'description', header: 'Description',
+            render: (item) => isEditingRow(item) ? (
+                <input
+                    value={editValues.description}
+                    onChange={e => setEditValues(v => ({ ...v, description: e.target.value }))}
+                    className={`${editInputCls} text-xs`}
+                />
+            ) : (
+                <span className="block max-w-xs truncate text-xs text-slate-600" title={item.description || ''}>{item.description || '—'}</span>
+            ),
+        },
+        {
+            key: 'dept_short_code', header: 'Dept Code',
+            render: (item) => <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600">{item.dept_short_code || '—'}</span>,
+        },
+        ...(hoRo !== 'HO' ? [{
+            key: 'ro_short_code', header: 'Location Code',
+            render: (item) => <span className="rounded bg-canopy-tint px-2 py-0.5 font-mono text-xs text-canopy">{item.ro_short_code || '—'}</span>,
+        }] : []),
+        {
+            key: 'actions', header: 'Actions', align: 'center', card: 'footer',
+            render: (item) => {
+                const isConfirming = confirmId === item.r_object_id;
+                const isDeleting = deleting === item.r_object_id;
+                const busy = saving || editValidating === item.r_object_id;
+                return (
+                    <div className="flex items-center justify-center gap-1.5">
+                        {isEditingRow(item) ? (
+                            <>
+                                <button onClick={() => handleSave(item)} disabled={busy}
+                                    className="p-1 rounded text-canopy hover:bg-canopy-tint disabled:opacity-40 transition-colors"
+                                    title="Save">
+                                    {busy ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                                </button>
+                                <button onClick={cancelEdit} disabled={busy}
+                                    className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+                                    title="Cancel">
+                                    <X size={16} />
+                                </button>
+                            </>
+                        ) : isConfirming ? (
+                            <>
+                                <button onClick={() => handleDelete(item)} disabled={isDeleting}
+                                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-danger bg-danger-tint border border-danger/20 rounded hover:bg-danger-tint disabled:opacity-40 transition-colors"
+                                    title="Confirm delete">
+                                    {isDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                    Delete
+                                </button>
+                                <button onClick={() => setConfirmId(null)} disabled={isDeleting}
+                                    className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+                                    title="Cancel">
+                                    <X size={16} />
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button onClick={() => startEdit(item)}
+                                    className="p-1 rounded text-canopy hover:bg-canopy-tint transition-colors"
+                                    title="Edit">
+                                    <Pencil size={16} />
+                                </button>
+                                <button onClick={() => handleValidateDelete(item)} disabled={validating === item.r_object_id}
+                                    className="p-1 rounded text-danger hover:bg-danger-tint disabled:opacity-40 transition-colors"
+                                    title="Delete">
+                                    {validating === item.r_object_id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ];
+    const fileNumberRowClass = (item) => {
+        const validation = validationResults[item.r_object_id];
+        if (validation && !validation.canDelete) return 'bg-danger-tint';
+        if (isEditingRow(item) || confirmId === item.r_object_id) return 'bg-canopy-tint';
+        return '';
+    };
+
     return (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <Hash size={14} className="text-slate-400" />
                     <span className="text-sm font-semibold text-slate-700">Existing File Numbers</span>
                     {!loading && (
-                        <span className="px-2 py-0.5 bg-blue-100 text-[#0A66C2] text-xs font-semibold rounded-full">
+                        <span className="px-2 py-0.5 bg-canopy-tint text-canopy text-xs font-semibold rounded-full">
                             {items.length}
                         </span>
                     )}
                 </div>
-                <button onClick={loadList} disabled={loading}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-all disabled:opacity-40">
-                    <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                </button>
+                <div className="flex flex-wrap items-center gap-1.5">
+                    {!loading && !error && items.length > 0 && (
+                        <>
+                            <button onClick={() => handleExport('xlsx')} disabled={exporting || filteredItems.length === 0}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-canopy border border-canopy/30 hover:bg-canopy-tint transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                title={isFiltered ? 'Export filtered file numbers (XLSX)' : 'Export all file numbers (XLSX)'}>
+                                {exporting ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                                Export{isFiltered ? ` (${filteredItems.length})` : ''}
+                            </button>
+                            <button onClick={() => handleExport('csv')} disabled={exporting || filteredItems.length === 0}
+                                className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 border border-slate-200 hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                title="Export as CSV">
+                                CSV
+                            </button>
+                        </>
+                    )}
+                    <button onClick={loadList} disabled={loading}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-40">
+                        <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                    </button>
+                </div>
             </div>
 
-            {loading ? (
-                <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                    <Loader2 size={18} className="animate-spin text-[#0A66C2]" />
-                    <span className="text-sm">Loading…</span>
+            {/* Filter Section */}
+            {items.length > 0 && !loading && (
+                <div className="px-5 py-3 border-b border-slate-100 bg-surface">
+                    <div className="flex items-end gap-3 flex-wrap">
+                        <div className="flex-1 min-w-56">
+                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">File Number</label>
+                            <input
+                                type="text"
+                                placeholder="Search file number..."
+                                value={filterFileNumber}
+                                onChange={e => setFilterFileNumber(e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-surface"
+                            />
+                        </div>
+                        <div className="flex-1 min-w-56">
+                            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Description</label>
+                            <input
+                                type="text"
+                                placeholder="Search description..."
+                                value={filterDescription}
+                                onChange={e => setFilterDescription(e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-surface"
+                            />
+                        </div>
+                        {(filterFileNumber || filterDescription) && (
+                            <button
+                                onClick={() => { setFilterFileNumber(''); setFilterDescription(''); }}
+                                className="px-3 py-2 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                                Clear Filters
+                            </button>
+                        )}
+                    </div>
+                    {(filterFileNumber || filterDescription) && (
+                        <div className="text-xs text-slate-500 mt-2">
+                            Found <span className="font-semibold">{filteredItems.length}</span> result{filteredItems.length !== 1 ? 's' : ''}
+                        </div>
+                    )}
                 </div>
-            ) : error ? (
-                <div className="px-5 py-4 text-sm text-red-600 flex items-center gap-2">
+            )}
+
+            {error ? (
+                <div className="px-5 py-4 text-sm text-danger flex items-center gap-2">
                     <AlertCircle size={15} /> {error}
                 </div>
-            ) : items.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm text-slate-400">
-                    No file numbers found for this selection
-                </div>
             ) : (
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                            <tr>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 w-8">#</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">File Number</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Description</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Dept Code</th>
-                                {hoRo !== 'HO' && (
-                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Location Code</th>
-                                )}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {items.map((item, idx) => {
-                                const isConfirming = confirmId === item.r_object_id;
-                                const isDeleting   = deleting  === item.r_object_id;
-                                const isEditing    = editingId === item.r_object_id;
-                                const rowBg = isEditing ? 'bg-blue-50' : isConfirming ? 'bg-red-50' : 'hover:bg-blue-50/30';
-                                return (
-                                    <tr key={item.r_object_id || idx}
-                                        className={`transition-colors ${rowBg}`}>
-                                        <td className="px-4 py-2.5 text-slate-400 text-xs font-mono">{idx + 1}</td>
-                                        <td className="px-4 py-2.5 font-mono text-sm font-semibold text-slate-800">
-                                            {isEditing ? (
-                                                <input
-                                                    value={editValues.object_name}
-                                                    onChange={e => setEditValues(v => ({ ...v, object_name: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-blue-300 rounded text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
-                                                />
-                                            ) : (item.object_name || '—')}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-slate-600 text-xs max-w-xs">
-                                            {isEditing ? (
-                                                <input
-                                                    value={editValues.description}
-                                                    onChange={e => setEditValues(v => ({ ...v, description: e.target.value }))}
-                                                    className="w-full px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
-                                                />
-                                            ) : (
-                                                <span className="truncate block">{item.description || '—'}</span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-2.5">
-                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-mono">
-                                                {item.dept_short_code || '—'}
-                                            </span>
-                                        </td>
-                                        {hoRo !== 'HO' && (
-                                            <td className="px-4 py-2.5">
-                                                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-mono">
-                                                    {item.ro_short_code || '—'}
-                                                </span>
-                                            </td>
-                                        )}
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                <DataTable
+                    columns={fileNumberColumns}
+                    rows={paginatedItems}
+                    rowKey={(item, idx) => item.r_object_id || idx}
+                    loading={loading}
+                    skeletonRows={5}
+                    rowClassName={fileNumberRowClass}
+                    stickyHeader
+                    maxHeight="70vh"
+                    empty={{ icon: Hash, title: items.length === 0 ? 'No file numbers found for this selection' : 'No file numbers match your filters' }}
+                    className="p-3 md:p-0"
+                />
+            )}
+            {!loading && items.length > 0 && (
+                <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-sm">
+                    <span className="text-slate-600">
+                        Showing <span className="font-semibold">{startIdx + 1}</span> to <span className="font-semibold">{Math.min(startIdx + itemsPerPage, items.length)}</span> of <span className="font-semibold">{items.length}</span>
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setCurrentPage(1)}
+                            disabled={currentPage === 1}
+                            className="p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            title="First page">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(c => Math.max(1, c - 1))}
+                            disabled={currentPage === 1}
+                            className="p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            title="Previous page">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 12H5" /></svg>
+                        </button>
+                        <input
+                            type="number"
+                            min="1"
+                            max={totalPages}
+                            value={currentPage}
+                            onChange={e => setCurrentPage(Math.min(totalPages, Math.max(1, parseInt(e.target.value) || 1)))}
+                            className="w-12 px-2 py-1 border border-slate-200 rounded text-center text-sm focus:outline-none focus:ring-1 focus:ring-canopy"
+                        />
+                        <span className="text-slate-500">/ {totalPages}</span>
+                        <button
+                            onClick={() => setCurrentPage(c => Math.min(totalPages, c + 1))}
+                            disabled={currentPage === totalPages}
+                            className="p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            title="Next page">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14" /></svg>
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(totalPages)}
+                            disabled={currentPage === totalPages}
+                            className="p-1.5 rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            title="Last page">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
@@ -246,6 +561,7 @@ const FileNumberTab = ({ onToast }) => {
     const [form, setForm]         = useState(EMPTY_FN);
     const [errors, setErrors]     = useState({});
     const [submitting, setSubmitting] = useState(false);
+    const [checking, setChecking] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
 
     // Role & profile context for Local Admin
@@ -284,8 +600,10 @@ const FileNumberTab = ({ onToast }) => {
         fetchDepartments(form.officeType, form.location).then(setAllDeptOptions);
     }, [form.officeType, form.location]);
 
-    // For Local Admin: filter departments to only those in their profile
-    const deptOptions     = isLocalAdmin && profileCtx
+    // For Local Admin:
+    // - HO: filter to only their assigned departments
+    // - RO/TE: show all departments for the location
+    const deptOptions     = isLocalAdmin && profileCtx && isHO
         ? (() => {
             const raw = profileCtx.department_short_code_multi;
             const allowed = (Array.isArray(raw) ? raw : (raw ? [raw] : []))
@@ -314,6 +632,36 @@ const FileNumberTab = ({ onToast }) => {
     const set = (field, val) => {
         setForm(f => ({ ...f, [field]: val }));
         if (errors[field]) setErrors(e => ({ ...e, [field]: undefined }));
+        if (field === 'fileNumber') setChecking(false); // Clear checking state when value changes
+    };
+
+    const handleFileNumberBlur = async () => {
+        const fileNum = form.fileNumber.trim();
+        if (!fileNum || !form.officeType || !form.shortCode || (!isHO && !form.locationShortCode)) {
+            return; // Not ready to check yet
+        }
+        setChecking(true);
+        try {
+            const params = {
+                hoRo: form.officeType,
+                deptShortCode: form.shortCode,
+                fileNumber: fileNum,
+            };
+            if (!isHO && form.locationShortCode) {
+                params.roShortCode = form.locationShortCode;
+            }
+            const res = await api.get('/metadata/file-numbers/check-duplicate', { params });
+            if (res.data?.exists) {
+                setErrors(e => ({ ...e, fileNumber: 'File number already exists' }));
+            } else {
+                setErrors(e => ({ ...e, fileNumber: undefined }));
+            }
+        } catch (err) {
+            // Silently fail on error — server-side will catch it
+            log.debug('Duplicate check error:', err.message);
+        } finally {
+            setChecking(false);
+        }
     };
 
     const validate = () => {
@@ -322,6 +670,7 @@ const FileNumberTab = ({ onToast }) => {
         if (!isHO && !form.location) e.location    = 'Location is required';
         if (!form.department)        e.department  = 'Department is required';
         if (!form.fileNumber.trim()) e.fileNumber  = 'File number is required';
+        if (errors.fileNumber)       e.fileNumber  = errors.fileNumber; // Preserve duplicate check error
         return e;
     };
 
@@ -356,9 +705,9 @@ const FileNumberTab = ({ onToast }) => {
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
             {/* ── Left: creation form ── */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm shrink-0">
+            <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm shrink-0">
                         <FileText size={17} className="text-white" />
                     </div>
                     <div>
@@ -373,17 +722,18 @@ const FileNumberTab = ({ onToast }) => {
                     {/* Office Type */}
                     <div>
                         <FieldLabel icon={Building2} label="Office Type" required />
-                        <div className="relative">
-                            <select value={form.officeType} onChange={e => handleOfficeType(e.target.value)}
-                                disabled={isLocalAdmin}
-                                className={selectCls(errors.officeType, isLocalAdmin)}>
-                                <option value="">— Select office type —</option>
-                                <option value="HO">HO — Head Office</option>
-                                <option value="RO">RO — Regional Office</option>
-                                <option value="TE">TE — Training Establishment</option>
-                            </select>
-                            <ChevronDown />
-                        </div>
+                        <CustomSelect
+                            value={form.officeType}
+                            onChange={handleOfficeType}
+                            disabled={isLocalAdmin}
+                            invalid={!!errors.officeType}
+                            placeholder="— Select office type —"
+                            options={[
+                                { value: 'HO', label: 'HO — Head Office' },
+                                { value: 'RO', label: 'RO — Regional Office' },
+                                { value: 'TE', label: 'TE — Training Establishment' },
+                            ]}
+                        />
                         <FieldError msg={errors.officeType} />
                     </div>
 
@@ -399,18 +749,14 @@ const FileNumberTab = ({ onToast }) => {
                                     <ChevronDown disabled />
                                 </>
                             ) : (
-                                <>
-                                    <select value={form.location}
-                                        onChange={e => handleLocation(e.target.value)}
-                                        disabled={!form.officeType || isLocalAdmin}
-                                        className={selectCls(errors.location, !form.officeType || isLocalAdmin)}>
-                                        <option value="">— Select location —</option>
-                                        {locationOptions.map(l => (
-                                            <option key={l.location} value={l.location}>{l.location}</option>
-                                        ))}
-                                    </select>
-                                    <ChevronDown disabled={!form.officeType} />
-                                </>
+                                <CustomSelect
+                                    value={form.location}
+                                    onChange={handleLocation}
+                                    disabled={!form.officeType || isLocalAdmin}
+                                    invalid={!!errors.location}
+                                    placeholder="— Select location —"
+                                    options={locationOptions.map(l => ({ value: l.location, label: l.location }))}
+                                />
                             )}
                         </div>
                         <FieldError msg={errors.location} />
@@ -423,18 +769,14 @@ const FileNumberTab = ({ onToast }) => {
                             const disabled = !form.officeType || (!isHO && !form.location);
                             return (
                                 <>
-                                    <div className="relative">
-                                        <select value={form.department}
-                                            onChange={e => handleDept(e.target.value)}
-                                            disabled={disabled}
-                                            className={selectCls(errors.department, disabled)}>
-                                            <option value="">— Select department —</option>
-                                            {deptOptions.map(d => (
-                                                <option key={d.shortCode} value={d.name}>{d.name}</option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown disabled={disabled} />
-                                    </div>
+                                    <CustomSelect
+                                        value={form.department}
+                                        onChange={handleDept}
+                                        disabled={disabled}
+                                        invalid={!!errors.department}
+                                        placeholder="— Select department —"
+                                        options={deptOptions.map(d => ({ value: d.name, label: d.name }))}
+                                    />
                                     {form.shortCode && (
                                         <p className="mt-1 text-xs text-slate-400 flex items-center gap-1">
                                             <Tag size={11} />Short code: <span className="font-mono text-slate-600">{form.shortCode}</span>
@@ -451,6 +793,7 @@ const FileNumberTab = ({ onToast }) => {
                         <FieldLabel icon={FileText} label="File Number" required />
                         <input type="text" value={form.fileNumber}
                             onChange={e => set('fileNumber', e.target.value)}
+                            onBlur={handleFileNumberBlur}
                             placeholder="e.g. SMF-10"
                             className={`${inputCls(errors.fileNumber)} font-mono`} />
                         <FieldError msg={errors.fileNumber} />
@@ -463,7 +806,7 @@ const FileNumberTab = ({ onToast }) => {
                             onChange={e => set('description', e.target.value)}
                             placeholder="e.g. Jammu & Kashmir - State Master File (SMF)"
                             rows={3}
-                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] hover:border-slate-300 bg-white resize-none transition-all" />
+                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy hover:border-slate-300 bg-surface resize-none transition-colors" />
                     </div>
 
                     {/* DQL preview */}
@@ -485,14 +828,15 @@ const FileNumberTab = ({ onToast }) => {
                     {/* Actions */}
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                         <button type="button"
-                            onClick={() => { setForm(EMPTY_FN); setErrors({}); }}
-                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-white transition-all">
+                            onClick={() => { setForm(EMPTY_FN); setErrors({}); setChecking(false); }}
+                            disabled={submitting || checking}
+                            className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg hover:bg-surface transition-colors disabled:opacity-40">
                             Reset
                         </button>
-                        <button type="submit" disabled={submitting}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-[#0A66C2] hover:bg-[#094d92] disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
-                            {submitting ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-                            {submitting ? 'Creating…' : 'Create File Number'}
+                        <button type="submit" disabled={submitting || checking}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
+                            {submitting ? <Loader2 size={15} className="animate-spin" /> : checking ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+                            {submitting ? 'Creating…' : checking ? 'Validating…' : 'Create File Number'}
                         </button>
                     </div>
                 </form>
@@ -557,10 +901,10 @@ const CaseTypeTab = ({ onToast }) => {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Create form */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+            <div className="bg-surface rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                        <FolderOpen size={20} className="text-[#0A66C2]" />
+                    <div className="w-10 h-10 bg-canopy-tint rounded-xl flex items-center justify-center">
+                        <FolderOpen size={20} className="text-canopy" />
                     </div>
                     <div>
                         <p className="text-sm font-semibold text-slate-900">Create Case Type</p>
@@ -584,9 +928,9 @@ const CaseTypeTab = ({ onToast }) => {
                 <button
                     onClick={handleCreate}
                     disabled={!caseType.trim() || submitting}
-                    className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                    className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
                         caseType.trim() && !submitting
-                            ? 'bg-[#0A66C2] text-white hover:bg-[#094d92] shadow-md shadow-blue-600/20'
+                            ? 'bg-canopy text-white hover:bg-canopy-dark shadow-md shadow-canopy/20'
                             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                     }`}
                 >
@@ -595,7 +939,7 @@ const CaseTypeTab = ({ onToast }) => {
             </div>
 
             {/* Existing list */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div className="bg-surface rounded-2xl border border-slate-200 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                     <span className="text-sm font-semibold text-slate-700">Existing Case Types</span>
                     <button onClick={() => setRefreshKey(k => k + 1)}
@@ -613,7 +957,7 @@ const CaseTypeTab = ({ onToast }) => {
                         {items.map((item, idx) => (
                             <div key={item.r_object_id || idx}
                                 className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-lg">
-                                <FolderOpen size={14} className="text-[#0A66C2] shrink-0" />
+                                <FolderOpen size={14} className="text-canopy shrink-0" />
                                 <span className="text-sm text-slate-800 font-medium">{item.object_name}</span>
                             </div>
                         ))}
@@ -662,10 +1006,10 @@ const HindiCommentsTab = ({ onToast }) => {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Create form */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+            <div className="bg-surface rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                        <MessageSquareText size={20} className="text-[#0A66C2]" />
+                    <div className="w-10 h-10 bg-canopy-tint rounded-xl flex items-center justify-center">
+                        <MessageSquareText size={20} className="text-canopy" />
                     </div>
                     <div>
                         <p className="text-sm font-semibold text-slate-900">Add Hindi Comment</p>
@@ -689,9 +1033,9 @@ const HindiCommentsTab = ({ onToast }) => {
                 <button
                     onClick={handleCreate}
                     disabled={!comment.trim() || submitting}
-                    className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                    className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
                         comment.trim() && !submitting
-                            ? 'bg-[#0A66C2] text-white hover:bg-[#094d92] shadow-md shadow-blue-600/20'
+                            ? 'bg-canopy text-white hover:bg-canopy-dark shadow-md shadow-canopy/20'
                             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                     }`}
                 >
@@ -700,12 +1044,12 @@ const HindiCommentsTab = ({ onToast }) => {
             </div>
 
             {/* Existing list */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div className="bg-surface rounded-2xl border border-slate-200 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-slate-700">Existing Hindi Comments</span>
                         {items.length > 0 && (
-                            <span className="text-xs bg-blue-50 text-[#0A66C2] font-semibold px-2 py-0.5 rounded-full">{items.length}</span>
+                            <span className="text-xs bg-canopy-tint text-canopy font-semibold px-2 py-0.5 rounded-full">{items.length}</span>
                         )}
                     </div>
                     <button onClick={() => setRefreshKey(k => k + 1)}
@@ -723,7 +1067,7 @@ const HindiCommentsTab = ({ onToast }) => {
                         {items.map((item, idx) => (
                             <div key={item.r_object_id || idx}
                                 className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-lg">
-                                <MessageSquareText size={14} className="text-[#0A66C2] shrink-0" />
+                                <MessageSquareText size={14} className="text-canopy shrink-0" />
                                 <span className="text-sm text-slate-800 font-medium">{item.object_name}</span>
                             </div>
                         ))}
@@ -749,19 +1093,7 @@ const CaseSection = ({ onToast, isLocalAdmin }) => {
         : CASE_TABS;
     return (
         <div className="space-y-4">
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-                {visibleTabs.map(t => (
-                    <button key={t.id} onClick={() => setActiveTab(t.id)}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-                            activeTab === t.id
-                                ? 'bg-white text-[#0A66C2] shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700'
-                        }`}>
-                        <t.icon size={15} />
-                        {t.label}
-                    </button>
-                ))}
-            </div>
+            <Tabs tabs={visibleTabs} value={activeTab} onChange={setActiveTab} />
             {activeTab === 'filenumber'    && <FileNumberTab onToast={onToast} />}
             {activeTab === 'casetype'      && <CaseTypeTab onToast={onToast} />}
             {activeTab === 'hindicomments' && <HindiCommentsTab onToast={onToast} />}
@@ -864,13 +1196,74 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
     const resolvedFormTitle = formTitle ?? (inputValue.includes('internal') ? 'Add Nature of Correspondence (Internal)' : 'Add Nature of Correspondence (External)');
     const resolvedFieldLabel = fieldLabel ?? 'Nature of Correspondence';
 
+    const natureColumns = [
+        { key: 'idx', header: '#', mono: true, width: 'w-12', card: 'hide', render: (_item, idx) => idx + 1 },
+        {
+            key: 'results', header: 'Nature of Correspondence', primary: true,
+            render: (item) => editingId === item.r_object_id ? (
+                <input value={editValue} onChange={e => setEditValue(e.target.value)} className={editInputCls} />
+            ) : (item.results || '—'),
+        },
+        {
+            key: 'actions', header: 'Action', align: 'center', width: 'w-32', card: 'footer',
+            render: (item) => {
+                const isEditing = editingId === item.r_object_id;
+                const isConfirming = confirmId === item.r_object_id;
+                const isDeleting = deleting === item.r_object_id;
+                if (isEditing) return (
+                    <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => handleSave(item)} disabled={saving}
+                            className="px-2 py-1 bg-canopy hover:bg-canopy-dark text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1">
+                            {saving ? <Loader2 size={11} className="animate-spin" /> : null}
+                            Save
+                        </button>
+                        <button onClick={cancelEdit} disabled={saving}
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition-colors disabled:opacity-50">
+                            Cancel
+                        </button>
+                    </div>
+                );
+                if (isDeleting) return <Loader2 size={15} className="animate-spin text-danger/70 mx-auto" />;
+                if (!allowEditDelete) return null;
+                if (isConfirming) return (
+                    <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => handleDelete(item)}
+                            className="px-2 py-1 bg-danger hover:bg-danger text-white text-xs font-semibold rounded-lg transition-colors">
+                            Delete
+                        </button>
+                        <button onClick={() => setConfirmId(null)}
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition-colors">
+                            Cancel
+                        </button>
+                    </div>
+                );
+                return (
+                    <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => startEdit(item)}
+                            className="p-1.5 rounded-lg text-slate-300 hover:text-canopy hover:bg-canopy-tint transition-colors"
+                            title="Edit">
+                            <Pencil size={14} />
+                        </button>
+                        <button onClick={() => { setConfirmId(item.r_object_id); setEditingId(null); }}
+                            className="p-1.5 rounded-lg text-slate-300 hover:text-danger hover:bg-danger-tint transition-colors"
+                            title="Delete">
+                            <Trash2 size={14} />
+                        </button>
+                    </div>
+                );
+            },
+        },
+    ];
+    const natureRowClass = (item) =>
+        editingId === item.r_object_id ? 'bg-canopy-tint' : confirmId === item.r_object_id ? 'bg-danger-tint' : '';
+
     return (
         <div className={`grid ${allowAdd ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'} gap-6 items-start`}>
             {/* Left: form (only shown if add allowed) */}
             {allowAdd && (
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-slate-50 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#0A66C2] flex items-center justify-center shadow-sm shrink-0">
+            <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-canopy-tint to-slate-50 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-canopy flex items-center justify-center shadow-sm shrink-0">
                         <Tag size={17} className="text-white" />
                     </div>
                     <div>
@@ -889,7 +1282,7 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
                     </div>
                     <div className="flex items-center justify-end pt-2 border-t border-slate-100">
                         <button type="submit" disabled={submitting || !value.trim()}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-[#0A66C2] hover:bg-[#094d92] disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-all">
+                            className="flex items-center gap-2 px-5 py-2.5 bg-canopy hover:bg-canopy-dark disabled:opacity-60 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
                             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                             {submitting ? 'Adding…' : 'Add'}
                         </button>
@@ -899,107 +1292,40 @@ const NatureOfCorrespondenceTab = ({ inputValue, folderPath, listLabel, formTitl
             )}
 
             {/* Right: list with edit + delete */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+            <div className="bg-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <Hash size={14} className="text-slate-400" />
                         <span className="text-sm font-semibold text-slate-700">{listLabel}</span>
                         {!loading && (
-                            <span className="px-2 py-0.5 bg-blue-100 text-[#0A66C2] text-xs font-semibold rounded-full">
+                            <span className="px-2 py-0.5 bg-canopy-tint text-canopy text-xs font-semibold rounded-full">
                                 {items.length}
                             </span>
                         )}
                     </div>
                     <button onClick={loadList} disabled={loading}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-all disabled:opacity-40">
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-40">
                         <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                     </button>
                 </div>
 
-                {loading ? (
-                    <div className="flex items-center justify-center gap-2 py-10 text-slate-400">
-                        <Loader2 size={18} className="animate-spin text-[#0A66C2]" />
-                        <span className="text-sm">Loading…</span>
-                    </div>
-                ) : error ? (
-                    <div className="px-5 py-4 text-sm text-red-600 flex items-center gap-2">
+                {error ? (
+                    <div className="px-5 py-4 text-sm text-danger flex items-center gap-2">
                         <AlertCircle size={15} /> {error}
                     </div>
-                ) : items.length === 0 ? (
-                    <div className="px-5 py-8 text-center text-sm text-slate-400">No values found</div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-200">
-                                <tr>
-                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 w-8">#</th>
-                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500">Nature of Correspondence</th>
-                                    <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-500 w-32">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {items.map((item, idx) => {
-                                    const isEditing    = editingId  === item.r_object_id;
-                                    const isConfirming = confirmId  === item.r_object_id;
-                                    const isDeleting   = deleting   === item.r_object_id;
-                                    const rowBg = isEditing ? 'bg-blue-50' : isConfirming ? 'bg-red-50' : 'hover:bg-blue-50/30';
-                                    return (
-                                        <tr key={item.r_object_id || idx} className={`transition-colors ${rowBg}`}>
-                                            <td className="px-4 py-2.5 text-slate-400 text-xs font-mono">{idx + 1}</td>
-                                            <td className="px-4 py-2.5 text-slate-800 text-sm">
-                                                {isEditing ? (
-                                                    <input value={editValue}
-                                                        onChange={e => setEditValue(e.target.value)}
-                                                        className="w-full px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white" />
-                                                ) : (item.results || '—')}
-                                            </td>
-                                            <td className="px-4 py-2.5 text-center">
-                                                {isEditing ? (
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <button onClick={() => handleSave(item)} disabled={saving}
-                                                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-50 flex items-center gap-1">
-                                                            {saving ? <Loader2 size={11} className="animate-spin" /> : null}
-                                                            Save
-                                                        </button>
-                                                        <button onClick={cancelEdit} disabled={saving}
-                                                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition-all disabled:opacity-50">
-                                                            Cancel
-                                                        </button>
-                                                    </div>
-                                                ) : isDeleting ? (
-                                                    <Loader2 size={15} className="animate-spin text-red-400 mx-auto" />
-                                                ) : allowEditDelete && isConfirming ? (
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <button onClick={() => handleDelete(item)}
-                                                            className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-all">
-                                                            Delete
-                                                        </button>
-                                                        <button onClick={() => setConfirmId(null)}
-                                                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition-all">
-                                                            Cancel
-                                                        </button>
-                                                    </div>
-                                                ) : allowEditDelete ? (
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <button onClick={() => startEdit(item)}
-                                                            className="p-1.5 rounded-lg text-slate-300 hover:text-blue-500 hover:bg-blue-50 transition-all"
-                                                            title="Edit">
-                                                            <Pencil size={14} />
-                                                        </button>
-                                                        <button onClick={() => { setConfirmId(item.r_object_id); setEditingId(null); }}
-                                                            className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
-                                                            title="Delete">
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                ) : null}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                    <DataTable
+                        columns={natureColumns}
+                        rows={items}
+                        rowKey={(item, idx) => item.r_object_id || idx}
+                        loading={loading}
+                        skeletonRows={5}
+                        rowClassName={natureRowClass}
+                        stickyHeader
+                        maxHeight="70vh"
+                        empty={{ icon: Hash, title: 'No values found' }}
+                        className="p-3 md:p-0"
+                    />
                 )}
             </div>
         </div>
@@ -1016,18 +1342,7 @@ const NatureOfCorrespondenceSection = ({ onToast }) => {
     const [activeTab, setActiveTab] = useState('internal');
     return (
         <div className="space-y-4">
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-                {NATURE_TABS.map(t => (
-                    <button key={t.id} onClick={() => setActiveTab(t.id)}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-                            activeTab === t.id
-                                ? 'bg-white text-[#0A66C2] shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700'
-                        }`}>
-                        {t.label}
-                    </button>
-                ))}
-            </div>
+            <Tabs tabs={NATURE_TABS} value={activeTab} onChange={setActiveTab} />
             {activeTab === 'internal' && (
                 <NatureOfCorrespondenceTab
                     inputValue="nature_of_correspondence_internal"
@@ -1066,18 +1381,7 @@ const DigidakSection = ({ onToast }) => {
     const [activeTab, setActiveTab] = useState('nature_of_correspondence');
     return (
         <div className="space-y-4">
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-                {DIGIDAK_TABS.map(t => (
-                    <button key={t.id} onClick={() => setActiveTab(t.id)}
-                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-                            activeTab === t.id
-                                ? 'bg-white text-[#0A66C2] shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700'
-                        }`}>
-                        {t.label}
-                    </button>
-                ))}
-            </div>
+            <Tabs tabs={DIGIDAK_TABS} value={activeTab} onChange={setActiveTab} />
             {activeTab === 'nature_of_correspondence' && <NatureOfCorrespondenceSection onToast={onToast} />}
             {activeTab === 'mode_of_dispatch' && (
                 <NatureOfCorrespondenceTab
@@ -1116,7 +1420,7 @@ const TOP_TABS = [
 // ─── MetadataPage ─────────────────────────────────────────────────────────────
 const MetadataPage = () => {
     const [activeTab, setActiveTab] = useState('case');
-    const [toast, setToast]         = useState(null);
+    const toast = useToast();
 
     // Get user info to check if Local Admin
     const storedUser = localStorage.getItem('user');
@@ -1130,36 +1434,17 @@ const MetadataPage = () => {
         : TOP_TABS;
 
     return (
-        <div className="flex flex-col h-full bg-slate-50">
-            <Toast toast={toast} onDismiss={() => setToast(null)} />
+        <div className="flex flex-1 flex-col">
+            <PageHeader
+                title="Metadata"
+                icon={Layers}
+                description="Manage ECM configuration metadata objects."
+            />
+            <Tabs tabs={visibleTopTabs} value={activeTab} onChange={setActiveTab} className="mb-5" />
 
-            {/* Page header */}
-            <div className="bg-white border-b border-slate-200 px-6 py-4">
-                <h1 className="text-lg font-bold text-slate-900">Metadata</h1>
-                <p className="text-xs text-slate-500 mt-0.5">Manage ECM configuration metadata objects</p>
-            </div>
-
-            {/* Top tab bar */}
-            <div className="bg-white border-b border-slate-200 px-6">
-                <div className="flex gap-0">
-                    {visibleTopTabs.map(t => (
-                        <button key={t.id} onClick={() => setActiveTab(t.id)}
-                            className={`flex items-center gap-2 px-4 py-3.5 text-sm font-medium border-b-2 transition-all ${
-                                activeTab === t.id
-                                    ? 'border-[#0A66C2] text-[#0A66C2]'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                            }`}>
-                            <t.icon size={15} />
-                            {t.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto overscroll-contain p-6">
-                {activeTab === 'case'    && <CaseSection onToast={setToast} isLocalAdmin={isLocalAdmin} />}
-                {activeTab === 'digidak' && <DigidakSection onToast={setToast} />}
+            <div className="flex-1">
+                {activeTab === 'case'    && <CaseSection onToast={toast.show} isLocalAdmin={isLocalAdmin} />}
+                {activeTab === 'digidak' && <DigidakSection onToast={toast.show} />}
             </div>
         </div>
     );

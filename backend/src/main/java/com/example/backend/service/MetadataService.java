@@ -122,6 +122,85 @@ public class MetadataService {
     }
 
     /**
+     * Validates if a file number can be deleted by checking if any cases use it.
+     * Parameters: hoRo, deptShortCode, fileNumber, roShortCode (for RO/TE)
+     * Returns a map with:
+     * - canDelete: boolean (true if no cases found, false if cases exist)
+     * - caseCount: number of cases using this file number (0 if can delete)
+     * - message: human-readable message
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> validateFileNumberDelete(String hoRo, String deptShortCode, String fileNumber, String roShortCode) {
+        try {
+            // Validate inputs
+            if (hoRo == null || deptShortCode == null || fileNumber == null) {
+                return Map.of("canDelete", false, "caseCount", 0,
+                    "message", "File number incomplete");
+            }
+
+            String hoRoVal = hoRo;
+
+            // Build DQL query based on office type
+            StringBuilder dql = new StringBuilder("SELECT r_object_id FROM cms_case_folder WHERE ");
+
+            if ("HO".equals(hoRoVal)) {
+                // HO: check ho_ro, department_short_code, file_number, is_migrated
+                String safeDept = deptShortCode.replace("'", "''");
+                String safeFileNum = fileNumber.replace("'", "''");
+                dql.append("ho_ro = 'HO' ")
+                   .append("AND department_short_code = '").append(safeDept).append("' ")
+                   .append("AND file_number = '").append(safeFileNum).append("' ")
+                   .append("AND is_migrated = false");
+            } else if ("RO".equals(hoRoVal) || "TE".equals(hoRoVal)) {
+                // RO/TE: check ho_ro, department_short_code, title (location), file_number, is_migrated
+                String safeDept = deptShortCode.replace("'", "''");
+                String safeFileNum = fileNumber.replace("'", "''");
+                String safeRoCode = roShortCode != null ? roShortCode.replace("'", "''") : "";
+                dql.append("ho_ro = '").append(hoRoVal).append("' ")
+                   .append("AND department_short_code = '").append(safeDept).append("' ")
+                   .append("AND title = '").append(safeRoCode).append("' ")
+                   .append("AND file_number = '").append(safeFileNum).append("' ")
+                   .append("AND is_migrated = false");
+            } else {
+                return Map.of("canDelete", false, "caseCount", 0,
+                    "message", "Invalid office type");
+            }
+
+            log.info("[FileNumber] Validating delete - DQL: {}", dql);
+
+            // Execute DQL to find matching cases
+            String baseUrl = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository();
+            Map<String, Object> queryResp = restClient.get()
+                    .uri(baseUrl + "?dql={dql}&items-per-page=1000&page=1&inline=true", dql.toString())
+                    .header("Authorization", getAuthHeader())
+                    .header("Accept", "application/vnd.emc.documentum+json")
+                    .retrieve()
+                    .body(Map.class);
+
+            if (queryResp == null) {
+                return Map.of("canDelete", true, "caseCount", 0,
+                    "message", "No cases found using this file number");
+            }
+
+            List<Map<String, Object>> entries = (List<Map<String, Object>>) queryResp.get("entries");
+            int caseCount = (entries != null) ? entries.size() : 0;
+
+            if (caseCount > 0) {
+                return Map.of("canDelete", false, "caseCount", caseCount,
+                    "message", caseCount + " case(s) found using this file number. Cannot delete.");
+            } else {
+                return Map.of("canDelete", true, "caseCount", 0,
+                    "message", "No cases found using this file number");
+            }
+
+        } catch (Exception e) {
+            log.error("[FileNumber] Validation failed: {}", e.getMessage(), e);
+            return Map.of("canDelete", false, "caseCount", 0,
+                "message", "Validation check failed: " + e.getMessage());
+        }
+    }
+
+    /**
      * Deletes a cms_file_number object by its r_object_id.
      * DELETE /repositories/{repo}/objects/{objectId}
      */
@@ -141,6 +220,52 @@ public class MetadataService {
             String rb = e.getResponseBodyAsString(StandardCharsets.UTF_8);
             log.error("[FileNumber] Delete failed [{}]: {}", e.getStatusCode(), rb);
             throw new RuntimeException("File number deletion failed [" + e.getStatusCode() + "]: " + rb);
+        }
+    }
+
+    /**
+     * Checks if a file number already exists for the given office type, department, and location.
+     * Returns { "exists": true/false }
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> checkFileNumberDuplicate(String hoRo, String deptShortCode, String fileNumber, String roShortCode) {
+        try {
+            String safe_hoRo = hoRo.replace("'", "''");
+            String safe_dept = deptShortCode.replace("'", "''");
+            String safe_fileName = fileNumber.replace("'", "''");
+
+            StringBuilder dql = new StringBuilder(
+                    "SELECT r_object_id FROM cms_file_number"
+                    + " WHERE ho_ro = '" + safe_hoRo + "'"
+                    + " AND dept_short_code = '" + safe_dept + "'"
+                    + " AND object_name = '" + safe_fileName + "'");
+
+            if (roShortCode != null && !roShortCode.isBlank()) {
+                String safe_ro = roShortCode.replace("'", "''");
+                dql.append(" AND ro_short_code = '").append(safe_ro).append("'");
+            }
+
+            String baseUrl = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository();
+            log.info("[FileNumber] Checking duplicate: {}", dql);
+
+            Map<String, Object> resp = restClient.get()
+                    .uri(baseUrl + "?dql={dql}&items-per-page=1&inline=true", dql.toString())
+                    .header("Authorization", getAuthHeader())
+                    .header("Accept", "application/vnd.emc.documentum+json")
+                    .retrieve()
+                    .body(Map.class);
+
+            if (resp == null) {
+                return Map.of("exists", false);
+            }
+
+            List<Map<String, Object>> entries = (List<Map<String, Object>>) resp.get("entries");
+            boolean exists = entries != null && !entries.isEmpty();
+
+            return Map.of("exists", exists);
+        } catch (Exception e) {
+            log.error("[FileNumber] Duplicate check failed: {}", e.getMessage(), e);
+            return Map.of("exists", false);
         }
     }
 

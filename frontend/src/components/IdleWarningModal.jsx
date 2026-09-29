@@ -8,10 +8,10 @@ const IdleWarningModal = ({ isOpen, remainingTime, onContinue }) => {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 flex flex-col items-center text-center space-y-6">
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-md p-8 flex flex-col items-center text-center space-y-6">
         {/* Icon */}
-        <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
-          <AlertCircle size={32} className="text-amber-600" />
+        <div className="w-16 h-16 rounded-full bg-harvest/15 flex items-center justify-center">
+          <AlertCircle size={32} className="text-harvest" />
         </div>
 
         {/* Title */}
@@ -31,7 +31,8 @@ const IdleWarningModal = ({ isOpen, remainingTime, onContinue }) => {
                 cy="50"
                 r="45"
                 fill="none"
-                stroke="#e2e8f0"
+                stroke="currentColor"
+                className="text-line"
                 strokeWidth="3"
               />
               <circle
@@ -39,16 +40,16 @@ const IdleWarningModal = ({ isOpen, remainingTime, onContinue }) => {
                 cy="50"
                 r="45"
                 fill="none"
-                stroke="#0A66C2"
+                stroke="currentColor"
                 strokeWidth="3"
                 strokeDasharray={`${Math.PI * 90}`}
                 strokeDashoffset={`${Math.PI * 90 * (1 - seconds / 30)}`}
                 strokeLinecap="round"
-                className="transition-all duration-1000 ease-linear"
+                className="text-canopy transition-[stroke-dashoffset] duration-1000 ease-linear"
               />
             </svg>
             <div className="absolute text-center">
-              <div className="text-3xl font-bold text-[#0A66C2]">{seconds}</div>
+              <div className="text-3xl font-bold text-canopy">{seconds}</div>
               <div className="text-xs text-slate-500">seconds left</div>
             </div>
           </div>
@@ -57,7 +58,7 @@ const IdleWarningModal = ({ isOpen, remainingTime, onContinue }) => {
         {/* CTA Button */}
         <button
           onClick={onContinue}
-          className="w-full px-6 py-3 bg-[#0A66C2] hover:bg-[#094d92] text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+          className="w-full px-6 py-3 bg-canopy hover:bg-canopy-dark text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
         >
           <LogOut size={18} />
           Continue Session

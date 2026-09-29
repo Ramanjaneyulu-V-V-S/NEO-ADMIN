@@ -8,6 +8,7 @@ import com.example.backend.service.DctmAuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.env.Environment;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestClient;
@@ -25,15 +26,18 @@ public class AuthController {
     private final DctmConfig dctmConfig;
     private final DctmAuthService dctmAuthService;
     private final RestClient restClient;
+    private final Environment environment;
 
     public AuthController(AuthService authService,
                          DctmConfig dctmConfig,
                          DctmAuthService dctmAuthService,
-                         RestClient.Builder restClientBuilder) {
+                         RestClient.Builder restClientBuilder,
+                         Environment environment) {
         this.authService = authService;
         this.dctmConfig = dctmConfig;
         this.dctmAuthService = dctmAuthService;
         this.restClient = restClientBuilder.build();
+        this.environment = environment;
     }
 
     @PostMapping("/login")
@@ -44,6 +48,77 @@ public class AuthController {
         } else {
             return ResponseEntity.status(401).body(response);
         }
+    }
+
+    /**
+     * Get user profile after OTDS authentication
+     * Called after user authenticates via OTDS to fetch user details from Documentum
+     */
+    @GetMapping("/profile")
+    public ResponseEntity<?> getUserProfile(
+            @RequestParam String username,
+            @RequestHeader(value = "Authorization", required = false) String bearerToken) {
+
+        try {
+            log.info("Fetching user profile for username: {} with OTDS token", username);
+
+            // Validate that we have both username and OTDS token
+            if (username == null || username.trim().isEmpty()) {
+                return ResponseEntity.status(400).body(Map.of(
+                    "error", "Missing username parameter"
+                ));
+            }
+
+            if (bearerToken == null || bearerToken.trim().isEmpty()) {
+                log.warn("No OTDS token provided for user: {}", username);
+                return ResponseEntity.status(401).body(Map.of(
+                    "error", "Missing authentication token",
+                    "message", "OTDS token not provided"
+                ));
+            }
+
+            // Use service account to fetch user details and resolve admin role
+            AuthResponse response = authService.getUserProfile(username);
+
+            if (response != null && response.isAuthenticated()) {
+                log.info("Successfully fetched user profile for: {}", username);
+                return ResponseEntity.ok(response.getUserDetails());
+            } else {
+                String errorMsg = response != null ? response.getMessage() : "Unknown error";
+                log.warn("Failed to fetch user profile for '{}': {}", username, errorMsg);
+                return ResponseEntity.status(401).body(Map.of(
+                    "error", "User profile not found",
+                    "message", errorMsg
+                ));
+            }
+        } catch (Exception e) {
+            log.error("Error fetching user profile for '{}': {}", username, e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Failed to fetch user profile",
+                "message", e.getMessage(),
+                "details", e.getClass().getSimpleName()
+            ));
+        }
+    }
+
+    /**
+     * Get environment-specific configuration for login (OTDS endpoint and repository)
+     * Frontend calls this to get the correct OTDS token API endpoint based on deployed environment
+     */
+    @GetMapping("/config")
+    public ResponseEntity<Map<String, String>> getAuthConfig() {
+        Map<String, String> config = new HashMap<>();
+        String otdsTokenApiUrl = environment.getProperty("otds.token-api-url");
+        String repository = dctmConfig.getRepository();
+        String activeProfile = String.join(",", environment.getActiveProfiles());
+
+        config.put("otdsTokenApiUrl", otdsTokenApiUrl);
+        config.put("repository", repository);
+        config.put("environment", activeProfile.isEmpty() ? "default" : activeProfile);
+
+        log.info("Auth config requested - Profile: {}, Repository: {}, OTDS URL: {}",
+                 activeProfile, repository, otdsTokenApiUrl);
+        return ResponseEntity.ok(config);
     }
 
     /**

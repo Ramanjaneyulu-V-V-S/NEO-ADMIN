@@ -1,12 +1,34 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../api/axios';
 import {
-    ClipboardList, Loader2, X, CheckCircle2, AlertCircle,
-    User, ChevronLeft, ChevronRight
+    ClipboardList, Loader2, User, ChevronLeft, ChevronRight
 } from 'lucide-react';
+import { PageHeader, useToast, DataTable } from '../components/ui';
+import { caseStatusPillCls } from '../utils/statusTone';
 
 const USERS_PAGE_SIZE = 2000;
 const TASKS_PAGE_SIZE = 50;
+
+const priorityPillCls = (priority) =>
+    priority === 'High'   ? 'bg-danger-tint text-danger' :
+    priority === 'Medium' ? 'bg-harvest/15 text-harvest' :
+    'bg-slate-100 text-slate-600';
+
+const TASK_COLUMNS = [
+    { key: 'caseName', header: 'Case Name', primary: true,
+      render: (task) => <span className="font-medium text-slate-800">{task.caseName || '—'}</span> },
+    { key: 'description', header: 'Description',
+      render: (task) => <span className="block max-w-xs truncate text-slate-600" title={task.description}>{task.description || '—'}</span> },
+    { key: 'status', header: 'Status',
+      render: (task) => task.status
+          ? <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${caseStatusPillCls(task.status)}`}>{task.status}</span>
+          : '—' },
+    { key: 'initiator', header: 'Initiator', render: (task) => <span className="text-slate-600">{task.initiator || '—'}</span> },
+    { key: 'priority', header: 'Priority',
+      render: (task) => task.priority
+          ? <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${priorityPillCls(task.priority)}`}>{task.priority}</span>
+          : '—' },
+];
 
 async function fetchAllUsers() {
     let page = 1;
@@ -21,32 +43,9 @@ async function fetchAllUsers() {
     return all;
 }
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
-const Toast = ({ toast, onDismiss }) => {
-    useEffect(() => {
-        if (!toast) return;
-        const timer = setTimeout(onDismiss, toast.type === 'success' ? 3000 : 5000);
-        return () => clearTimeout(timer);
-    }, [toast, onDismiss]);
-
-    if (!toast) return null;
-    const styles = {
-        success: 'bg-green-50 text-green-800 border-green-200',
-        error:   'bg-red-50   text-red-800   border-red-200',
-    };
-    const Icon = toast.type === 'success' ? CheckCircle2 : AlertCircle;
-    return (
-        <div className={`fixed top-5 right-5 z-50 flex items-start gap-3 px-4 py-3 border rounded-xl shadow-lg max-w-sm ${styles[toast.type]}`}>
-            <Icon size={18} className="mt-0.5 shrink-0" />
-            <div className="flex-1 text-sm font-medium">{toast.message}</div>
-            <button onClick={onDismiss} className="shrink-0 opacity-60 hover:opacity-100"><X size={16} /></button>
-        </div>
-    );
-};
-
 // ─── InboxPage ────────────────────────────────────────────────────────────────
 const InboxPage = () => {
-    const [toast, setToast]               = useState(null);
+    const toast                           = useToast();
     const [allUsers, setAllUsers]         = useState([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
     const [searchQuery, setSearchQuery]   = useState('');
@@ -65,9 +64,9 @@ const InboxPage = () => {
         setLoadingUsers(true);
         fetchAllUsers()
             .then(setAllUsers)
-            .catch(() => setToast({ type: 'error', message: 'Failed to load users.' }))
+            .catch(() => toast.error('Failed to load users.'))
             .finally(() => setLoadingUsers(false));
-    }, []);
+    }, [toast]);
 
     // Reset to page 1 when user changes
     useEffect(() => {
@@ -94,11 +93,11 @@ const InboxPage = () => {
                 setTotal(res.data.total || 0);
             })
             .catch(err => {
-                setToast({ type: 'error', message: err.response?.data?.message || 'Failed to fetch inbox tasks.' });
+                toast.error(err.response?.data?.message || 'Failed to fetch inbox tasks.');
                 setTasks([]);
             })
             .finally(() => setLoadingTasks(false));
-    }, [selectedUser, page]);
+    }, [selectedUser, page, toast]);
 
     const filteredUsers = useMemo(() =>
         allUsers.filter(u => {
@@ -109,25 +108,19 @@ const InboxPage = () => {
         [allUsers, searchQuery]
     );
 
-    const inputCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0A66C2]/20 focus:border-[#0A66C2] bg-white';
+    const inputCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canopy/20 focus:border-canopy bg-surface';
 
     const start = total === 0 ? 0 : (page - 1) * TASKS_PAGE_SIZE + 1;
     const end   = Math.min(page * TASKS_PAGE_SIZE, total);
 
     return (
-        <div className="p-6 max-w-7xl mx-auto h-full flex flex-col">
-            <Toast toast={toast} onDismiss={() => setToast(null)} />
-
-            {/* Page header */}
-            <div className="flex items-center gap-2 mb-5">
-                <ClipboardList size={20} className="text-[#0A66C2]" />
-                <h1 className="text-xl font-bold text-slate-900">Case Inbox</h1>
-            </div>
+        <div className="flex flex-1 flex-col">
+            <PageHeader title="Case Inbox" icon={ClipboardList} description="View the workflow inbox for any user." />
 
             {/* User selector */}
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm mb-5">
+            <div className="bg-surface border border-line rounded-card p-5 shadow-card mb-5">
                 <h2 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                    <User size={15} className="text-[#0A66C2]" />
+                    <User size={15} className="text-canopy" />
                     Select User
                 </h2>
                 <div className="relative max-w-md" ref={dropdownRef}>
@@ -144,12 +137,12 @@ const InboxPage = () => {
                         <Loader2 size={15} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />
                     )}
                     {showDropdown && filteredUsers.length > 0 && (
-                        <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-56 overflow-y-auto overscroll-contain">
+                        <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-surface border border-slate-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
                             {filteredUsers.slice(0, 100).map(u => (
                                 <button
                                     key={u.r_object_id || u.user_login_name}
                                     type="button"
-                                    className="w-full text-left px-3 py-2 text-sm hover:bg-[#0A66C2]/5 flex items-center justify-between"
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-canopy/5 flex items-center justify-between"
                                     onClick={() => { setSelectedUser(u); setSearchQuery(''); setShowDropdown(false); }}
                                 >
                                     <span className="font-medium text-slate-800">{u.object_name}</span>
@@ -162,11 +155,11 @@ const InboxPage = () => {
             </div>
 
             {/* Tasks panel */}
-            <div className="flex-1 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
+            <div className="bg-surface border border-line rounded-card shadow-card flex flex-col overflow-hidden min-h-[420px]">
 
                 {/* Panel header */}
                 <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-3">
-                    <ClipboardList size={15} className="text-[#0A66C2]" />
+                    <ClipboardList size={15} className="text-canopy" />
                     <span className="text-sm font-semibold text-slate-700">
                         {selectedUser ? `Inbox — ${selectedUser.object_name}` : 'Inbox Tasks'}
                     </span>
@@ -178,7 +171,7 @@ const InboxPage = () => {
                 </div>
 
                 {/* Table area */}
-                <div className="flex-1 overflow-auto">
+                <div className="flex-1 overflow-auto max-h-[62vh]">
                     {!selectedUser && (
                         <div className="flex flex-col items-center justify-center h-full gap-2 text-slate-400 py-16">
                             <ClipboardList size={36} strokeWidth={1.5} />
@@ -188,7 +181,7 @@ const InboxPage = () => {
 
                     {selectedUser && loadingTasks && (
                         <div className="flex items-center justify-center h-full py-16">
-                            <Loader2 size={24} className="animate-spin text-[#0A66C2]" />
+                            <Loader2 size={24} className="animate-spin text-canopy" />
                         </div>
                     )}
 
@@ -200,46 +193,20 @@ const InboxPage = () => {
                     )}
 
                     {selectedUser && !loadingTasks && tasks.length > 0 && (
-                        <table className="w-full text-left text-sm">
-                            <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
-                                <tr>
-                                    {['Case Name', 'Description', 'Status', 'Initiator', 'Priority'].map(h => (
-                                        <th key={h} className="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                                            {h}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {tasks.map((task, idx) => (
-                                    <tr key={task.objectId || idx} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-4 py-3 font-medium text-slate-800">{task.caseName || '—'}</td>
-                                        <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{task.description || '—'}</td>
-                                        <td className="px-4 py-3">
-                                            {task.status
-                                                ? <span className="px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 font-medium">{task.status}</span>
-                                                : '—'}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600">{task.initiator || '—'}</td>
-                                        <td className="px-4 py-3">
-                                            {task.priority
-                                                ? <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                                                    task.priority === 'High'   ? 'bg-red-100 text-red-700' :
-                                                    task.priority === 'Medium' ? 'bg-amber-100 text-amber-700' :
-                                                    'bg-slate-100 text-slate-600'
-                                                  }`}>{task.priority}</span>
-                                                : '—'}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        <DataTable
+                            columns={TASK_COLUMNS}
+                            rows={tasks}
+                            rowKey={(task, idx) => task.objectId || idx}
+                            stickyHeader
+                            maxHeight="62vh"
+                            className="p-3 md:p-0"
+                        />
                     )}
                 </div>
 
                 {/* Pagination footer */}
                 {selectedUser && !loadingTasks && total > TASKS_PAGE_SIZE && (
-                    <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between bg-white">
+                    <div className="px-5 py-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-surface">
                         <span className="text-xs text-slate-500">
                             Showing {start}–{end} of {total}
                         </span>
@@ -266,7 +233,7 @@ const InboxPage = () => {
                                             onClick={() => setPage(item)}
                                             className={`min-w-[28px] h-7 rounded-lg text-xs font-medium ${
                                                 item === page
-                                                    ? 'bg-[#0A66C2] text-white'
+                                                    ? 'bg-canopy text-white'
                                                     : 'text-slate-600 hover:bg-slate-100'
                                             }`}
                                           >{item}</button>

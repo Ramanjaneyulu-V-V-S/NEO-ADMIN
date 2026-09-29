@@ -1,0 +1,22 @@
+.circulars-empty-state {
+  padding: 40px 20px;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
+}
+
+.circulars-empty-title {
+  font-size: 16px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.circulars-republishing-text {
+  text-align: center;
+  margin-top: 60px;
+  font-size: 14px;
+  color: #333;
+}

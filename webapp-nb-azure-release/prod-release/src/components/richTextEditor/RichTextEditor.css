@@ -1,0 +1,33 @@
+/* Hide Title row completely */
+.k-editor-window .k-form-field:has(label[for="k-editor-link-text"]) {
+  display: none !important;
+}
+/* Hide "Open link in new window" row */
+.k-editor-window .k-form-field:has(label[for="k-editor-link-target"]) {
+  display: none !important;
+}
+/* Remove form spacing */
+.k-editor-window .k-form {
+  row-gap: 0 !important;
+  margin: 0 !important;
+}
+/* Reduce dialog padding */
+.k-editor-window .k-window-content {
+  padding-bottom: 12px !important;
+}
+/* Let dialog shrink */
+.k-editor-window {
+  height: auto !important;
+  min-height: unset !important;
+}
+/* Change "Web address" label to "Hyperlink" */
+.k-editor-window .k-form-field:not(:has(label[for="k-editor-link-text"])):not(:has(label[for="k-editor-link-target"])) label.k-form-label {
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+.k-editor-window .k-form-field:not(:has(label[for="k-editor-link-text"])):not(:has(label[for="k-editor-link-target"])) label.k-form-label::after {
+  content: "Hyperlink";
+  font-size: 13px;
+  line-height: 1.5;
+  display: inline-block;
+}

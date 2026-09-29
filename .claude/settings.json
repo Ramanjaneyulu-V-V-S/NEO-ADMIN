@@ -8,12 +8,7 @@
       "Read(//c/Program Files/Apache Software Foundation/Tomcat 10.1/webapps/neoadmin/**)",
       "Bash(rm -rf \"/c/Program Files/Apache Software Foundation/Tomcat 10.1/webapps/neoadmin\"/*)",
       "Bash(cp -r /d/NBSupportApp/frontend/dist/* \"/c/Program Files/Apache Software Foundation/Tomcat 10.1/webapps/neoadmin/\")",
-      "Read(//d d:/**)",
-      "Read(//c/Program Files/Apache Software Foundation/Tomcat 10.1/webapps/**)",
-      "Bash(git -C \"d:/Nabard/NBSupportApp 4/NBSupportApp\" log --oneline -20)",
-      "Bash(git -C \"d:/Nabard/NBSupportApp 4/NBSupportApp\" diff --name-only HEAD)",
-      "Bash(git -C \"d:/Nabard/NBSupportApp 4/NBSupportApp\" status --short)",
-      "Read(//d/Nabard/**)"
+      "Read(//d d:/**)"
     ]
   }
 }

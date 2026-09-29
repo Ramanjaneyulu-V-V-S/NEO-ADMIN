@@ -3,11 +3,15 @@ import api from '../api/axios';
 // Nabard metadata: departments, locations, and grades for cascading dropdowns
 
 // ─── Designation Options ──────────────────────────────────────────────────────
+// Sentinel value for the "type your own" row appended below — never sent to the
+// backend as-is; consumers swap it for a free-text input bound to the same field.
+export const DESIGNATION_OTHER = '__other__';
+
 export const DESIGNATION_OPTIONS = [
     { value: '',         hindi: '',              label: '— Select designation —' },
     { value: 'DA',       hindi: 'विस',           label: 'DA' },
     { value: 'AM',       hindi: 'सप्र',          label: 'AM' },
-    { value: 'MGR',      hindi: 'प्र',           label: 'MGR' },
+    { value: 'MGR',      hindi: 'प्रबंधक',       label: 'MGR' },
     { value: 'AGM',      hindi: 'समप्र',         label: 'AGM' },
     { value: 'DGM',      hindi: 'उमप्र',         label: 'DGM' },
     { value: 'GM',       hindi: 'मप्र',          label: 'GM' },
@@ -15,6 +19,9 @@ export const DESIGNATION_OPTIONS = [
     { value: 'CGM',      hindi: 'मुमप्र',        label: 'CGM' },
     { value: 'DMD',      hindi: 'उप्रनि',        label: 'DMD' },
     { value: 'CHAIRMAN', hindi: 'अध्यक्ष',      label: 'CHAIRMAN' },
+    { value: 'Young Professional', hindi: 'युवा प्रोफेशनल',  label: 'Young Professional' },
+    { value: 'Project Manager',    hindi: 'परियोजना प्रबंधक', label: 'Project Manager' },
+    { value: DESIGNATION_OTHER,    hindi: '',              label: 'Other (type manually)' },
 ];
 
 export const HO_DEPARTMENTS = [
@@ -878,6 +885,39 @@ export const RO_DEPARTMENTS = {
   ],
 };
 
+// ─── DDM (District Development Manager) Districts ────────────────────────────
+// Maps location names (matching RO_LOCATIONS) to district names from DDM.xlsx
+export const DDM_DISTRICTS = {
+  'Andhra Pradesh': ['Ananthapur','Kakinada','Nandyal','Kadapa','Vizianagaram','Guntur','Kurnool','Parvathipuram Manyam','Prakasam','Nellore','Visakhapatnam','Eluru','East Godavari','West Godavari','Srikakulam','Chittoor','Annamayya','Sri Sathya Sai'],
+  'Arunachal Pradesh': ['Namsai','Lower Dibang Valley','Lower Subansiri','East Kameng'],
+  'Assam': ['Diphu','Goalpara','Nagaon','Darrang (Mangaldoi)','Golaghat','Dibrugarh','Tinsukhia','Baksa','Sibsagar','Lakhimpur','Cachar','Dima Hasao','Dhubri','Morigaon / Jagiroad','Bongaigaon','Nalbari','Udalguri','Barpeta','Hailakandi','Kokrajhar','Jorhat','Tezpur (Sonitpur)'],
+  'Bihar': ['Sheikhpura','Aurangabad','Sitamarhi','Muzaffarpur','Saran','Begusarai','Rohtas','Khagaria','Katihar','Bhagalpur','East Champaran','Gaya','Newadah','Nalanda','Supaul','Madhubani','West Champaran','Munger','Darbhanga','Jamuai','Jehanabad','Siwan','Saharsa','Samastipur','Kaimur','Purnea','Banka','Araria'],
+  'Chhattisgarh': ['Bastar','Dantewada','Kondagaon','Raigarh','Mahasamund','Rajnandgaon','Kabirdham','Janjgir Champa','Sarguja','Kankar','Durg','Manendragarh','Bilaspur'],
+  'Goa': ['South Goa (Madgaon)'],
+  'Gujarat': ['Banaskantha','Panchmahal','Surat','Sabarkantha','Valsad','Bharuch','Mehsana','Junagadh','Dahod','Tapi','Rajkot','Bhavnagar','Surendranagar','Morbi','Porbandar','Devbhumi Dwarka','Navsari','Anand','Vadodara','Jamnagar','Narmada','Amreli','Dang','Kutch (Bhuj)'],
+  'Himachal Pradesh': ['Solan','Mandi','Kulu','Kangra','Sirmour','Hamirpur','Kinnaur','Una','Chamba','Bilaspur'],
+  'Jammu and Kashmir': ['Samba','Leh - Ladakh','Kupwara','Kishtwar','Anantnag','Reasi','Pulwama','Ramban','Baramulla','Udhampur','Rajouri','Kathua','Doda'],
+  'Jharkhand': ['Lohardaga','Simdega','Garwah','Khunti','East Singhbhum','Deoghar','Bokaro','Koderma','Godda','Ramgarh','Chatra','Gumla','Dumka','Sahebganj','Giridih','Dhanbad','Latehar','Pakur','Hazaribagh','Saraikela Kharsawan','Palamau'],
+  'Karnataka': ['Uttara Kannada','Dakshin Kannada','Chamarajanagar','Yadgir','Davangere','Koppal','Raichur','Dharwar','Bijapur','Tumkur','Mysore','Kodagu','Bellary','Haveri','Mandya','Chitradurga','Bagalkot','Belgaum','Gulbarga','Shimoga','Bidar','Vijayanagara','Hassan','Gadag','Chickmangalur','Chikkaballapura'],
+  'Kerala': ['Thrissur','Alappuzha','Kottayam','Ernakulam','Idukki (Thodupuzha)','Kannur','Palakkad','Malappuram','Kozhikode','Kollam','Pathanamthitta','Wayanad','Kasargod'],
+  'Madhya Pradesh': ['Indore','Chhatarpur','Rewa','Satna','Vidisha','Dhar','Khandwa','Rajgarh','Ratlam','Chindwara','Mandla','Guna','Khargone','Gwalior','Shivpuri','Morena','Hoshangabad','Barwani','Tikamgarh','Shahdol','Sagar','Katni','Dewas','Mandsaur','Betul','Niwari','Jhabua','Damoh','Umaria','Balaghat','Shajapur','Narsinghpur','Dindori','Jabalpur','Sidhi'],
+  'Maharashtra': ['Kolhapur','Dharashiv','Amaravati','Raigad','Satara','Bhandara','Latur','Ahilyanagar','Solapur','Wardha','Nagpur','Nandurbar','Sangli','Chandrapur','Jalgaon','Beed','Palghar','Sindhudurg','Washim','Yeotmal','Gondia','Nanded','Gadchiroli','Akola','Jalna','Buldhana','Ratnagiri','Dhule','Hingoli','Parbhani'],
+  'Manipur': ['Senapati','Churachandpur','Ukhrul','Tamenglong'],
+  'Meghalaya': ['Ribhoi','Jaintia Hills','West Khasi Hills','South Garo Hills','Tura (West Garo Hills)','East Garo Hills'],
+  'Mizoram': ['Lunglei','Champhai','Kolasib'],
+  'Nagaland': ['Mokokchung','Kohima','Phek','Kiphire','Mon'],
+  'Odisha': ['Ganjam (Berhampur)','Jagatsinghpur','Balasore','Jajpur','Phulbani','Sambalpur','Kendrapara','Rayagada','Puri','Dhenkanal','Nayagarh','Baragarh','Kalahandi','Nabarangpur','Gajapati','Cuttack','Mayurubhanj','Malkangiri','Sundergarh','Nuapada','Bolangir','Subarnapur','Keonjher','Angul','Koraput','Bhadrak'],
+  'Punjab': ['Patiala','Jalandhar','Rupnagar','Ludhiana','Barnala','Amritsar','Sangrur','Kapurthala','Ferozepur','Hoshiarpur','Fazilka','Faridkot','Mansa','Gurdaspur','Fatehgarh Saheb','Moga','Bathinda'],
+  'Rajasthan': ['Kota','Bundi','Sirohi','Sikar','Dholpur','Churu','Banswara','Alwar','Sawai Madhopur','Jodhpur','Jhalawar','Ajmer','Nagaur','Kotputli-Behror','Chittorgarh','Barmer','Jaisalmer','Bikaner','Dungarpur','Sriganganagar','Udaipur','Jhunjhunu','Bhilwara','Baran','Rajsamand','Bharatpur','Karauli','Pali','Jalore','Hanumangarh'],
+  'Sikkim': ['South Sikkim'],
+  'Tamilnadu': ['Villupuram','Coimbatore','Karur','Salem','Kanyakumari','Perambalur','Pondicherry','Cuddalore','Tiruvannamalai','Madurai','Vellore','Erode','Tiruppur','Tiruchirapalli','Nagapattinam','Ramanathapuram','Sivaganga','Thanjavur','Virudhunagar','Dindigul','Tirunelveli','Krishnagiri','Pudukkottai','Tiruvarur','Dharmapuri','Kallakurichi','Kancheepuram','Theni','Namakkal','Thoothukudi'],
+  'Telangana': ['Adilabad','Bhadradri Kothagudem','Hanumakonda','Hyderabad','Jagtial','Jangaon','Jayashankar Bhupalpally','Jogulamba Gadwal','Kamareddy','Karimnagar','Khammam','Komaram Bheem Asifabad','Mahabubabad','Mahabubnagar','Mancherial','Medak','Medchal-Malkajgiri','Mulugu','Nagarkurnool','Nalgonda','Narayanpet','Nirmal','Nizamabad','Peddapalli','Rajanna Sircilla','Rangareddy','Sangareddy','Siddipet','Suryapet','Vikarabad','Wanaparthy','Warangal','Yadadri Bhuvanagiri'],
+  'Tripura': ['South Tripura','Dhalai','North Tripura'],
+  'Uttar Pradesh': ['Barabanki','Meerut','Allahabad','Moradabad','Varanasi','Mahoba','Etawah','Ghaziabad','Basti','Gorakhpur','Chandauli','Badaun','Shahjahanpur','Kanpur','Sultanpur','Gonda','Fatehpur','Mirzapur','Muzaffarnagar','Balrampur','Lakhimpur Kheri','Baharaich','Mathura','Deoria','Banda','Ballia','Bareilly','Pilibhit','Aligarh','Faizabad','Azamgarh','Baghpat','Pratapgarh','Jalaun (Orai)','Sonabadra','Hamirpur UP','Bijnore','Bulandshahr','Raebariely','Hardoi','Agra','Unnao','Farrukhabad','Saharanpur','Etah','Sitapur','Siddhartha Nagar','Lalitpur','Shravasti','Kushinagar','Jaunpur','Chitrakoot','Jhansi','Maharajganj','Gazipur'],
+  'Uttarakhand': ['Champawat','Tehri Garhwal','Almora','Chamoli','Pauri Garhwal','Udhamsingh Nagar','Uttarkashi','Haridwar','Pithoragarh','Nainital','Rudra Prayag'],
+  'West Bengal': ['Hooghly','Dakshin Dinajpur','Bankura','24 Parganas (North)','Malda','Purba Midnapur','Purulia','Paschim Midnapur','Uttar Dinajpur','South 24 Parganas','Birbhum','Nadia','Darjeeling','Burdwan','Jalpaiguri','Coochbehar','Murshidabad','Alipurduar','Jhargram'],
+};
+
 export const TE_DEPARTMENTS = {
   'Bird Kolkata': [
     { name: 'ACC',  shortCode: 'acc' },
@@ -942,6 +982,74 @@ export const USER_GRADES = [
   { label: 'Grade F',      value: 'grade_f',        gradeLevel: 6 },
 ];
 
+// ─── Designation ↔ Grade mapping ─────────────────────────────────────────────
+// Single source of truth for the auto-fill logic in EditUserProfileModal and
+// the Query results grid's inline "designation" editor — both call
+// deriveFromDesignation() below instead of duplicating these tables.
+
+// Designation to User Grade mapping
+export const DESIGNATION_GRADE_MAPPING = {
+    'DA': 'group_b',      // Group B
+    'AM': 'grade_a',      // Grade A
+    'MGR': 'grade_b',     // Grade B
+    'AGM': 'grade_c',     // Grade C
+    'DGM': 'grade_d',     // Grade D
+    'GM': 'grade_e',      // Grade E
+    'GM(OIC)': 'grade_e(oic)', // Grade E (OIC)
+    'CGM': 'grade_f',     // Grade F
+    'DDM GRADE B': 'grade_b', // DDM users (Grade B)
+    'DDM GRADE C': 'grade_c', // DDM users (Grade C)
+    'DDM GRADE D': 'grade_d', // DDM users (Grade D)
+};
+
+// Designation options shown for DDM users (department = DDM, office type RO/TE)
+export const DDM_DESIGNATION_OPTIONS = [
+    { value: '', label: '— Select designation —' },
+    { value: 'DDM GRADE B', label: 'DDM GRADE B' },
+    { value: 'DDM GRADE C', label: 'DDM GRADE C' },
+    { value: 'DDM GRADE D', label: 'DDM GRADE D' },
+];
+
+// User Grade to Designation mapping for DDM users (keeps the DDM-only dropdown consistent)
+export const DDM_GRADE_DESIGNATION_MAPPING = {
+    'grade_b': 'DDM GRADE B',
+    'grade_c': 'DDM GRADE C',
+    'grade_d': 'DDM GRADE D',
+};
+
+// User Grade to Designation mapping (reverse mapping)
+export const GRADE_DESIGNATION_MAPPING = {
+    'group_b': 'DA',
+    'grade_a': 'AM',
+    'grade_b': 'MGR',
+    'grade_c': 'AGM',
+    'grade_d': 'DGM',
+    'grade_e': 'GM',
+    'grade_e(oic)': 'GM(OIC)',
+    'grade_f': 'CGM',
+};
+
+/**
+ * Grade/Level/Hindi-designation that a Designation change should auto-fill,
+ * mirroring EditUserProfileModal's designation→grade useEffect. Returns
+ * `null` for a field when there's nothing to derive (e.g. an unmapped
+ * designation) — callers should leave that field as-is rather than clear it.
+ * @param {string} designation
+ * @param {boolean} isDDMUser - true when department_name === 'DDM' and office_type is RO/TE
+ * @returns {{ user_grade: string|null, grade_level: number|null, hindi_designation: string|null }}
+ */
+export function deriveFromDesignation(designation, isDDMUser) {
+    const mappedGrade = DESIGNATION_GRADE_MAPPING[designation];
+    const gradeObj = USER_GRADES.find(g => g.value === mappedGrade);
+    const designationObj = DESIGNATION_OPTIONS.find(o => o.value === designation)
+        || (isDDMUser ? DDM_DESIGNATION_OPTIONS.find(o => o.value === designation) : null);
+    return {
+        user_grade: mappedGrade ?? null,
+        grade_level: gradeObj ? gradeObj.gradeLevel : null,
+        hindi_designation: designationObj?.hindi ?? null,
+    };
+}
+
 /**
  * Returns the department list for the given office_type + location combination.
  * Uses the hardcoded fallback lists.
@@ -994,8 +1102,13 @@ export async function fetchDepartments(officeType, location) {
     if (location) params.location = location;
     const { data } = await api.get('/departments', { params });
     if (Array.isArray(data) && data.length > 0) {
-      _deptCache[key] = data;
-      return data;
+      // Transform API response to match our expected structure
+      const transformed = data.map(d => ({
+        name: d.object_name || d.name,
+        shortCode: d.department_short_code || d.shortCode
+      }));
+      _deptCache[key] = transformed;
+      return transformed;
     }
   } catch (e) {
     console.warn('[fetchDepartments] API failed, using fallback:', e?.message);

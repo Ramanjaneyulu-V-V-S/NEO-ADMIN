@@ -1,0 +1,576 @@
+================================================================================
+                    CASES REPORT - DQL QUERIES
+================================================================================
+
+BASE QUERY STRUCTURE:
+SELECT r_object_id, object_name, subject, ho_ro, description,
+       department_name, functions, r_creation_date, r_creator_name,
+       task_priority, status, case_nature, disposal_level,
+       file_number, types, language_type
+FROM cms_case_folder
+WHERE <WHERE_CLAUSE>
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP <page_number>)
+
+================================================================================
+MANDATORY FILTERS (Applied to all queries):
+================================================================================
+- (is_migrated IS NULL OR is_migrated = FALSE)
+- status <> 'Delete'
+- status <> 'Draft'
+
+================================================================================
+OFFICE TYPE: HO (Head Office)
+================================================================================
+
+Query 1: HO - No additional filters
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'HO'
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 2: HO + Department Filter
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'HO'
+  AND department_name IN ('DDSI', 'Finance')
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 3: HO + Department + Vertical (Functions)
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'HO'
+  AND department_name IN ('DDSI')
+  AND functions = 'Digital Transformation Vertical'
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 4: HO + Date Range Filter
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'HO'
+  AND r_creation_date >= DATE('2026-01-01', 'yyyy-mm-dd')
+  AND r_creation_date <= DATE('2026-05-21', 'yyyy-mm-dd')
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 5: HO + All Filters (Department, Vertical, Date, Status, Priority, Language)
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'HO'
+  AND department_name IN ('DDSI')
+  AND functions = 'Digital Transformation Vertical'
+  AND r_creation_date >= DATE('2026-01-01', 'yyyy-mm-dd')
+  AND r_creation_date <= DATE('2026-05-21', 'yyyy-mm-dd')
+  AND status = 'In-Progress'
+  AND task_priority = 'Urgent'
+  AND language_type = 'English'
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+================================================================================
+OFFICE TYPE: RO (Regional Office)
+================================================================================
+
+Query 1: RO - No additional filters
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'RO'
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 2: RO + Location Filter
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'RO'
+  AND location = 'Tamilnadu'
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 3: RO + Location + Department Filter
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'RO'
+  AND location = 'Tamilnadu'
+  AND department_name IN ('Finance', 'HR')
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 4: RO + Location + Department + Date Range
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'RO'
+  AND location = 'Tamilnadu'
+  AND department_name IN ('Finance')
+  AND r_creation_date >= DATE('2026-01-01', 'yyyy-mm-dd')
+  AND r_creation_date <= DATE('2026-05-21', 'yyyy-mm-dd')
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 5: RO + All Filters (Location, Department, Date, Status, Priority, Language)
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'RO'
+  AND location = 'Tamilnadu'
+  AND department_name IN ('Finance')
+  AND r_creation_date >= DATE('2026-01-01', 'yyyy-mm-dd')
+  AND r_creation_date <= DATE('2026-05-21', 'yyyy-mm-dd')
+  AND status = 'Approved'
+  AND task_priority = 'Ordinary'
+  AND language_type = 'Bilingual'
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+================================================================================
+OFFICE TYPE: TE (Telecom)
+================================================================================
+
+Query 1: TE - No additional filters
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'TE'
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 2: TE + Location Filter
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'TE'
+  AND location = 'Karnataka'
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 3: TE + Location + Department Filter
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'TE'
+  AND location = 'Karnataka'
+  AND department_name IN ('Operations', 'Support')
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 4: TE + Location + Department + Date Range
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'TE'
+  AND location = 'Karnataka'
+  AND department_name IN ('Operations')
+  AND r_creation_date >= DATE('2026-03-01', 'yyyy-mm-dd')
+  AND r_creation_date <= DATE('2026-05-21', 'yyyy-mm-dd')
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 5: TE + All Filters (Location, Department, Date, Status, Priority, Language)
+----------
+WHERE (is_migrated IS NULL OR is_migrated = FALSE)
+  AND status <> 'Delete'
+  AND status <> 'Draft'
+  AND ho_ro = 'TE'
+  AND location = 'Karnataka'
+  AND department_name IN ('Operations')
+  AND r_creation_date >= DATE('2026-03-01', 'yyyy-mm-dd')
+  AND r_creation_date <= DATE('2026-05-21', 'yyyy-mm-dd')
+  AND status = 'Closed'
+  AND task_priority = 'Urgent'
+  AND language_type = 'Hindi'
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+================================================================================
+FILTER DETAILS:
+================================================================================
+
+OFFICE TYPE (hoRo):
+  - Values: 'HO' (Head Office), 'RO' (Regional Office), 'TE' (Telecom)
+  - Always required for filtering cases by office
+
+LOCATION:
+  - Used only for RO and TE office types
+  - Examples: 'Tamilnadu', 'Karnataka', 'Maharashtra', 'Delhi'
+  - Full location name (not shortcode)
+
+DEPARTMENT (deptNames):
+  - Comma-separated list of department names: 'Finance', 'HR', 'DDSI', 'Operations'
+  - Supports multi-department filtering
+  - Format in query: department_name IN ('dept1', 'dept2', ...)
+
+VERTICAL (functions):
+  - Only applicable for HO office type with selected department
+  - Examples: 'Digital Transformation Vertical', 'Business Process Engineering Vertical'
+  - Matches cms_case_folder's functions attribute
+
+DATE RANGE:
+  - fromDate: Minimum creation date (ISO format: 'yyyy-mm-dd')
+  - toDate: Maximum creation date (ISO format: 'yyyy-mm-dd')
+  - Filter: r_creation_date >= DATE('<date>', 'yyyy-mm-dd')
+  - Filter: r_creation_date <= DATE('<date>', 'yyyy-mm-dd')
+
+STATUS:
+  - Values: 'In-Progress', 'Approved', 'Closed', 'Cancelled'
+  - Always excludes: 'Delete', 'Draft'
+
+PRIORITY (task_priority):
+  - Values: 'Ordinary', 'Urgent'
+
+LANGUAGE (language_type):
+  - Values: 'Bilingual', 'English', 'Hindi', 'Others'
+
+PAGINATION:
+  - ENABLE(RETURN_TOP <count>)
+  - count = page_number * itemsPerPage (default itemsPerPage = 10)
+  - Page 1: RETURN_TOP 10 (items 1-10)
+  - Page 2: RETURN_TOP 20 (items 1-20, client takes 11-20)
+  - Page 3: RETURN_TOP 30 (items 1-30, client takes 21-30)
+
+================================================================================
+KEY NOTES:
+================================================================================
+
+1. All queries ALWAYS exclude:
+   - is_migrated = TRUE (or IS NOT NULL and TRUE)
+   - status = 'Delete'
+   - status = 'Draft'
+
+2. Location filter uses FULL location name, not shortcode:
+   ✓ Correct: location = 'Tamilnadu'
+   ✗ Wrong:   UPPER(object_name) LIKE '%-TN-%'
+
+3. Vertical (functions) filter:
+   - Only available for HO office type
+   - Requires a specific department to be selected first
+   - Uses object_name from dm_group (vertical group)
+
+4. No default date range:
+   - Unlike searchCases, getCasesReport does NOT apply default months window
+   - User must explicitly set From Date / To Date
+
+5. Multi-department support:
+   - Applies to all office types (HO, RO, TE)
+   - Single department: department_name IN ('Finance')
+   - Multiple departments: department_name IN ('Finance', 'HR', 'Operations')
+
+================================================================================
+
+================================================================================
+                    DIGIDAK REPORT - DQL QUERIES
+================================================================================
+
+BASE QUERY STRUCTURE:
+SELECT DISTINCT r_object_id, uid_number, letter_subject, initiator, file_number, type_category,
+       status, r_creation_date, decision, languages, mode_of_receipt, priority, secrecy
+FROM cms_digidak_folder
+WHERE <WHERE_CLAUSE>
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP <page_number>)
+
+================================================================================
+MANDATORY FILTERS (Applied to ALL Digidak queries):
+================================================================================
+- is_ddm = false
+- is_endorsed_letter = FALSE
+- is_migrated = false
+- status IN ('Unread', 'Opened', 'Assigned Head', 'Assigned', 'Closed', 'Reassigned', 'Reassign Head', 'Responded', 'Follow-Up', 'Inprocess', 'Pushback')
+
+================================================================================
+DIGIDAK INBOX REPORT (decision = 'Inward')
+================================================================================
+
+Query 1: HO - Basic Filter (No Department/Location needed for Inbox)
+----------
+WHERE is_ddm = false
+  AND is_endorsed_letter = FALSE
+  AND is_migrated = false
+  AND decision = 'Inward'
+  AND status IN ('Unread','Opened','Assigned Head','Assigned','Closed','Reassigned','Reassign Head','Responded','Follow-Up','Inprocess','Pushback')
+  AND login_cgm_group = 'ecm_digidak_ho_<dept_shortcode>_cgm'
+  AND ANY workflow_groups IN ('<group_names_from_username_query>')
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+NOTE: For Inbox, requires TWO-STEP DQL:
+Step 1: Get groups for username
+  SELECT group_name as output FROM dm_group
+  WHERE ANY i_all_users_names = '<username>'
+    AND group_name NOT LIKE 'dm%'
+    AND group_name NOT LIKE '%_grade_%'
+  UNION ALL
+  SELECT user_name as output FROM dm_user WHERE user_name = '<username>'
+
+Step 2: Use group results to filter digidak_folder
+  WHERE ANY workflow_groups IN ('<group_results>')
+
+Query 2: HO + Date Range
+----------
+WHERE is_ddm = false
+  AND is_endorsed_letter = FALSE
+  AND is_migrated = false
+  AND decision = 'Inward'
+  AND status IN ('Unread','Opened','Assigned Head','Assigned','Closed','Reassigned','Reassign Head','Responded','Follow-Up','Inprocess','Pushback')
+  AND login_cgm_group = 'ecm_digidak_ho_ddsi_cgm'
+  AND ANY workflow_groups IN ('<group_names>')
+  AND r_creation_date >= DATE('21/02/2026', 'dd/mm/yyyy')
+  AND r_creation_date <= DATE('25/05/2026', 'dd/mm/yyyy')+1
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 3: RO/TE + Location (No Department needed for Inbox)
+----------
+WHERE is_ddm = false
+  AND is_endorsed_letter = FALSE
+  AND is_migrated = false
+  AND decision = 'Inward'
+  AND status IN ('Unread','Opened','Assigned Head','Assigned','Closed','Reassigned','Reassign Head','Responded','Follow-Up','Inprocess','Pushback')
+  AND login_cgm_group = 'ecm_digidak_ro_tn_cgm'
+  AND ANY workflow_groups IN ('<group_names>')
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+================================================================================
+DIGIDAK OUTBOX REPORT (decision = 'Outward')
+================================================================================
+
+Query 1: HO + Department (No Location needed for Outbox)
+----------
+WHERE is_ddm = false
+  AND is_endorsed_letter = FALSE
+  AND is_migrated = false
+  AND decision = 'Outward'
+  AND status IN ('Unread','Opened','Assigned Head','Assigned','Closed','Reassigned','Reassign Head','Responded','Follow-Up','Inprocess','Pushback')
+  AND login_cgm_group = 'ecm_digidak_ho_ddsi_cgm'
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 2: HO + Department + Source Vertical Filter
+----------
+WHERE is_ddm = false
+  AND is_endorsed_letter = FALSE
+  AND is_migrated = false
+  AND decision = 'Outward'
+  AND status IN ('Unread','Opened','Assigned Head','Assigned','Closed','Reassigned','Reassign Head','Responded','Follow-Up','Inprocess','Pushback')
+  AND login_cgm_group = 'ecm_digidak_ho_ddsi_cgm'
+  AND source_vertical = 'Digital Transformation Vertical'
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 3: HO + Department + Date Range
+----------
+WHERE is_ddm = false
+  AND is_endorsed_letter = FALSE
+  AND is_migrated = false
+  AND decision = 'Outward'
+  AND status IN ('Unread','Opened','Assigned Head','Assigned','Closed','Reassigned','Reassign Head','Responded','Follow-Up','Inprocess','Pushback')
+  AND login_cgm_group = 'ecm_digidak_ho_finance_cgm'
+  AND r_creation_date >= DATE('2026-01-01', 'yyyy-mm-dd')
+  AND r_creation_date <= DATE('2026-05-25', 'yyyy-mm-dd')
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 4: HO + All Filters (Department, Source Vertical, Date, Language, Priority, Status)
+----------
+WHERE is_ddm = false
+  AND is_endorsed_letter = FALSE
+  AND is_migrated = false
+  AND decision = 'Outward'
+  AND status IN ('Unread','Opened','Assigned Head','Assigned','Closed','Reassigned','Reassign Head','Responded','Follow-Up','Inprocess','Pushback')
+  AND login_cgm_group = 'ecm_digidak_ho_ddsi_cgm'
+  AND source_vertical = 'Digital Transformation Vertical'
+  AND r_creation_date >= DATE('2026-01-01', 'yyyy-mm-dd')
+  AND r_creation_date <= DATE('2026-05-25', 'yyyy-mm-dd')
+  AND status = 'Opened'
+  AND languages = 'English'
+  AND priority = 'Urgent'
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 5: RO/TE + Location (No Department needed for Outbox)
+----------
+WHERE is_ddm = false
+  AND is_endorsed_letter = FALSE
+  AND is_migrated = false
+  AND decision = 'Outward'
+  AND status IN ('Unread','Opened','Assigned Head','Assigned','Closed','Reassigned','Reassign Head','Responded','Follow-Up','Inprocess','Pushback')
+  AND login_cgm_group = 'ecm_digidak_ro_tn_cgm'
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+Query 6: RO/TE + Location + Source Vertical + Date Range
+----------
+WHERE is_ddm = false
+  AND is_endorsed_letter = FALSE
+  AND is_migrated = false
+  AND decision = 'Outward'
+  AND status IN ('Unread','Opened','Assigned Head','Assigned','Closed','Reassigned','Reassign Head','Responded','Follow-Up','Inprocess','Pushback')
+  AND login_cgm_group = 'ecm_digidak_te_ka_cgm'
+  AND source_vertical = 'Operations Vertical'
+  AND r_creation_date >= DATE('2026-03-01', 'yyyy-mm-dd')
+  AND r_creation_date <= DATE('2026-05-25', 'yyyy-mm-dd')
+ORDER BY r_creation_date DESC
+ENABLE(RETURN_TOP 10)
+
+================================================================================
+DIGIDAK MOVEMENT REGISTER QUERIES
+================================================================================
+
+Query: Get Movement Register for Digidak
+----------
+SELECT r_object_id, type_category, letter_subject, performer, status, assigned_user, entry_type, received_date, completed_date
+FROM cms_digidak_movement_re
+WHERE ANY i_folder_id = '<digidak_r_object_id>'
+ORDER BY r_creation_date DESC
+
+================================================================================
+DIGIDAK FILTER DETAILS:
+================================================================================
+
+OFFICE TYPE (hoRo):
+  - Values: 'HO' (Head Office), 'RO' (Regional Office), 'TE' (Telecom)
+  - Always required for filtering digidak
+
+LOCATION:
+  - Used only for RO and TE office types in Outbox
+  - Examples: 'Tamilnadu' (tn), 'Karnataka' (ka), 'Maharashtra' (mh)
+  - Location shortcode is used in login_cgm_group pattern
+
+DEPARTMENT (deptNames):
+  - Used only for HO office type in Outbox
+  - Examples: 'DDSI', 'Finance', 'HR'
+  - Department shortcode is used in login_cgm_group pattern
+  - Pattern: ecm_digidak_ho_<dept_shortcode>_cgm
+
+SOURCE VERTICAL:
+  - Only applicable for Outbox report with HO or RO/TE + Location
+  - Filters cms_digidak_folder's source_vertical attribute
+  - Values come from dm_group group_display_name where:
+    * For HO: group_name LIKE 'ecm_ho_<dept_shortcode>_%'
+    * For RO/TE: group_name LIKE 'ecm_<location_shortcode>_%'
+  - Excludes: 'dm%', '%_grade_%', '%vertical_head%', '%cgm_sec%'
+
+INBOX FILTERS (decision = 'Inward'):
+  - Username required (not shown in WHERE clause)
+  - Uses two-step DQL: username → group names → filter folders
+  - Department and Location optional (HO, RO, TE all supported)
+
+OUTBOX FILTERS (decision = 'Outward'):
+  - Department required for HO
+  - Location required for RO/TE
+  - Source Vertical optional
+  - Date Range optional
+
+DATE RANGE:
+  - fromDate: Minimum creation date (ISO format: 'yyyy-mm-dd')
+  - toDate: Maximum creation date (ISO format: 'yyyy-mm-dd')
+  - Format: r_creation_date >= DATE('<date>', 'yyyy-mm-dd') AND r_creation_date <= DATE('<date>', 'yyyy-mm-dd')+1
+
+DECISION (Inbox vs Outbox):
+  - Inbox: decision = 'Inward'
+  - Outbox: decision = 'Outward'
+
+LANGUAGE (languages):
+  - Values: 'English', 'Hindi', 'Bilingual', etc.
+
+PRIORITY (priority):
+  - Values: 'Ordinary', 'Urgent', etc.
+
+SECRECY (secrecy):
+  - Values: 'Confidential', 'Secret', 'Top Secret', etc.
+
+STATUS (status):
+  - Common values: 'Unread', 'Opened', 'Assigned', 'Closed', 'Responded'
+  - Always includes 10 mandatory status values (see MANDATORY FILTERS)
+
+TYPE CATEGORY (type_category):
+  - Examples: 'Actionable', 'For Information', 'For Approval'
+
+PAGINATION:
+  - ENABLE(RETURN_TOP <count>)
+  - count = page_number * itemsPerPage (default itemsPerPage = 10)
+  - Page 1: RETURN_TOP 10 (items 1-10)
+  - Page 2: RETURN_TOP 20 (items 1-20, client takes 11-20)
+  - Page 3: RETURN_TOP 30 (items 1-30, client takes 21-30)
+
+================================================================================
+KEY NOTES (DIGIDAK):
+================================================================================
+
+1. All Digidak queries ALWAYS include mandatory filters:
+   - is_ddm = false
+   - is_endorsed_letter = FALSE
+   - is_migrated = false
+   - 10 status values (see MANDATORY FILTERS)
+
+2. INBOX vs OUTBOX differences:
+   INBOX (Inward):
+     - Requires username filter (two-step DQL query)
+     - Department/Location optional (used only if selected)
+     - No Source Vertical filter
+
+   OUTBOX (Outward):
+     - Requires Department (HO) or Location (RO/TE)
+     - Source Vertical available as optional filter
+     - Username not used
+
+3. login_cgm_group pattern (based on office type):
+   - HO:  ecm_digidak_ho_<dept_shortcode>_cgm
+         Example: ecm_digidak_ho_ddsi_cgm
+   - RO:  ecm_digidak_ro_<location_shortcode>_cgm
+         Example: ecm_digidak_ro_tn_cgm (Tamil Nadu)
+   - TE:  ecm_digidak_te_<location_shortcode>_cgm
+         Example: ecm_digidak_te_ka_cgm (Karnataka)
+
+4. Source Vertical Lookup DQL:
+   For HO with Department:
+     SELECT group_display_name FROM dm_group
+     WHERE group_name LIKE 'ecm_ho_<dept_shortcode>_%'
+       AND group_name NOT LIKE 'dm%'
+       AND group_name NOT LIKE '%_grade_%'
+       AND group_name NOT LIKE '%vertical_head%'
+       AND group_name NOT LIKE '%cgm_sec%'
+
+   For RO/TE with Location:
+     SELECT group_display_name FROM dm_group
+     WHERE group_name LIKE 'ecm_<location_shortcode>_%'
+       AND group_name NOT LIKE 'dm%'
+       AND group_name NOT LIKE '%_grade_%'
+       AND group_name NOT LIKE '%vertical_head%'
+       AND group_name NOT LIKE '%cgm_sec%'
+
+5. Movement Register (cms_digidak_movement_re):
+   - Separate object type from main digidak_folder
+   - Linked via i_folder_id = digidak's r_object_id
+   - Returns: Type Category, Letter Subject, Performer, Status, Assigned User, Entry Type, Received Date, Completed Date
+
+6. DISTINCT keyword:
+   - Used in SELECT to avoid duplicate records
+   - Important when multiple filters applied
+
+================================================================================

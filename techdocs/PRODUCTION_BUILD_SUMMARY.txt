@@ -1,0 +1,207 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                   PRODUCTION BUILD COMPLETE - 2026-05-13                  ║
+║                     Environment-based Configuration                       ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+✅ BUILD STATUS: SUCCESSFUL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔧 BACKEND WAR FILE
+───────────────────────────────────────────────────────────────────────────
+  Location:        d:\NBSupportApp\backend\target\neoadminBackend.war
+  Size:            24.8 MB
+  Profile:         prod
+  Spring Config:   spring.profiles.active=prod (in application.properties)
+
+  Key Endpoint:
+    GET /api/auth/config → Returns OTDS endpoint & repository based on profile
+
+  Expected Response:
+    {
+      "otdsTokenApiUrl": "https://neo.nabard.org/proxy/otds/Integration/otds-proxy/token",
+      "repository": "EDMS",
+      "environment": "prod"
+    }
+
+📦 FRONTEND BUILD
+───────────────────────────────────────────────────────────────────────────
+  Location:        d:\NBSupportApp\frontend\dist/
+  Main JS:         ~800 KB (gzipped: ~215 KB)
+  CSS:             ~45 KB (gzipped: ~8 KB)
+  HTML:            ~500 B
+
+🔑 KEY CONFIGURATION CHANGES
+───────────────────────────────────────────────────────────────────────────
+
+BACKEND CODE:
+  ✓ AuthController.java
+    - Added /api/auth/config GET endpoint
+    - Injects Environment object via constructor
+    - Returns OTDS token API URL from application properties
+    - Logs active profile for debugging
+
+  ✓ application-prod.properties
+    - otds.token-api-url=https://neo.nabard.org/proxy/otds/Integration/otds-proxy/token
+    - Repository: EDMS
+    - DCTM REST: https://wsmum010774.nabard.org:6060/dctm-rest
+    - OTDS REST: https://wsmum010774.nabard.org:7070/otdsws/rest
+
+  ✓ application.properties
+    - spring.profiles.active=prod (CRITICAL)
+    - Default otds.token-api-url for fallback
+
+FRONTEND CODE:
+  ✓ LoginPage.jsx
+    - New useEffect hook to fetch /api/auth/config on mount
+    - Uses OTDS URL from backend (with fallback to client-side detection)
+    - Enhanced console logging for debugging
+    - Logs: environment, repository, OTDS URL being used
+
+📋 DEPLOYMENT INSTRUCTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1: STOP TOMCAT
+──────────────────────────────
+  > net stop Tomcat10.1
+
+  Wait for process to terminate (30-60 seconds)
+
+STEP 2: BACKUP CURRENT DEPLOYMENT
+──────────────────────────────────────
+  # Backup backend
+  Copy: C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps\backend.war
+  To: C:\Backups\backend.war.backup
+
+  # Backup frontend
+  Copy: C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps\neoadmin\*
+  To: C:\Backups\neoadmin-backup\
+
+STEP 3: DEPLOY BACKEND WAR
+──────────────────────────────
+  1. Navigate to Tomcat webapps:
+     CD C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps
+
+  2. Delete old backend files:
+     DEL backend.war
+     RMDIR /S /Q backend
+
+  3. Copy new WAR:
+     COPY d:\NBSupportApp\backend\target\neoadminBackend.war backend.war
+
+STEP 4: DEPLOY FRONTEND
+──────────────────────────────
+  1. Navigate to neoadmin folder:
+     CD C:\Program Files\Apache Software Foundation\Tomcat 10.1\webapps\neoadmin
+
+  2. Delete old files:
+     DEL /Q *.html *.js *.css *.svg
+     RMDIR /S /Q assets
+
+  3. Copy new files:
+     XCOPY d:\NBSupportApp\frontend\dist\* . /Y /E
+
+STEP 5: START TOMCAT
+──────────────────────────────
+  > net start Tomcat10.1
+
+  Wait 60 seconds for full deployment
+
+STEP 6: VERIFY DEPLOYMENT
+──────────────────────────────
+
+  Test 1 - Backend Config Endpoint:
+    curl http://production-server:8080/api/auth/config
+
+    Expected JSON response with:
+      - "otdsTokenApiUrl": "https://neo.nabard.org/proxy/otds/Integration/otds-proxy/token"
+      - "repository": "EDMS"
+      - "environment": "prod"
+
+  Test 2 - Frontend Console Logs:
+    1. Open https://neo.nabard.org/ in browser
+    2. Press F12 to open Developer Console
+    3. Look for these logs:
+       [AUTH] Backend config loaded: {...}
+       [AUTH] Active Environment: prod
+       [AUTH] Repository: EDMS
+       [AUTH] OTDS Token API URL: https://neo.nabard.org/proxy/otds/Integration/otds-proxy/token
+
+  Test 3 - Login Test:
+    1. Try logging in with production credentials
+    2. Check console for:
+       [LOGIN] Attempting OTDS authentication with URL: https://neo.nabard.org/proxy/otds/Integration/otds-proxy/token
+    3. Verify login succeeds
+
+🐛 TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If OTDS URL still shows 172.172.20.214:
+  □ Check Tomcat logs: C:\Program Files\Apache Software Foundation\Tomcat 10.1\logs\catalina.out
+  □ Verify backend.war was deployed: Check size of C:\...\Tomcat 10.1\webapps\backend\ folder
+  □ Clear browser cache: Ctrl+Shift+Delete
+  □ Check /api/auth/config response in browser Network tab
+  □ Verify spring.profiles.active=prod in deployed application.properties
+
+If login fails with 401:
+  □ Check browser Console for actual OTDS URL being called
+  □ Verify OTDS endpoint is accessible from server: ping neo.nabard.org
+  □ Check Network tab for actual OTDS request URL and response
+  □ Verify OTDS credentials in application-prod.properties
+  □ Check Tomcat logs for OTDS authentication errors
+
+If WAR doesn't deploy:
+  □ Ensure Tomcat service is stopped completely: tasklist | find /i tomcat
+  □ Check for port conflicts: netstat -ano | find :8080
+  □ Verify WAR file is not corrupted: 7z t backend.war
+  □ Check Tomcat webapps folder has proper permissions
+
+📁 FILES READY FOR DEPLOYMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Location: d:\NBSupportApp\prod-release\
+
+  📄 neoadminBackend.war (24.8 MB)
+     → Deploy to: C:\...\Tomcat 10.1\webapps\backend.war
+
+  📂 frontend-dist/
+     → Deploy to: C:\...\Tomcat 10.1\webapps\neoadmin\
+     Contains:
+       - index.html (0.48 KB)
+       - assets/index-Czasrf3y.js (800.6 KB)
+       - assets/index-C_9ydX5p.css (44.88 KB)
+       - assets/vite.svg (1.46 KB)
+
+  📄 DEPLOYMENT_INSTRUCTIONS.txt
+     Full deployment guide with troubleshooting
+
+✅ GIT COMMIT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Commit: ab89c72 (Branch: Prod-config)
+Message: NEO-72: Environment-based OTDS Token API Configuration
+
+Changes:
+  ✓ AuthController.java (new /api/auth/config endpoint)
+  ✓ application.properties (default otds.token-api-url)
+  ✓ application-prod.properties (prod OTDS URL)
+  ✓ application-uat.properties (UAT OTDS URL + comment fix)
+  ✓ application-azure.properties (Azure OTDS URL)
+  ✓ LoginPage.jsx (fetch config from backend)
+
+🎯 EXPECTED OUTCOME
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BEFORE: OTDS requests always going to 172.172.20.214 (Azure IP)
+AFTER:  OTDS requests go to https://neo.nabard.org for production
+
+Why it works:
+  1. spring.profiles.active=prod loaded from application.properties
+  2. Spring loads application-prod.properties properties (overrides defaults)
+  3. AuthController injects Environment and reads otds.token-api-url property
+  4. Frontend calls /api/auth/config to get OTDS URL from backend
+  5. Frontend uses backend-provided URL instead of client-side detection
+  6. Production OTDS endpoint is used for authentication
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║  Ready for production deployment! All files are built and committed.      ║
+╚═══════════════════════════════════════════════════════════════════════════╝

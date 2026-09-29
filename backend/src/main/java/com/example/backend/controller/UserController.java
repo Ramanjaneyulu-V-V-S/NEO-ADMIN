@@ -76,10 +76,13 @@ public class UserController {
     /**
      * List cms_user_profile users by location (for RO/TE offices).
      * GET /api/users/by-location?location=Chennai
+     * Optional: GET /api/users/by-location?location=Chennai&officeType=RO
      */
     @GetMapping("/by-location")
-    public List<Map<String, Object>> getUsersByLocation(@RequestParam String location) {
-        return userService.getUsersByLocation(location);
+    public List<Map<String, Object>> getUsersByLocation(
+            @RequestParam String location,
+            @RequestParam(required = false) String officeType) {
+        return userService.getUsersByLocation(location, officeType);
     }
 
     /**
@@ -183,8 +186,42 @@ public class UserController {
             @RequestParam(defaultValue = "50") int size,
             @RequestParam(required = false) String officeTypeFilter,
             @RequestParam(required = false) String locationFilter,
-            @RequestParam(required = false) String deptNames) {
-        return userService.searchUserProfiles(query, page, size, officeTypeFilter, locationFilter, deptNames);
+            @RequestParam(required = false) String deptNames,
+            @RequestParam(required = false) String uin,
+            @RequestParam(required = false) String grade,
+            @RequestParam(required = false) String deptCode,
+            @RequestParam(required = false) String roCode,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String sortDir,
+            @RequestParam(name = "include-total", defaultValue = "false") boolean includeTotal) {
+        return userService.searchUserProfiles(query, page, size, officeTypeFilter, locationFilter, deptNames,
+                uin, grade, deptCode, roCode, sortBy, sortDir, includeTotal);
+    }
+
+    /**
+     * Bulk department_short_code_multi lookup keyed by r_object_id. Used by the User Data
+     * Export feature to expand multi-department users into one export row per department.
+     * GET /api/users/dept-multi?officeTypeFilter=RO
+     */
+    @GetMapping("/dept-multi")
+    public Map<String, List<String>> getDeptMulti(@RequestParam(required = false) String officeTypeFilter) {
+        return userService.getDeptMultiByOfficeType(officeTypeFilter);
+    }
+
+    /**
+     * Profiles of all members of a role group, across all office types.
+     * role = localAdmin (ecm_local_admin) | cgmSect (any ecm_*cgm_sec group).
+     */
+    @GetMapping("/role-members")
+    public ResponseEntity<Map<String, Object>> getRoleMemberProfiles(
+            @RequestParam String role,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "500") int size) {
+        try {
+            return ResponseEntity.ok(userService.getRoleMemberProfiles(role, page, size));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     /**

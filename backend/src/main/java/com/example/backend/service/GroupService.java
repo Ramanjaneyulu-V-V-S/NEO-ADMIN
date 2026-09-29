@@ -412,6 +412,14 @@ public class GroupService {
             return result;
 
         } catch (Exception e) {
+            // If member doesn't exist in group (404), treat as success since goal is achieved
+            if (e.getMessage() != null && (e.getMessage().contains("404") || e.getMessage().contains("not found") || e.getMessage().contains("E_USER_NOT_FOUND"))) {
+                log.info("Member '{}' not in group '{}' (already removed or never added)", memberName, groupName);
+                Map<String, Object> result = new HashMap<>();
+                result.put("success", true);
+                result.put("message", "Member not in group (already removed)");
+                return result;
+            }
             log.error("Error removing member '{}' from group '{}': {}", memberName, groupName, e.getMessage(), e);
             Map<String, Object> result = new HashMap<>();
             result.put("success", false);
@@ -503,6 +511,115 @@ public class GroupService {
     }
 
     /**
+     * Lists vertical folders under /ECM CONFIG/Office Type/HO/<deptName> — the dm_folder
+     * shadow objects created alongside each vertical's dm_group (see createVerticalFolder).
+     * object_name = vertical full name, title = shortcode, subject = the dm_group group_name.
+     */
+    @SuppressWarnings("unchecked")
+    public List<Map<String, String>> listVerticalFolders(String deptName) {
+        String path = "/ECM CONFIG/Office Type/HO/" + deptName;
+        String safePath = path.replace("'", "''");
+        String dql = "SELECT object_name, title, subject FROM dm_folder"
+                + " WHERE FOLDER('" + safePath + "')"
+                + " ORDER BY object_name";
+        String url = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository()
+                + "?dql={dql}&items-per-page=100&page=1&inline=true";
+
+        log.info("[Vertical] Listing vertical folders under '{}'", path);
+        try {
+            Map<String, Object> response = restClient.get()
+                    .uri(url, dql)
+                    .header("Authorization", getAuthHeader())
+                    .header("Accept", "application/vnd.emc.documentum+json")
+                    .retrieve()
+                    .body(Map.class);
+
+            List<Map<String, String>> results = new ArrayList<>();
+            List<Map<String, Object>> entries = (List<Map<String, Object>>) response.get("entries");
+            if (entries != null) {
+                for (Map<String, Object> entry : entries) {
+                    Map<String, Object> content = (Map<String, Object>) entry.get("content");
+                    if (content != null) {
+                        Map<String, Object> props = (Map<String, Object>) content.get("properties");
+                        if (props != null) {
+                            String name = (String) props.get("object_name");
+                            String groupName = (String) props.get("subject");
+                            if (name != null && groupName != null) {
+                                Map<String, String> item = new LinkedHashMap<>();
+                                item.put("name", name);
+                                item.put("shortCode", (String) props.get("title"));
+                                item.put("groupName", groupName);
+                                results.add(item);
+                            }
+                        }
+                    }
+                }
+            }
+            return results;
+        } catch (Exception e) {
+            log.error("Error listing vertical folders under '{}': {}", path, e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * Get verticals from ECM CONFIG folder hierarchy using DQL.
+     * Queries dm_folder objects instead of dm_group.
+     * Returns folders under /ECM CONFIG/Office Type/{OFFICE_TYPE}/{DEPT_NAME}/
+     *
+     * Query: SELECT subject, object_name FROM dm_folder
+     *        WHERE folder ('/ECM CONFIG/Office Type/{OFFICE_TYPE}/{DEPT_NAME}/')
+     */
+    @SuppressWarnings("unchecked")
+    public List<Map<String, String>> getVerticalFolders(String officeType, String deptName) {
+        String safe = officeType.replace("'", "''");
+        String deptSafe = deptName.replace("'", "''");
+        String folderPath = "/ECM CONFIG/Office Type/" + safe + "/" + deptSafe;
+
+        String dql = "SELECT subject, object_name FROM dm_folder WHERE folder ('" + folderPath + "')";
+        String url = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository()
+                   + "?dql={dql}&items-per-page=100&page=1&inline=true";
+
+        log.info("Fetching vertical folders from path '{}' via DQL", folderPath);
+        try {
+            Map<String, Object> response = restClient.get()
+                    .uri(url, dql)
+                    .header("Authorization", getAuthHeader())
+                    .header("Accept", "application/vnd.emc.documentum+json")
+                    .retrieve()
+                    .body(Map.class);
+
+            List<Map<String, String>> results = new ArrayList<>();
+            List<Map<String, Object>> entries = (List<Map<String, Object>>) response.get("entries");
+
+            if (entries != null) {
+                for (Map<String, Object> entry : entries) {
+                    Map<String, Object> content = (Map<String, Object>) entry.get("content");
+                    if (content != null) {
+                        Map<String, Object> props = (Map<String, Object>) content.get("properties");
+                        if (props != null) {
+                            Map<String, String> item = new HashMap<>();
+                            // Use subject as group_name for compatibility with existing functionality
+                            String subject = (String) props.get("subject");
+                            item.put("group_name", subject);
+                            item.put("subject", subject);
+                            item.put("object_name", (String) props.get("object_name"));
+                            item.put("r_object_id", (String) props.get("r_object_id"));
+                            results.add(item);
+                        }
+                    }
+                }
+            }
+
+            log.info("Found {} vertical folders under '{}'", results.size(), folderPath);
+            return results;
+        } catch (Exception e) {
+            log.error("Error fetching vertical folders from '{}': {}", folderPath, e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    /**
      * Return all dm_groups the given user belongs to.
      */
     @SuppressWarnings("unchecked")
@@ -570,6 +687,22 @@ public class GroupService {
      */
     @SuppressWarnings("unchecked")
     public Map<String, Object> createGroup(String groupName, String groupDisplayName) {
+        // Check if group already exists
+        try {
+            Map<String, Object> existsCheck = checkGroupExists(groupName);
+            if ((Boolean) existsCheck.getOrDefault("exists", false)) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("success", false);
+                error.put("exists", true);
+                error.put("message", "Group '" + groupName + "' already exists. Please provide a different vertical shortcode.");
+                log.warn("Attempted to create group '{}' which already exists", groupName);
+                return error;
+            }
+        } catch (Exception e) {
+            log.debug("Error checking if group exists: {}", e.getMessage());
+            // Continue with creation attempt
+        }
+
         String url = dctmConfig.getUrl() + "/repositories/" + dctmConfig.getRepository() + "/groups";
 
         Map<String, Object> props = new HashMap<>();
@@ -599,7 +732,10 @@ public class GroupService {
 
         } catch (Exception e) {
             log.error("Error creating group '{}': {}", groupName, e.getMessage(), e);
-            throw new RuntimeException("Failed to create group: " + e.getMessage());
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("message", "Failed to create group: " + e.getMessage());
+            return error;
         }
     }
 

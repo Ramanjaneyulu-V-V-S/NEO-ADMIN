@@ -1,0 +1,199 @@
+.info-fields-container {
+  margin-bottom: 1rem;
+  padding: 0;
+}
+.info-fields-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.info-icon {
+  font-size: 1.25rem;
+  color: var(--primary-color, #007bff);
+  opacity: 0.8;
+}
+.info-fields-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary, #ffffff);
+  letter-spacing: 0.025em;
+}
+.info-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  padding: 0;
+}
+.info-field-item {
+  position: relative;
+  background: #ffffff05;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+  overflow: hidden;
+}
+.info-field-item:hover {
+  background: #ffffff0a;
+  border-color: #ffffff26;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.info-field-item:focus {
+  outline-offset: 2px;
+}
+.info-field-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  position: relative;
+  z-index: 1;
+}
+.field-icon {
+  font-size: 1rem;
+  color: var(--primary-color, #007bff);
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+}
+.info-field-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1;
+}
+.info-field-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary, #a0a0a0);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+}
+.info-field-value {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-primary, #ffffff);
+  line-height: 1.4;
+  word-break: break-word;
+}
+.info-field-value.status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  background: #22c55e1a;
+  color: #22c55e;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+.info-field-value.date {
+  font-family: "Courier New", monospace;
+  font-size: 0.8rem;
+}
+.info-field-value.number {
+  font-family: "Courier New", monospace;
+  font-weight: 500;
+  color: var(--accent-color, #fbbf24);
+}
+.info-field-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(to bottom, var(--primary-color, #007bff), var(--accent-color, #fbbf24));
+  transition: opacity 0.2s ease;
+}
+.info-field-item:hover .info-field-highlight {
+  opacity: 1;
+}
+.info-fields-container.compact .info-fields-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.5rem;
+}
+.info-fields-container.compact .info-field-item {
+  padding: 0.625rem 0.75rem;
+}
+.info-fields-container.compact .info-field-label {
+  font-size: 0.7rem;
+}
+.info-fields-container.compact .info-field-value {
+  font-size: 0.8rem;
+}
+/* Responsive Design */
+@media (max-width: 768px) {
+  .info-fields-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  .info-field-item {
+    padding: 0.75rem;
+  }
+  .info-field-text {
+    gap: 0.125rem;
+  }
+  .info-field-label {
+    font-size: 0.7rem;
+  }
+  .info-field-value {
+    font-size: 0.8rem;
+  }
+}
+@media (max-width: 480px) {
+  .info-fields-container {
+    margin: 0.75rem 0;
+  }
+
+  .info-field-content {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .field-icon {
+    align-self: flex-start;
+  }
+}
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .info-field-item {
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+  .info-field-item:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+  .info-field-label {
+    color: #cccccc;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .info-field-item {
+    transition: none;
+  }
+  .info-field-item:hover {
+    transform: none;
+  }
+  .info-field-highlight {
+    transition: none;
+  }
+}
+
+/* Dark theme adjustments */
+@media (prefers-color-scheme: dark) {
+  .info-field-item {
+    background: #ffffff05;
+    border-color: #ffffff1a;
+  }
+  .info-field-item:hover {
+    background: #ffffff0f;
+    border-color: #ffffff33;
+  }
+}

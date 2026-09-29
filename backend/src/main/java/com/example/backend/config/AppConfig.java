@@ -10,6 +10,7 @@ import lombok.Data;
 public class AppConfig {
     private CasesConfig cases = new CasesConfig();
     private WorkflowConfig workflow = new WorkflowConfig();
+    private SfsConfig sfs = new SfsConfig();
 
     @Data
     public static class CasesConfig {
@@ -22,5 +23,14 @@ public class AppConfig {
     @Data
     public static class WorkflowConfig {
         private String processes;
+    }
+
+    @Data
+    public static class SfsConfig {
+        /**
+         * Folder ID (r_object_id) for /SFS Config/Document Type
+         * Get from query: SELECT r_object_id FROM dm_folder WHERE ANY r_folder_path = '/SFS Config/Document Type'
+         */
+        private String documentTypeFolderId;
     }
 }

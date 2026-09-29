@@ -1,0 +1,1529 @@
+body {
+  background: #edf1f6 !important;
+}
+.k-grid-norecords-template {
+  border: none;
+}
+/* Spin animation for loading states */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+/*remove grid search reset icon*/
+span.k-sort-order {
+  display: none !important;
+}
+.display-none,
+span.k-dropdownlist.k-picker.k-picker-md.k-picker-solid.k-rounded-md.k-dropdown-operator,
+span.k-clear-value {
+  display: none;
+}
+.width-50 {
+  width: 50px;
+}
+.width-100 {
+  width: 100px;
+}
+.width-150 {
+  width: 140px;
+}
+.width-200 {
+  width: 200px;
+}
+.font-size-10 {
+  font-size: 11px;
+}
+.max-h-300 {
+  max-height: 300px;
+}
+.font-size-11 {
+  font-size: 11px;
+}
+input,
+.font-size-12,
+.k-input-value-text {
+  font-size: 13px !important;
+}
+.font-48 {
+  font-size: 48px;
+}
+span.k-chip-label {
+  font-size: 13px;
+}
+.max-height-120 {
+  height: 120px;
+}
+.btn-area {
+  z-index: 9999999999;
+}
+.color-blue {
+  color: rgb(53 143 252);
+}
+.outlined-checkbox > input {
+  border: 2px solid rgb(53 143 252);
+}
+/*global dropdown*/
+.k-list-item {
+  font-size: 13px;
+}
+input {
+  padding: 5px !important;
+}
+.input-border {
+  border: 1px solid #d7d7d7 !important;
+}
+.cursor-pointer {
+  cursor: pointer;
+}
+.cursor-not-allowed {
+  cursor: not-allowed !important;
+}
+.flex-1 {
+  flex: 1;
+}
+.min-height-100 {
+  min-height: 100%;
+}
+.master-search-btn {
+  padding: 3px 8px;
+}
+.transition-width {
+  transition:
+    width 0.7s ease,
+    flex-basis 0.3s ease,
+    opacity 0.2s ease;
+}
+.section {
+  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+.success {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #198754;
+  font-weight: 500;
+}
+.success svg {
+  width: 16px;
+  height: 16px;
+}
+.radio-btn-text > li > label {
+  font-size: 13px;
+  color: #fff;
+}
+.k-dialog-wrapper {
+  z-index: 999 !important;
+}
+
+/************************** Kendo React Search Filter **************************/
+.k-filtercell > span.k-dropdownlist.k-picker.k-picker-md.k-picker-solid.k-rounded-md {
+  height: 25px;
+  margin-right: 5px;
+}
+.k-filtercell > button.k-button.k-button-md.k-button-solid.k-button-solid-base.k-rounded-md.k-icon-button,
+.k-filtercell-wrapper > div > button {
+  padding: 2px !important;
+}
+.k-filtercell > div > span > input {
+  padding: 3px !important;
+}
+
+body > img {
+  width: 100%;
+}
+
+/************************** Kendo React Loader CSS **************************/
+.k-loading-mask {
+  z-index: 99999;
+}
+.skeleton-cell {
+  width: 100%;
+  height: 28px;
+  border-radius: 4px;
+  background-color: #e0e0e0;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+@keyframes pulse {
+  0% {
+    background-color: #e0e0e0;
+  }
+  50% {
+    background-color: #f5f5f5;
+  }
+  100% {
+    background-color: #e0e0e0;
+  }
+}
+
+/****************************** Custom Tooltip CSS **************************/
+.custom-tooltip-wrapper {
+  position: relative;
+  display: inline-block;
+  z-index: 999999999;
+}
+.custom-tooltip-box {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  font-size: 9px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 999999999;
+  margin-bottom: 3px;
+  color: rgb(69, 69, 69);
+  background-color: #d5d7d9;
+  transform: translateX(-50%);
+}
+.custom-tooltip-box::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: #d5d7d9 transparent transparent transparent;
+}
+
+/************************ Sweet Alert Role Switching Popup ******************/
+.custom-swal-icons {
+  margin: 0 auto;
+}
+.custom-swal-popup {
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+.custom-swal-title {
+  font-size: 22px;
+  color: #2c3e50;
+  font-weight: 600;
+  padding-top: 10px;
+}
+.custom-swal-text {
+  font-size: 16px;
+  color: #555;
+}
+.swal2-actions {
+  margin-top: 10px;
+}
+
+/************************** Kendo Editor Common CSS *************************/
+.k-editor .k-editor-content {
+  height: 40vh !important;
+}
+.add-comment-editor {
+  height: 120px;
+}
+
+/***************************** Bootstrap Dialog Popup CSS *****************************/
+.modal-header.d-flex.justify-content-between.align-items-center {
+  padding: 10px;
+  border-radius: 10px;
+}
+
+/***************************** Dialog Popup CSS *****************************/
+.k-window,
+.k-dialog-titlebar {
+  border-radius: 8px !important;
+}
+.k-pdf-viewer .k-page {
+  margin-block: 0px !important;
+}
+.k-window-title.k-dialog-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+.notesheet-window-editor > .k-dialog {
+  margin: 20px;
+}
+.custom-dialog-width .k-window {
+  width: 400px !important;
+}
+.pushBack-dialog-wh .k-window {
+  width: 40vw;
+}
+.add-comment-dialog-wh .k-window {
+  width: 50vw;
+}
+.fbd-dialog-wh .k-window {
+  width: 55vw;
+}
+
+.endorse-dialog-wh .k-grid.k-grid-md.k-grid-virtual {
+  max-height: 250px;
+}
+
+.endorse-dialog-wh .k-window {
+  width: 55vw;
+  max-height: 50vh;
+}
+.work-flow-dialog-wh .k-window {
+  width: 40vw;
+}
+.notesheet-preview-dialog-wh .k-window {
+  width: 80vw;
+  height: 95vh;
+}
+.preview-image-container {
+  overflow: auto;
+  height: calc(100vh - 155px);
+}
+.reference-dialog-wh .k-window {
+  width: 80vw;
+}
+.file-no-wh .k-window {
+  width: 50vw;
+  height: 80vh;
+}
+.movementRegister-dialog-wh .k-window {
+  width: 50vw;
+  height: 85vh;
+}
+.case-info-dialog-wh .k-window {
+  width: 40vw;
+}
+.case-info-dialog-wh .k-window-content {
+  padding: 0 !important;
+  background: #fafbfc !important;
+}
+.menu-profile-popup .k-window {
+  width: 40vw;
+  max-height: 80vh;
+}
+.inward-preview-dialog-wh .k-window {
+  width: 50vw;
+  min-height: 30vh;
+}
+.add-comment-dialog-wh .k-window-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+.add-comments {
+  flex-grow: 1;
+  resize: none;
+}
+@media (min-width: 1024px) {
+  .notesheet-window-editor > .k-dialog {
+    width: 55vw;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .pushBack-dialog-wh .k-window,
+  .add-comment-dialog-wh .k-window,
+  .work-flow-dialog-wh .k-window,
+  .fbd-dialog-wh .k-window,
+  .endorse-dialog-wh .k-window,
+  .movementRegister-dialog-wh .k-window,
+  .case-info-dialog-wh .k-window {
+    width: 70vw !important;
+  }
+
+  .inward-preview-dialog-wh .k-window,
+  .reference-dialog-wh .k-window {
+    width: 80vw !important;
+  }
+  .menu-profile-popup .k-window {
+    width: 50vw !important;
+  }
+  .movementRegister-dialog-wh .k-window {
+    height: 85vh !important;
+  }
+  .file-no-wh .k-window {
+    width: 80vw;
+    height: 80vh;
+  }
+}
+
+@media (max-width: 767px) {
+  .pushBack-dialog-wh .k-window,
+  .add-comment-dialog-wh .k-window,
+  .inward-preview-dialog-wh .k-window,
+  .work-flow-dialog-wh .k-window,
+  .reference-dialog-wh .k-window,
+  .movementRegister-dialog-wh .k-window,
+  .menu-profile-popup .k-window,
+  .fbd-dialog-wh .k-window,
+  .endorse-dialog-wh .k-window,
+  .case-info-dialog-wh .k-window {
+    width: 95vw !important;
+  }
+  /* .reference-dialog-wh .k-window, */
+  .movementRegister-dialog-wh .k-window {
+    height: 85vh !important;
+  }
+  .add-comment-dialog-wh .k-window {
+    height: 80vh !important;
+  }
+  .file-no-wh .k-window {
+    width: 95vw;
+    height: 90vh;
+  }
+}
+.table {
+  margin-bottom: 5px;
+}
+
+/*********************** Save, Submit, Create Cancel Button CSS **********************/
+.reset-button {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 7px 12px;
+  border-radius: 4px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.common-btn-css {
+  border: none;
+  color: #000;
+  min-width: 80px;
+  font-size: 11px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  display: inline-block; /* Required */
+  box-sizing: border-box; /* Required to keep padding inside width */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.approve-button {
+  color: white;
+  background: #198754;
+
+  &:hover {
+    transform: translateY(-2px);
+    background: #198754;
+    box-shadow: 0 6px 20px #667eea66;
+  }
+}
+.save-button {
+  background: #dfd7bb;
+
+  &:hover {
+    transform: translateY(-2px);
+    background: #faf7eb;
+    box-shadow: 0 6px 20px #667eea66;
+  }
+}
+.submit-button {
+  color: #fff;
+  background: #358ffc;
+
+  &:hover {
+    transform: translateY(-2px);
+    background: #358ffc;
+    box-shadow: 0 6px 20px #667eea66;
+  }
+}
+.cancel-button {
+  color: #e96767;
+  background: #e9676736;
+
+  &:hover {
+    transform: translateY(-2px);
+    background: #e9676736;
+    box-shadow: 0 6px 20px #667eea66;
+  }
+}
+
+/*********************** Movement Register Timeline action CSS **********************/
+.k-timeline .k-card-actions .k-button {
+  color: inherit;
+  background: none;
+  border: none;
+  text-decoration: none;
+  padding: 0;
+  margin: 0;
+  cursor: default;
+}
+.k-timeline .k-card-actions .k-button:hover,
+.k-timeline .k-card-actions .k-button:focus {
+  color: inherit;
+  background: none;
+  text-decoration: none;
+  box-shadow: none;
+}
+.k-button-overlay,
+.k-button::before,
+.k-button::after {
+  background: transparent !important;
+}
+.custom-timeline-data {
+  margin-top: 10px;
+  border-top: 1px solid #eee;
+  padding-top: 10px;
+}
+.custom-timeline-data p {
+  margin-bottom: 5px !important;
+  font-size: 14px;
+}
+.k-timeline .k-card {
+  overflow: visible !important;
+}
+.k-timeline .k-card-body {
+  padding: 16px !important;
+}
+.movement-register-div {
+  max-height: 80vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/**************************** Reference Cases CSS ***************************/
+.add-btn-clicked {
+  position: fixed;
+  bottom: 70px;
+  right: 11%;
+}
+.close-btn-pad {
+  margin-right: 75px;
+}
+
+/*********** For Hidden the filter icons and search contains ************/
+.btn {
+  height: 38px;
+  line-height: 20px;
+  background-color: #ff6138;
+  color: #fff;
+  border: none;
+  font-size: 13px;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0);
+  animation-name: hover;
+  animation-duration: 1.5s;
+  animation-delay: 0.3s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  &:before {
+    pointer-events: none;
+    position: absolute;
+    z-index: -1;
+    content: "";
+    top: 100%;
+    left: 5%;
+    height: 10px;
+    width: 90%;
+    background: -webkit-radial-gradient(center, ellipse, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 80%);
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 80%);
+    transition-duration: 0.3s;
+    transition-property: transform, opacity;
+    opacity: 0.4;
+    transform: translateY(6px);
+    animation-name: hover-shadow;
+    animation-duration: 1.5s;
+    animation-delay: 0.3s;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+  }
+  &:hover {
+    background-color: #e16e50;
+  }
+}
+
+@keyframes hover {
+  50% {
+    -webkit-transform: translateY(-3px);
+    -ms-transform: translateY(-3px);
+    transform: translateY(-3px);
+  }
+
+  100% {
+    -webkit-transform: translateY(-6px);
+    -ms-transform: translateY(-6px);
+    transform: translateY(-6px);
+  }
+}
+@-webkit-keyframes hover-shadow {
+  0% {
+    -webkit-transform: translateY(6px);
+    transform: translateY(6px);
+    opacity: 0.4;
+  }
+
+  50% {
+    -webkit-transform: translateY(3px);
+    transform: translateY(3px);
+    opacity: 1;
+  }
+
+  100% {
+    -webkit-transform: translateY(6px);
+    transform: translateY(6px);
+    opacity: 0.4;
+  }
+}
+@keyframes hover-shadow {
+  0% {
+    -webkit-transform: translateY(6px);
+    -ms-transform: translateY(6px);
+    transform: translateY(6px);
+    opacity: 0.4;
+  }
+
+  50% {
+    -webkit-transform: translateY(3px);
+    -ms-transform: translateY(3px);
+    transform: translateY(3px);
+    opacity: 1;
+  }
+
+  100% {
+    -webkit-transform: translateY(6px);
+    -ms-transform: translateY(6px);
+    transform: translateY(6px);
+    opacity: 0.4;
+  }
+}
+@-webkit-keyframes hover {
+  50% {
+    -webkit-transform: translateY(-3px);
+    transform: translateY(-3px);
+  }
+
+  100% {
+    -webkit-transform: translateY(-6px);
+    transform: translateY(-6px);
+  }
+}
+@keyframes hover {
+  50% {
+    -webkit-transform: translateY(-3px);
+    -ms-transform: translateY(-3px);
+    transform: translateY(-3px);
+  }
+
+  100% {
+    -webkit-transform: translateY(-6px);
+    -ms-transform: translateY(-6px);
+    transform: translateY(-6px);
+  }
+}
+
+/*********************** Upload file CSS for approve comments **********************/
+.upload-box {
+  width: 100%;
+  height: 160px;
+  padding: 0.5rem 2rem;
+  text-align: center;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  border: 1px dashed rgb(123 123 123 / 30%);
+}
+.upload-icon {
+  font-size: 25px;
+  margin-bottom: 0.5rem;
+}
+.upload-title {
+  font-size: 16px;
+  margin-bottom: 0;
+}
+.upload-subtitle {
+  font-size: 13px;
+}
+.upload-button {
+  color: #000;
+  font-size: 13px;
+  padding: 8px 30px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgb(8 119 65 / 30%);
+}
+.upload-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgb(8 119 65 / 30%);
+}
+
+/* Style for "Add Comment" label */
+.font-size-13,
+.k-radio-label[aria-label="Add Comment"],
+.k-radio-label[aria-label="Upload Comment"] {
+  font-size: 13px;
+}
+.comment-area-note {
+  height: 0.8rem !important;
+  width: 0.8rem !important;
+}
+.comment-icon-pad {
+  margin-left: 10px;
+}
+
+/******************** Inbox, Outbox, View Cases Screen CARD CSS *******************/
+.card-bg {
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 8px;
+}
+.card-count {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 10px;
+}
+.count-card-name {
+  font-size: 13px;
+}
+.card-icon {
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  background: #fff;
+  border-radius: 50%;
+}
+.priority-btn {
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 500;
+  color: white;
+  white-space: nowrap;
+  min-width: 80px;
+  text-align: center;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+}
+.add-btn-design {
+  color: #0d6efd;
+  background: #0d6efd33;
+  border-radius: 20px;
+  border: none;
+  float: right;
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+/* Card background colors */
+.bg-total {
+  background-color: #4b87dc;
+}
+.bg-draft {
+  background-color: #ffa500;
+}
+.bg-progress {
+  background-color: #17a2b8;
+}
+.bg-approved {
+  background-color: #28a745;
+}
+.bg-closed {
+  background-color: #6c757d;
+}
+.bg-cancelled {
+  background-color: #df7863;
+}
+
+/* Icon colors */
+.icon-total {
+  color: #2e72e8;
+}
+.icon-draft {
+  color: #ff8c00;
+}
+.icon-progress {
+  color: #138496;
+}
+.icon-approved {
+  color: #218838;
+}
+.icon-closed {
+  color: #5a6268;
+}
+.icon-cancelled {
+  color: #df7863;
+}
+.case-number-span,
+.digidak-uid-span {
+  font-weight: 600;
+  color: rgb(53 143 252);
+  word-break: break-word;
+}
+.case-priority-td {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 4px;
+  text-align: center;
+  overflow: hidden;
+}
+.priority-default {
+  color: rgb(24 138 226);
+  background-color: #dcedfb;
+}
+.priority-urgent {
+  color: rgb(240 147 78);
+  background-color: rgb(252 233 220);
+}
+.priority-immediate {
+  color: rgb(180 40 40);
+  background-color: rgb(251 225 225);
+}
+.natureOfCase-regular {
+  color: green;
+  background-color: rgb(244, 244, 244);
+}
+.natureOfCase-confidential {
+  color: orange;
+  background-color: rgb(244, 244, 244);
+}
+.natureOfCase-secret {
+  color: red;
+  background-color: rgb(244, 244, 244);
+}
+.icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.icon-clickable {
+  cursor: pointer;
+  background-color: #0d6efd33;
+}
+.icon-disabled {
+  cursor: not-allowed;
+  background-color: #ecc1c5;
+}
+.acquire-icon-clickable {
+  cursor: pointer;
+  background-color: #0d6efd33;
+}
+.acquire-icon-disabled {
+  cursor: not-allowed;
+  background-color: #ecc1c5;
+}
+.acquire-icon {
+  height: 12px;
+  width: 12px;
+}
+
+/************************** Inbox Screen PDFViewer CSS **************************/
+.inbox-screen-pdf-viewer .k-pdf-viewer {
+  height: calc(100vh - 118px);
+}
+
+/************************** Sent Case Screen CSS **************************/
+.pull-back-btn {
+  width: 100%;
+  border: none;
+  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: 20px;
+}
+.pull-back-enable {
+  color: #0d6efd;
+  background: #0d6efd33;
+}
+.pull-back-disable {
+  color: red;
+  background-color: #ecc1c5;
+}
+.pull-back-btn:hover {
+  color: #0d6efd;
+  background: #0d6efd33;
+}
+
+/*********************** Case Management & Digidak Common CSS **********************/
+.case-title-h6 {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 0;
+}
+.case-title-h7 {
+  color: #e3e3e3;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 0;
+}
+.main-container {
+  padding: 5px 15px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background-color: #ffffff;
+  min-height: calc(100vh - 83px);
+  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+}
+.main-container--forward {
+  min-height: calc(100vh - 150px);
+}
+.main-container-endorsement {
+  padding: 5px 15px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background-color: #ffffff;
+  min-height: calc(100vh - 150px);
+  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+}
+.case-form-label {
+  font-size: 11px;
+  margin-top: 8px;
+  font-weight: 600;
+  color: #4e4e4e;
+}
+.case-form-dropdown {
+  background: transparent;
+  border: 1px solid #d7d7d7 !important;
+}
+.required-asterisk {
+  color: #dc3545;
+}
+.form-error {
+  color: #dc3545;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+/*********** Filter Grid Container Custom CSS (Case/Inbox/Outbox) ************/
+.k-grid {
+  overflow: hidden;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.k-grid-header > div > table > thead > tr > th.k-table-th.k-header {
+  font-size: 11px;
+  font-weight: 700;
+}
+.k-grid-container > div > div > table > tbody > tr > td {
+  font-size: 11px;
+  padding: 5px 10px;
+}
+.k-pager.k-pager-md.k-pager-responsive.k-grid-pager {
+  padding: 5px 10px;
+  justify-content: space-between;
+}
+.k-pager-numbers .k-button.k-selected {
+  color: #ff0000;
+  font-weight: 900;
+  border-radius: 10px;
+  border: 2px solid #f6a904 !important;
+}
+.view-case-grid > div {
+  height: calc(100vh - 174px);
+}
+/* Old case grid */
+.old-case-grid > div {
+  height: calc(100vh - 90px);
+}
+.search-table-grid {
+  height: calc(100vh - 280px);
+}
+.file-no-wh .k-window-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.file-no-grid {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.file-no-grid > div {
+  height: 100%;
+}
+.inward-table-container > div {
+  height: calc(100vh - 450px);
+}
+.endorse-table-container > div {
+  height: calc(100vh - 500px);
+}
+.endorsement-table-container > div {
+  height: 200px;
+}
+.outward-table-container > div {
+  height: calc(100vh - 510px);
+}
+.forward-table-container > div {
+  height: calc(100vh - 400px);
+}
+.view-table-container > div {
+  height: calc(100vh - 235px);
+}
+.inbox-sent-draft-grid > div {
+  height: calc(100vh - 92px);
+}
+.digidak-inbox-outbox-grid > div {
+  height: calc(100vh - 160px);
+}
+.view-reference-data-grid > div {
+  height: calc(100vh - 245px);
+}
+.circular-data-grid > div {
+  height: calc(100vh - 305px);
+}
+.add-reference-data-grid > div {
+  height: calc(100vh - 245px);
+}
+.export-to-excel {
+  border-radius: 4px;
+  color: #16b63b;
+}
+.export-to-excel-btn {
+  color: #16b63b;
+  background-color: #bcdbc0ad;
+}
+.notesheet-upload-btn {
+  border-radius: 20px;
+  font-size: 13px;
+  padding: 4px 12px;
+}
+
+.document-selection-dialog > div {
+  min-width: 350px;
+}
+
+/*********************** Grid Custom CSS **********************/
+.k-timeline {
+  --timeline-vertical-padding: 5px !important;
+  --timeline-event-offset: 5px !important;
+}
+.k-timeline-vertical {
+  padding-left: 45% !important;
+}
+.k-timeline-vertical .k-timeline-event {
+  display: flex;
+  align-items: flex-start;
+  padding-block: 8px !important;
+  padding-inline: 0;
+}
+.k-timeline-vertical,
+.k-timeline-horizontal {
+  margin-block: 0px !important;
+}
+.k-timeline-vertical .k-timeline-card .k-card {
+  width: auto !important;
+}
+.k-timeline .k-timeline-card .k-card-body {
+  padding-top: 0px !important;
+  padding-bottom: 0px !important;
+}
+.k-card-actions {
+  padding-top: 0px !important;
+  display: flex;
+  flex-direction: column;
+  align-items: baseline;
+  gap: 0;
+  padding-inline: 16px !important;
+  padding-block: 8px !important;
+}
+.k-card-body p {
+  margin: 0 !important;
+}
+
+/******************************** File Upload **********************************/
+.input-group {
+  display: flex;
+  align-items: center;
+}
+.custom-input {
+  flex: 1;
+}
+.input-group-append {
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+.comment-dropdown-height {
+  height: 25px !important;
+  font-size: 11px !important;
+}
+
+/* Document Upload Drag & Drop Styles */
+.document-upload-zone {
+  border: 1px dashed #ccc;
+  border-radius: 4px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  background-color: #fafafa;
+  cursor: pointer;
+}
+.document-upload-zone.drag-over {
+  border-color: #007bff;
+  background-color: #e3f2fd;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+}
+.upload-content {
+  transition: all 0.3s ease;
+}
+.upload-text {
+  font-size: 11px;
+  color: #333;
+  margin: 0;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+.document-upload-zone.drag-over .upload-text {
+  color: #0056b3;
+  font-weight: 600;
+}
+
+.document-upload-zone:hover {
+  border-color: #007bff;
+  background-color: #f8f9fa;
+}
+
+/* checkbox and radio checked css overriding */
+.k-checkbox {
+  border: 1px solid #444 !important;
+  border-radius: 4px;
+}
+.k-checkbox:checked {
+  border-color: rgb(53 143 252);
+  color: var(--kendo-color-on-primary, #ffffff);
+  background-color: rgb(53 143 252);
+}
+.k-radio {
+  border: 1px solid #d7d7d7;
+}
+.k-radio:checked,
+.k-radio.k-checked {
+  border-color: rgb(53 143 252);
+  color: var(--kendo-color-on-primary, #ffffff);
+  background-color: rgb(53 143 252);
+}
+.k-radio:checked:focus,
+.k-radio.k-checked.k-focus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, rgb(53 143 252) 30%, transparent);
+}
+
+/******************************** View Case Screen Tab Design **********************************/
+.tab-container,
+.inbox-tab-container {
+  overflow: hidden;
+  border-radius: 0.5em;
+
+  &.tab-container {
+    box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.15);
+  }
+
+  header {
+    padding: 0.5rem 0 0 0;
+    background: #2b2b2c;
+  }
+
+  &.inbox-tab-container {
+    header {
+      padding: 0;
+      background: transparent;
+    }
+  }
+
+  .tabs,
+  .inbox-tabs {
+    gap: 0.6em;
+    display: flex;
+    overflow: hidden;
+    margin-bottom: 0;
+    padding: 0 1.5rem 0 0.8rem;
+    flex-wrap: nowrap;
+
+    .inbox-tab-item {
+      flex: 1 1 0;
+      min-width: 110px;
+      position: relative;
+      border-radius: 0.5em 0.5em 0 0;
+    }
+
+    .inbox-tab-btn {
+      all: unset;
+      display: block;
+      width: 100%;
+      cursor: pointer;
+      user-select: none;
+      text-align: center;
+      position: relative;
+      border-radius: inherit;
+      padding: 0.3em 0.4em 0.4em 0.4em;
+
+      &:hover .passive-highlight {
+        opacity: 1;
+      }
+
+      & .active-highlight {
+        color: #000;
+        background: #fff;
+      }
+
+      & .active-highlight,
+      & .passive-highlight {
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        border-radius: inherit;
+        filter: drop-shadow(0px 0px 5px rgba(255, 255, 255, 0.25));
+
+        &::before,
+        &::after {
+          --dimensions: 0.6em;
+
+          content: "";
+          width: var(--dimensions);
+          height: var(--dimensions);
+          position: absolute;
+          -webkit-mask: var(--mask);
+          mask: var(--mask);
+          background: #22262f;
+          background: inherit;
+        }
+
+        &::before {
+          right: 100%;
+          bottom: 0;
+          --mask: radial-gradient(var(--dimensions) at 0 0, #0000 98%, #000 99%);
+        }
+
+        &::after {
+          left: 100%;
+          bottom: 0;
+          --mask: radial-gradient(var(--dimensions) at 100% 0, #0000 98%, #000 99%);
+        }
+      }
+
+      span {
+        width: 100%;
+        font-size: 11px;
+        font-weight: bold;
+        color: #e0e0e0;
+        position: relative;
+        transition: 0.3s;
+        overflow: hidden;
+        white-space: nowrap;
+        display: inline-block;
+        text-overflow: ellipsis;
+        text-shadow: 2px 2px 1px rgba(255, 255, 255, 0.2);
+      }
+
+      &:hover span {
+        color: #fff;
+      }
+    }
+
+    .inbox-tab-item.active .inbox-tab-btn span {
+      color: rgb(30, 32, 34);
+      text-shadow: 2px 2px 1px rgba(0, 0, 0, 0.1);
+    }
+  }
+
+  & > div {
+    border-radius: 0.5em;
+  }
+}
+
+/******************************** Digidak CSS **********************************/
+.bulk-radio-btn {
+  border: 1px solid #dfdfdf;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+.main-container-filter {
+  padding: 15px 15px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background-color: #ffffff;
+  min-height: calc(100vh - 83px);
+  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+}
+
+.main-container-filter--view {
+  min-height: calc(100vh - 180px);
+}
+
+/* Sticky / locked Actions column styling for Digidak grid */
+.digidak-inbox-outbox-grid .sticky-action-cell {
+  position: sticky;
+  right: 0;
+  background: #fff;
+  z-index: 2;
+}
+
+.digidak-inbox-outbox-grid .k-grid-content-locked td,
+.digidak-inbox-outbox-grid .k-grid-content-locked .sticky-action-cell {
+  position: sticky;
+  right: 0;
+  background: #fff;
+  z-index: 2;
+}
+
+.digidak-inbox-outbox-grid .k-grid-header-locked th,
+.digidak-inbox-outbox-grid .k-grid-header th:last-child,
+.digidak-inbox-outbox-grid .k-grid-header .k-grid-header-locked th {
+  position: sticky;
+  right: 0;
+  top: 0;
+  z-index: 4;
+  background: #fff;
+}
+.view-users-dialog .k-window {
+  width: 50vw;
+  height: 75vh;
+}
+.selected-recipients {
+  max-height: 100px;
+  overflow: auto;
+}
+
+/* Tabs */
+.tab-switch {
+  display: flex;
+  gap: 8px;
+}
+.tab-btn {
+  background: #f3f4f6;
+  border: none;
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.tab-btn:hover {
+  background: #e2e8f0;
+}
+.tab-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.comments-dialog .k-window {
+  width: 520px !important;
+  max-width: 90vw !important;
+  height: auto !important;
+  max-height: 80vh !important;
+}
+
+/* Custom CSS to enforce alternating background on the ActionCell : Digidak Inbox*/
+tbody tr:nth-child(even) > td.sticky-action-cell {
+  background-color: #f5f5f5 !important;
+}
+tbody tr:nth-child(odd) > td.sticky-action-cell {
+  background-color: #ffffff !important;
+}
+
+tbody tr:hover > td.sticky-action-cell {
+  background-color: #eaeaea !important;
+}
+
+/* Final Doc Text */
+.final-doc-text {
+  border: 1px solid #198754;
+  border-radius: 20px;
+  padding: 3px 8px;
+  color: white;
+  background: #198754;
+  width: 100px;
+  font-size: 10px;
+  margin-bottom: 0px;
+}
+
+/* Group Letter Grid Dialog */
+.group-letter-grid-dialog .k-window {
+  width: 50vw;
+  height: 85vh;
+}
+
+.view-entry-table-container > div {
+  height: calc(100vh - 400px);
+}
+.spin {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+.min-h-40 {
+  min-height: 40px;
+}
+.viewer-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+.viewer-error-inline {
+  min-height: 400px;
+}
+
+/************************ Inline CSS to Class Conversions ************************/
+/* ErrorBoundary */
+.error-boundary-message {
+  max-width: 400px;
+}
+
+/* DigidakChartSection */
+.digidak-chart-wrapper {
+  padding: 10px 5px;
+}
+.min-width-0 {
+  min-width: 0;
+}
+.digidak-dropdown-wrapper {
+  max-width: calc(100% - 100px);
+}
+.digidak-category-dropdown {
+  width: 120px;
+  font-size: 13px;
+}
+.digidak-recipient-dropdown {
+  width: 140px;
+  font-size: 13px;
+}
+.digidak-chart-body {
+  min-height: 0;
+}
+
+/* SplitViewer */
+.spin-animation {
+  animation: spin 2s linear infinite;
+}
+.viewer-placeholder-height {
+  height: 600px;
+}
+.viewer-mask-overlay {
+  z-index: 100;
+}
+
+/* BravaViewerIframe */
+.brava-viewer-container {
+  background: #f5f5f5;
+}
+.brava-overlay {
+  inset: 0;
+  z-index: 1000;
+}
+.brava-overlay-loading {
+  background: rgba(255, 255, 255, 0.9);
+}
+.brava-overlay-error {
+  background: rgba(255, 255, 255, 0.95);
+}
+.brava-overlay-content {
+  font-size: 14px;
+  padding: 10px 20px;
+}
+
+/* NotificationPreferences */
+.notif-empty-icon {
+  font-size: 36px;
+  margin-bottom: 10px;
+  opacity: 0.5;
+}
+.notif-empty-subtitle {
+  opacity: 0.7;
+}
+
+/* ReferenceCases & Circulars - Migrated badge */
+.migrated-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.migrated-badge-yes {
+  color: #0d6efd;
+  background-color: #e7f1ff;
+}
+.migrated-badge-no {
+  color: #cf1616;
+  background-color: #e9bccb;
+}
+
+/* Copy Link Button & Status */
+.copy-link-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+.copy-link-success {
+  font-size: 11px;
+  color: #28a745;
+  font-weight: bold;
+  animation: fadeInOut 3s ease-in-out;
+}
+.copy-link-error {
+  font-size: 9px;
+  color: #dc3545;
+  font-weight: bold;
+  text-align: center;
+  max-width: 100px;
+  line-height: 1.2;
+  animation: fadeInOut 3s ease-in-out;
+}
+
+/* Favourite Star (Circulars) */
+.favourite-star {
+  font-size: 18px;
+  transition: opacity 0.2s ease;
+}
+.favourite-star-active {
+  color: #ffd700;
+}
+.favourite-star-inactive {
+  color: #ccc;
+}
+.favourite-star-processing {
+  cursor: wait;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Circulars */
+.circular-empty-state {
+  padding: 40px 20px;
+  min-height: 200px;
+  justify-content: flex-start;
+}
+
+/* PdfExportModal */
+.pdf-export-overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+}
+.pdf-export-modal {
+  width: 600px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* GroupLetterGridDialog */
+.group-letter-grid-height {
+  height: 450px;
+}
+
+/* Outbox Info Banner */
+.info-banner {
+  padding: 8px 14px;
+  background-color: #e8f4fd;
+  border: 1px solid #b3d7f2;
+  color: #1a5276;
+}

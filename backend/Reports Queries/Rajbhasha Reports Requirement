@@ -1,0 +1,263 @@
+As like othere Case & Digidak Report, facility to create Rajbhasha Report to be generated.
+
+Create one more tab in Report Page next to Digidak 'Rajbhasha Report'
+
+As like Reports -> Cases Report tab, From Date, To Date, Office Type, Department, Location, Apply filter, Export filters to be added in UI.
+
+Grid 1 :
+1. Grid with 2 columns to be generated. 
+Column 1 : Summary 
+Column 2 : Total
+Below are the Summary column hardcoded values:
+Total no. of letters received in Hindi
+Out of above how many were replied in Hindi
+Out of above how many were replied in English
+Out of above how many letters were not required to be replied to 
+
+The values for the Total column, corresponding to each Summary column, will be generated using the queries provided below.
+
+Below are the abbreviations used for the values referenced in the upcoming queries of the Rajbhasha Report.
+
+
+'value_1' represents - if selected office type is HO then, selected department dropdown value in upper case eg:'DDSI'. If RO or TE then, selected location dropdown value eg: 'Tamilnadu'
+'value_2 represents' - if selected office type is HO then, 'ho'. if RO then 'ro'. if TE then 'te'.  
+'value_3' represents - if selected office type is HO then, selected department in lowercase eg: 'ddsi'. If RO or TE then, selected location short code value eg:'tn'.
+'value_4' represents - from date that selected in UI
+'value_5' represents - to date that selected in UI
+
+If from and To date was not selected from the UI then pass from date by default as '01/01/2025'
+and To date as current today's date '02/07/2026'
+
+Count value for the grid to be generated based on below queries count. Below resulted count values to be updated in Total column. 
+
+1. Total no. of letters received in Hindi:
+
+Query 1 for, Total no. of letters received in Hindi: select count(*) from cms_digidak_folder where is_group=false and nature_of_correspondence != 'DO Letter' and is_migrated=false and status!='Saved' and selected_region in ('<value_1>') and selected_cgm_group = 'ecm_digidak_<value_2>_<value_3>_cgm' and languages in ('Hindi', 'Bilingual') and r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1 ;
+
+Example for HO:
+select count(*) from cms_digidak_folder where is_group=false and nature_of_correspondence != 'DO Letter' and is_migrated=false and status!='Saved' and selected_region in ('DDSI') and selected_cgm_group = 'ecm_digidak_ho_ddsi_cgm' and languages in ('Hindi', 'Bilingual') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1;
+
+Example for RO/TE:
+select count(*) from cms_digidak_folder where is_group=false and nature_of_correspondence != 'DO Letter' and is_migrated=false and status!='Saved' and selected_region in ('Tamilnadu') and selected_cgm_group = 'ecm_digidak_ro_tn_cgm' and languages in ('Hindi', 'Bilingual') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1;
+
+
+
+2. Out of above how many were replied in Hindi:
+
+Query 2 for, Out of above how many were replied in Hindi :  select count(*) from cms_digidak_folder where is_group=false and any responding_uid in (select distinct uid_number from cms_digidak_folder where nature_of_correspondence != 'DO Letter' and is_migrated=false and status!='Saved' and selected_region in ('value_1') and selected_cgm_group = 'ecm_digidak_<value_2>_<value_3>_cgm' and languages in ('Hindi', 'Bilingual') and r_creation_date>=DATE('value_4','dd/MM/yyyy') AND r_creation_date<=DATE('value_5','dd/MM/yyyy')+1) and languages in ('Hindi', 'Bilingual') and (r_creation_date>=DATE('value_4','dd/MM/yyyy') AND r_creation_date<=DATE('value_5','dd/MM/yyyy')+1) and status!='Saved';
+
+Example for HO:
+select count(*) from cms_digidak_folder where is_group=false and any responding_uid in (select distinct uid_number from cms_digidak_folder where nature_of_correspondence != 'DO Letter' and is_migrated=false and status!='Saved' and selected_region in ('DDSI') and selected_cgm_group = 'ecm_digidak_ho_ddsi_cgm' and languages in ('Hindi', 'Bilingual') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1) and languages in ('Hindi', 'Bilingual') and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved';
+
+Example for RO/TE:
+select count(*) from cms_digidak_folder where is_group=false and any responding_uid in (select distinct uid_number from cms_digidak_folder where nature_of_correspondence != 'DO Letter' and is_migrated=false and status!='Saved' and selected_region in ('Tamilnadu') and selected_cgm_group = 'ecm_digidak_ro_tn_cgm' and languages in ('Hindi', 'Bilingual') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1) and languages in ('Hindi', 'Bilingual') and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved';
+
+
+3. Out of above how many were replied in English:
+
+Query for Out of above how many were replied in English: select count(*) from cms_digidak_folder where is_group=false and any responding_uid in (select distinct uid_number from cms_digidak_folder where nature_of_correspondence != 'DO Letter' and is_migrated=false and status!='Saved' and selected_region in ('value_1') and selected_cgm_group = 'ecm_digidak_<value_2>_<value_3>_cgm' and languages in ('Hindi', 'Bilingual') and r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1) and languages in ('English') and (r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1) and status!='Saved';
+
+
+Example for HO: 
+select count(*) from cms_digidak_folder where is_group=false and any responding_uid in (select distinct uid_number from cms_digidak_folder where nature_of_correspondence != 'DO Letter' and is_migrated=false and status!='Saved' and selected_region in ('DDSI') and selected_cgm_group = 'ecm_digidak_ho_ddsi_cgm' and languages in ('Hindi', 'Bilingual') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and languages in ('English') and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved';
+
+Example for RO/TE: 
+select count(*) from cms_digidak_folder where is_group=false and any responding_uid in (select distinct uid_number from cms_digidak_folder where nature_of_correspondence != 'DO Letter' and is_migrated=false and status!='Saved' and selected_region in ('Tamilnadu') and selected_cgm_group = 'ecm_digidak_ro_tn_cgm' and languages in ('Hindi', 'Bilingual') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and languages in ('English') and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved';
+
+
+4. Out of above how many letters were not required to be replied to :
+  These to be calculated as count1 - count2 + count3
+
+========================================================================================
+
+Grid 2: 
+
+2. Below 2nd grid to be generated with 5 columns and 2 rows
+Column 1 : Summary
+Column 2 : No.of letters received in English
+Column 3 : Out of these replied in Hindi
+Column 4 : Out of these replied in English
+Column 5 : Out of these were not replied to
+
+
+
+Below are the Summary column hardcoded values:
+From Region 'A'
+From Region 'B'
+
+Count value for the grid to be generated based on below queries count. Below resulted count values to be updated in respective column. 
+
+1. Count for From Region 'A' row: 
+(i). Query for No.of letters received in English : 
+select count(*) as total from cms_digidak_folder where is_group=false  and is_migrated=false and selected_region in ('<value_1>') and selected_cgm_group = 'ecm_digidak_<value_2>_<value_3>_cgm' and login_region in ('Bihar','Chhattisgarh','Haryana','Himachal Pradesh','Jharkhand','Madhya Pradesh','Rajasthan','Uttar Pradesh','Uttarakhand','New Delhi','Andaman and Nicobar','Bird Lucknow','NBSC Lucknow') and ( r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1 ) and status!='Saved' and languages in ('English')
+
+Example for HO: select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and selected_region in ('DDSI') and selected_cgm_group = 'ecm_digidak_ho_ddsi_cgm' and login_region in ('Bihar','Chhattisgarh','Haryana','Himachal Pradesh','Jharkhand','Madhya Pradesh','Rajasthan','Uttar Pradesh','Uttarakhand','New Delhi','Andaman and Nicobar','Bird Lucknow','NBSC Lucknow') and ( r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1 ) and status!='Saved' and languages in ('English')
+
+Example for RO & TE : select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and selected_region in ('Tamilnadu') and selected_cgm_group = 'ecm_digidak_ro_tn_cgm' and login_region in ('Bihar','Chhattisgarh','Haryana','Himachal Pradesh','Jharkhand','Madhya Pradesh','Rajasthan','Uttar Pradesh','Uttarakhand','New Delhi','Andaman and Nicobar','Bird Lucknow','NBSC Lucknow') and ( r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1 ) and status!='Saved' and languages in ('English')
+
+	(ii). Query for Out of these replied in Hindi:  select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and any responding_uid in (select distinct uid_number from cms_digidak_folder where is_group=false and selected_region in ('<value_1>') and selected_cgm_group = 'ecm_digidak_<value_2>_<value_3>_cgm' and login_region in ('Bihar','Chhattisgarh','Haryana','Himachal Pradesh','Jharkhand','Madhya Pradesh','Rajasthan','Uttar Pradesh','Uttarakhand','New Delhi','Andaman and Nicobar','Bird Lucknow','NBSC Lucknow') and ( r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1 ) and status!='Saved' and languages in ('English')) and languages in ('Hindi', 'Bilingual') and ( r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1 ) and status!='Saved'
+
+Example for HO: 
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and any responding_uid in (select distinct uid_number from cms_digidak_folder where is_group=false and selected_region in ('DDSI') and selected_cgm_group = 'ecm_digidak_ho_ddsi_cgm' and login_region in ('Bihar','Chhattisgarh','Haryana','Himachal Pradesh','Jharkhand','Madhya Pradesh','Rajasthan','Uttar Pradesh','Uttarakhand','New Delhi','Andaman and Nicobar','Bird Lucknow','NBSC Lucknow') and ( r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1 ) and status!='Saved' and languages in ('English')) and languages in ('Hindi', 'Bilingual') and ( r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1 ) and status!='Saved'
+
+
+Example for RO & TE :
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false and any responding_uid in (select distinct uid_number from cms_digidak_folder where is_group=false and selected_region in ('Tamilnadu') and selected_cgm_group = 'ecm_digidak_ro_tn_cgm' and login_region in ('Bihar','Chhattisgarh','Haryana','Himachal Pradesh','Jharkhand','Madhya Pradesh','Rajasthan','Uttar Pradesh','Uttarakhand','New Delhi','Andaman and Nicobar','Bird Lucknow','NBSC Lucknow') and ( r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1 ) and status!='Saved' and languages in ('English')) and languages in ('Hindi', 'Bilingual') and ( r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1 ) and status!='Saved'
+
+
+(iii). Query for Out of these replied in English :  select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and any responding_uid in (select distinct uid_number from cms_digidak_folder where is_group=false and selected_region in ('<value_1>') and selected_cgm_group = 'ecm_digidak_<value_2>_<value_3>_cgm' and login_region in ('Bihar','Chhattisgarh','Haryana','Himachal Pradesh','Jharkhand','Madhya Pradesh','Rajasthan','Uttar Pradesh','Uttarakhand','New Delhi','Andaman and Nicobar','Bird Lucknow','NBSC Lucknow') and ( r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy') +1 ) and status!='Saved' and languages in ('English')) and languages in ('English') and ( r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1 ) and status!='Saved'
+
+
+Example for HO: 
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and any responding_uid in (select distinct uid_number from cms_digidak_folder where is_group=false and selected_region in ('DDSI') and selected_cgm_group = 'ecm_digidak_ho_ddsi_cgm' and login_region in ('Bihar','Chhattisgarh','Haryana','Himachal Pradesh','Jharkhand','Madhya Pradesh','Rajasthan','Uttar Pradesh','Uttarakhand','New Delhi','Andaman and Nicobar','Bird Lucknow','NBSC Lucknow') and ( r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1 ) and status!='Saved' and languages in ('English')) and languages in ('English') and ( r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1 ) and status!='Saved'
+
+Example for RO & TE:
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and any responding_uid in (select distinct uid_number from cms_digidak_folder where is_group=false and selected_region in ('Tamilnadu') and selected_cgm_group = 'ecm_digidak_ro_tn_cgm' and login_region in ('Bihar','Chhattisgarh','Haryana','Himachal Pradesh','Jharkhand','Madhya Pradesh','Rajasthan','Uttar Pradesh','Uttarakhand','New Delhi','Andaman and Nicobar','Bird Lucknow','NBSC Lucknow') and ( r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1 ) and status!='Saved' and languages in ('English')) and languages in ('English') and ( r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1 ) and status!='Saved'
+
+(iv). Out of these were not replied to
+ With respective to 'From Region 'A' row' values, these to be calculated like No.of letters received in English count value - Out of these replied in Hindi count value + Out of these replied in English count value
+ (i.e.) count1 - count2 + count3
+
+
+
+2. Count for From Region 'B' row: 
+(i). Query for No.of letters received in English : select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false and selected_region in ('<value_1>') and selected_cgm_group ='ecm_digidak_<value_2>_<value_3>_cgm' and login_region in('Gujarat','Maharashtra','Punjab','PFD','DIT','DOR','SECY','RMD','SPD','AD','RAJ','SPPID','FD','FSDD','FSPD','HRMD','ID','IDD','LAW','GSD','RMSMED','DCAS','DDMABI','DEAR','DMFI','DOS','DPSP','DSM','DSSI','CC','CCD','CPD','CVC','CHMNS','DMDS1','DMDS2','DMDS3','CISO','DDSI','CSDD','DOS') and ( r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1 ) and status!='Saved' and languages in ('English');
+
+Example for HO:
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and selected_region in ('DDSI') and selected_cgm_group ='ecm_digidak_ho_ddsi_cgm' and login_region in('Gujarat','Maharashtra','Punjab','PFD','DIT','DOR','SECY','RMD','SPD','AD','RAJ','SPPID','FD','FSDD','FSPD','HRMD','ID','IDD','LAW','GSD','RMSMED','DCAS','DDMABI','DEAR','DMFI','DOS','DPSP','DSM','DSSI','CC','CCD','CPD','CVC','CHMNS','DMDS1','DMDS2','DMDS3','CISO','DDSI','CSDD','DOS') and ( r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1 ) and status!='Saved' and languages in ('English');
+
+Example for RO & TE:
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false and selected_region in ('Tamilnadu') and selected_cgm_group ='ecm_digidak_ro_tn_cgm' and login_region in('Gujarat','Maharashtra','Punjab','PFD','DIT','DOR','SECY','RMD','SPD','AD','RAJ','SPPID','FD','FSDD','FSPD','HRMD','ID','IDD','LAW','GSD','RMSMED','DCAS','DDMABI','DEAR','DMFI','DOS','DPSP','DSM','DSSI','CC','CCD','CPD','CVC','CHMNS','DMDS1','DMDS2','DMDS3','CISO','DDSI','CSDD','DOS') and ( r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1 ) and status!='Saved' and languages in ('English');
+
+
+(ii). Query for Out of these replied in Hindi: select count (*) as total from cms_digidak_folder where is_group=false and is_migrated=false and any responding_uid in (select distinct uid_number from cms_digidak_folder where is_group=false and selected_region in ('<value_1>') and selected_cgm_group ='ecm_digidak_<value_2>_<value_3>_cgm' and login_region in('Gujarat','Maharashtra','Punjab','PFD','DIT','DOR','SECY','RMD','SPD','AD','RAJ','SPPID','FD','FSDD','FSPD','HRMD','ID','IDD','LAW','GSD','RMSMED','DCAS','DDMABI','DEAR','DMFI','DOS','DPSP','DSM','DSSI','CC','CCD','CPD','CVC','CHMNS','DMDS1','DMDS2','DMDS3','CISO','DDSI','CSDD','DOS')and (r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1) and status!='Saved' and languages in ('English')) and languages in ('Hindi', 'Bilingual') and (r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1) and status!='Saved'
+
+Example for HO:
+select count (*) as total from cms_digidak_folder where is_group=false and is_migrated=false and any responding_uid in (select distinct uid_number from cms_digidak_folder where is_group=false and selected_region in ('DDSI') and selected_cgm_group ='ecm_digidak_ho_ddsi_cgm' and login_region in('Gujarat','Maharashtra','Punjab','PFD','DIT','DOR','SECY','RMD','SPD','AD','RAJ','SPPID','FD','FSDD','FSPD','HRMD','ID','IDD','LAW','GSD','RMSMED','DCAS','DDMABI','DEAR','DMFI','DOS','DPSP','DSM','DSSI','CC','CCD','CPD','CVC','CHMNS','DMDS1','DMDS2','DMDS3','CISO','DDSI','CSDD','DOS')and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved' and languages in ('English')) and languages in ('Hindi', 'Bilingual') and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved'
+
+Example for RO & TE: 
+select count (*) as total from cms_digidak_folder where is_group=false and is_migrated=false and any responding_uid in (select distinct uid_number from cms_digidak_folder where is_group=false and selected_region in ('Tamilnadu') and selected_cgm_group ='ecm_digidak_ro_tn_cgm' and login_region in('Gujarat','Maharashtra','Punjab','PFD','DIT','DOR','SECY','RMD','SPD','AD','RAJ','SPPID','FD','FSDD','FSPD','HRMD','ID','IDD','LAW','GSD','RMSMED','DCAS','DDMABI','DEAR','DMFI','DOS','DPSP','DSM','DSSI','CC','CCD','CPD','CVC','CHMNS','DMDS1','DMDS2','DMDS3','CISO','DDSI','CSDD','DOS')and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved' and languages in ('English')) and languages in ('Hindi', 'Bilingual') and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved'
+
+ (iii). Query for Out of these replied in English : select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false and any responding_uid in (select distinct uid_number from cms_digidak_folder where is_group=false and selected_region in ('DDSI') and selected_cgm_group ='ecm_digidak_ho_ddsi_cgm' and login_region in('Gujarat','Maharashtra','Punjab','PFD','DIT','DOR','SECY','RMD','SPD','AD','RAJ','SPPID','FD','FSDD','FSPD','HRMD','ID','IDD','LAW','GSD','RMSMED','DCAS','DDMABI','DEAR','DMFI','DOS','DPSP','DSM','DSSI','CC','CCD','CPD','CVC','CHMNS','DMDS1','DMDS2','DMDS3','CISO','DDSI','CSDD','DOS')and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved' and languages in ('English')) and languages in ('English') and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved'
+
+
+Example for HO: 
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false and any responding_uid in (select distinct uid_number from cms_digidak_folder where is_group=false and selected_region in ('DDSI') and selected_cgm_group ='ecm_digidak_ho_ddsi_cgm' and login_region in('Gujarat','Maharashtra','Punjab','PFD','DIT','DOR','SECY','RMD','SPD','AD','RAJ','SPPID','FD','FSDD','FSPD','HRMD','ID','IDD','LAW','GSD','RMSMED','DCAS','DDMABI','DEAR','DMFI','DOS','DPSP','DSM','DSSI','CC','CCD','CPD','CVC','CHMNS','DMDS1','DMDS2','DMDS3','CISO','DDSI','CSDD','DOS')and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved' and languages in ('English')) and languages in ('English') and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved'
+
+
+Example for RO & TE :
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false and any responding_uid in (select distinct uid_number from cms_digidak_folder where is_group=false and selected_region in ('Tamilnadu') and selected_cgm_group ='ecm_digidak_ro_tn_cgm' and login_region in('Gujarat','Maharashtra','Punjab','PFD','DIT','DOR','SECY','RMD','SPD','AD','RAJ','SPPID','FD','FSDD','FSPD','HRMD','ID','IDD','LAW','GSD','RMSMED','DCAS','DDMABI','DEAR','DMFI','DOS','DPSP','DSM','DSSI','CC','CCD','CPD','CVC','CHMNS','DMDS1','DMDS2','DMDS3','CISO','DDSI','CSDD','DOS')and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved' and languages in ('English')) and languages in ('English') and (r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('02/07/2026','dd/MM/yyyy')+1) and status!='Saved'
+
+
+(iv). Out of these were not replied to
+ With respective to 'From Region 'B' row' values, these to be calculated like No.of letters received in English count value - Out of these replied in Hindi count value + Out of these replied in English count value
+ (i.e.) count1 - count2 + count3
+
+============================================================
+
+
+Grid 3: 
+
+3. Below 3nd grid to be generated with 4 columns and 4 rows
+Column 1 : Summary
+Column 2 : In Hindi/Bilingual
+Column 3 : In English Only
+Column 4 : Total Letters Issued
+Column 5 : Percentage of Letters Hindi/Bilingual
+
+
+Below are the Summary column hardcoded values:
+To Region 'A'
+To Region 'B'
+To Region 'C'
+Total
+
+
+Count value for the grid to be generated based on below queries count. Below resulted count values to be updated in respective column. 
+
+1. To Region 'A'
+(i). Query for In Hindi/Bilingual : select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and login_region in ('<value_1>') and region in ('RO-BR','RO-CH','RO-HR','RO-HP','RO-JH','RO-MP','RO-RJ','RO-UP','RO-UK','RO-DL', 'RO-AN','TE-BL','TE-NC')  and r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('Hindi', 'Bilingual');
+
+Example for HO:
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false and login_region in ('DDSI') and region in ('RO-BR','RO-CH','RO-HR','RO-HP','RO-JH','RO-MP','RO-RJ','RO-UP','RO-UK','RO-DL', 'RO-AN','TE-BL','TE-NC')  and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('Hindi', 'Bilingual');
+
+Example for RO & TE: 
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and login_region in ('Tamilnadu') and region in ('RO-BR','RO-CH','RO-HR','RO-HP','RO-JH','RO-MP','RO-RJ','RO-UP','RO-UK','RO-DL', 'RO-AN','TE-BL','TE-NC')  and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('Hindi', 'Bilingual');
+
+(ii). Query for In English Only : select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and login_region in ('<value_1>') and region in ('RO-BR','RO-CH','RO-HR','RO-HP','RO-JH','RO-MP','RO-RJ','RO-UP','RO-UK','RO-DL', 'RO-AN','TE-BL','TE-NC') and r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('English');
+
+Example for HO:
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and login_region in ('DDSI') and region in ('RO-BR','RO-CH','RO-HR','RO-HP','RO-JH','RO-MP','RO-RJ','RO-UP','RO-UK','RO-DL', 'RO-AN','TE-BL','TE-NC') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('English');
+
+Example for RO & TE:
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and login_region in ('Tamilnadu') and region in ('RO-BR','RO-CH','RO-HR','RO-HP','RO-JH','RO-MP','RO-RJ','RO-UP','RO-UK','RO-DL', 'RO-AN','TE-BL','TE-NC') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('English');
+
+(iii).  Total Letters Issued to be calculated like:
+   with respective to 'To Region 'A'' row value of In Hindi/Bilingual count value + In English Only count value
+  (i.e.) count 1 + count 2
+
+(iv). Percentage of Letters Hindi/Bilingual to be calculated like :
+In Hindi/Bilingual count value / Total Letters Issued * 100
+
+(i.e.) count1/count3 * 100
+
+2. To Region 'B'
+(i). Query for In Hindi/Bilingual : select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false and login_region in ('<value_1>') and  region in ('RO-PN','RO-MH','RO-GJ','HO-PFD','HO-DIT','HO-DOR','HO-SECY','HO-RMD','HO-SPD','HO-AD','HO-RAJ','HO-SPPID','HO-FD','HO-FSDD','HO-FSPD','HO-HRMD','HO-ID','HO-IDD','HO-LAW','HO-GSD','HO-RMSMED','HO-DCAS','HO-DDMABI','HO-DEAR','HO-DMFI','HO-DOS','HO-DPSP','HO-DSM','HO-DSSI','HO-CC','HO-CCD','HO-CPD','HO-CVC','HO-CHMNS','HO-DMDS1','HO-DMDS2','HO-DMDS3','HO-CISO','HO-DDSI','HO-CSDD','HO-DOS') and r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('Hindi', 'Bilingual');
+
+Example for HO: 
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and login_region in ('DDSI') and  region in ('RO-PN','RO-MH','RO-GJ','HO-PFD','HO-DIT','HO-DOR','HO-SECY','HO-RMD','HO-SPD','HO-AD','HO-RAJ','HO-SPPID','HO-FD','HO-FSDD','HO-FSPD','HO-HRMD','HO-ID','HO-IDD','HO-LAW','HO-GSD','HO-RMSMED','HO-DCAS','HO-DDMABI','HO-DEAR','HO-DMFI','HO-DOS','HO-DPSP','HO-DSM','HO-DSSI','HO-CC','HO-CCD','HO-CPD','HO-CVC','HO-CHMNS','HO-DMDS1','HO-DMDS2','HO-DMDS3','HO-CISO','HO-DDSI','HO-CSDD','HO-DOS') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('Hindi', 'Bilingual');
+
+Example for RO & TE:
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false and login_region in ('DDSI') and  region in ('RO-PN','RO-MH','RO-GJ','HO-PFD','HO-DIT','HO-DOR','HO-SECY','HO-RMD','HO-SPD','HO-AD','HO-RAJ','HO-SPPID','HO-FD','HO-FSDD','HO-FSPD','HO-HRMD','HO-ID','HO-IDD','HO-LAW','HO-GSD','HO-RMSMED','HO-DCAS','HO-DDMABI','HO-DEAR','HO-DMFI','HO-DOS','HO-DPSP','HO-DSM','HO-DSSI','HO-CC','HO-CCD','HO-CPD','HO-CVC','HO-CHMNS','HO-DMDS1','HO-DMDS2','HO-DMDS3','HO-CISO','HO-DDSI','HO-CSDD','HO-DOS') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('Hindi', 'Bilingual');
+
+
+(ii). Query for In English Only : select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false and login_region in ('<value_1>') and  region in ('RO-PN','RO-MH','RO-GJ','HO-PFD','HO-DIT','HO-DOR','HO-SECY','HO-RMD','HO-SPD','HO-AD','HO-RAJ','HO-SPPID','HO-FD','HO-FSDD','HO-FSPD','HO-HRMD','HO-ID','HO-IDD','HO-LAW','HO-GSD','HO-RMSMED','HO-DCAS','HO-DDMABI','HO-DEAR','HO-DMFI','HO-DOS','HO-DPSP','HO-DSM','HO-DSSI','HO-CC','HO-CCD','HO-CPD','HO-CVC','HO-CHMNS','HO-DMDS1','HO-DMDS2','HO-DMDS3','HO-CISO','HO-DDSI','HO-CSDD','HO-DOS') and r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('English');
+
+Example for HO:  
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and login_region in ('DDSI') and  region in ('RO-PN','RO-MH','RO-GJ','HO-PFD','HO-DIT','HO-DOR','HO-SECY','HO-RMD','HO-SPD','HO-AD','HO-RAJ','HO-SPPID','HO-FD','HO-FSDD','HO-FSPD','HO-HRMD','HO-ID','HO-IDD','HO-LAW','HO-GSD','HO-RMSMED','HO-DCAS','HO-DDMABI','HO-DEAR','HO-DMFI','HO-DOS','HO-DPSP','HO-DSM','HO-DSSI','HO-CC','HO-CCD','HO-CPD','HO-CVC','HO-CHMNS','HO-DMDS1','HO-DMDS2','HO-DMDS3','HO-CISO','HO-DDSI','HO-CSDD','HO-DOS') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('English');
+
+Example for RO & TE:
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false and login_region in ('Tamilnadu') and  region in ('RO-PN','RO-MH','RO-GJ','HO-PFD','HO-DIT','HO-DOR','HO-SECY','HO-RMD','HO-SPD','HO-AD','HO-RAJ','HO-SPPID','HO-FD','HO-FSDD','HO-FSPD','HO-HRMD','HO-ID','HO-IDD','HO-LAW','HO-GSD','HO-RMSMED','HO-DCAS','HO-DDMABI','HO-DEAR','HO-DMFI','HO-DOS','HO-DPSP','HO-DSM','HO-DSSI','HO-CC','HO-CCD','HO-CPD','HO-CVC','HO-CHMNS','HO-DMDS1','HO-DMDS2','HO-DMDS3','HO-CISO','HO-DDSI','HO-CSDD','HO-DOS') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('English');
+
+(iii).  Total Letters Issued to be calculated like:
+   with respective to 'To Region 'B'' row value of In Hindi/Bilingual count value + In English Only count value
+  (i.e.) count 1 + count 2
+  
+(iv). Percentage of Letters Hindi/Bilingual to be calculated like :
+In Hindi/Bilingual count value / Total Letters Issued * 100
+
+(i.e.) count1/count3 * 100
+
+3. To Region 'C'
+(i). Query for In Hindi/Bilingual : select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and login_region in ('<value_1>') and  region in ('RO-AR','RO-AD','RO-AS','RO-GA','RO-KA','RO-KL','RO-MN','RO-ML','RO-MZ','RO-NL','RO-OR','RO-SK','RO-TN','RO-TG','RO-TR','RO-WB','RO-JK','TE-BK','TE-BM') and r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('Hindi', 'Bilingual');
+
+Example for HO: 
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and login_region in ('DDSI') and  region in ('RO-AR','RO-AD','RO-AS','RO-GA','RO-KA','RO-KL','RO-MN','RO-ML','RO-MZ','RO-NL','RO-OR','RO-SK','RO-TN','RO-TG','RO-TR','RO-WB','RO-JK','TE-BK','TE-BM') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('Hindi', 'Bilingual');
+
+Example for RO & TE:
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false and login_region in ('Tamilnadu') and  region in ('RO-AR','RO-AD','RO-AS','RO-GA','RO-KA','RO-KL','RO-MN','RO-ML','RO-MZ','RO-NL','RO-OR','RO-SK','RO-TN','RO-TG','RO-TR','RO-WB','RO-JK','TE-BK','TE-BM') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('Hindi', 'Bilingual');
+
+(ii). Query for In English Only : select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and login_region in ('<value_1>') and  region in ('RO-AR','RO-AD','RO-AS','RO-GA','RO-KA','RO-KL','RO-MN','RO-ML','RO-MZ','RO-NL','RO-OR','RO-SK','RO-TN','RO-TG','RO-TR','RO-WB','RO-JK','TE-BK','TE-BM') and r_creation_date>=DATE('<value_4>','dd/MM/yyyy') AND r_creation_date<=DATE('<value_5>','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('English');
+
+Example for HO:
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false and login_region in ('DDSI') and  region in ('RO-AR','RO-AD','RO-AS','RO-GA','RO-KA','RO-KL','RO-MN','RO-ML','RO-MZ','RO-NL','RO-OR','RO-SK','RO-TN','RO-TG','RO-TR','RO-WB','RO-JK','TE-BK','TE-BM') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('English');
+
+Example for RO & TE:
+select count(*) as total from cms_digidak_folder where is_group=false and is_migrated=false  and login_region in ('Tamilnadu') and  region in ('RO-AR','RO-AD','RO-AS','RO-GA','RO-KA','RO-KL','RO-MN','RO-ML','RO-MZ','RO-NL','RO-OR','RO-SK','RO-TN','RO-TG','RO-TR','RO-WB','RO-JK','TE-BK','TE-BM') and r_creation_date>=DATE('01/01/2025','dd/MM/yyyy') AND r_creation_date<=DATE('30/06/2026','dd/MM/yyyy')+1 and status!='Saved' and decision='Outward' and languages in ('English');
+
+(iii).  Total Letters Issued to be calculated like:
+   with respective to 'To Region 'C'' row value of In Hindi/Bilingual count value + In English Only count value
+  (i.e.) count 1 + count 2
+
+(iv). Percentage of Letters Hindi/Bilingual to be calculated like :
+In Hindi/Bilingual count value / Total Letters Issued * 100
+
+(i.e.) count1/count3 * 100
+
+
+4. Total 
+
+Count of In Hindi/Bilingual, In English Only, Total Letters Issued, Percentage of Letters Hindi/Bilingual  to be calculated as To Region 'A' + To Region 'B' + To Region 'C' values of respective columns.
+
+
+

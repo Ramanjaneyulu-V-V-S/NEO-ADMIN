@@ -22,10 +22,22 @@ public class GroupController {
      * Create a new dm_group (vertical)
      */
     @PostMapping
-    public Map<String, Object> createGroup(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<Map<String, Object>> createGroup(@RequestBody Map<String, Object> request) {
         String groupName        = (String) request.get("group_name");
         String groupDisplayName = (String) request.get("group_display_name");
-        return groupService.createGroup(groupName, groupDisplayName);
+        Map<String, Object> result = groupService.createGroup(groupName, groupDisplayName);
+
+        // Check if group already exists
+        if (result.containsKey("exists") && (Boolean) result.get("exists")) {
+            return ResponseEntity.status(409).body(result); // 409 Conflict
+        }
+
+        // Check if creation failed
+        if (!((Boolean) result.getOrDefault("success", false))) {
+            return ResponseEntity.status(400).body(result); // 400 Bad Request
+        }
+
+        return ResponseEntity.ok(result);
     }
 
     /**
@@ -91,12 +103,34 @@ public class GroupController {
     }
 
     /**
+     * Lists verticals (with their full display name) for an HO department, sourced from
+     * the dm_folder shadow objects under /ECM CONFIG/Office Type/HO/<deptName>.
+     * GET /api/groups/vertical-folders?deptName=Digital Initiatives
+     */
+    @GetMapping("/vertical-folders")
+    public List<Map<String, String>> listVerticalFolders(@RequestParam String deptName) {
+        return groupService.listVerticalFolders(deptName);
+    }
+
+    /**
      * Get all groups a user belongs to.
      * GET /api/groups/by-user?username=xxx
      */
     @GetMapping("/by-user")
     public List<Map<String, String>> getGroupsByUser(@RequestParam String username) {
         return groupService.getGroupsByUser(username);
+    }
+
+    /**
+     * Get verticals from ECM CONFIG folders for dropdown.
+     * Queries dm_folder objects instead of dm_group.
+     * GET /api/groups/verticals?officeType=HO&deptName=DDSI
+     */
+    @GetMapping("/verticals")
+    public List<Map<String, String>> getVerticalFolders(
+            @RequestParam String officeType,
+            @RequestParam String deptName) {
+        return groupService.getVerticalFolders(officeType, deptName);
     }
 
     /**

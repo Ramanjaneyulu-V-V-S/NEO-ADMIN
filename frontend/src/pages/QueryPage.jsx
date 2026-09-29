@@ -1,574 +1,640 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import axios from '../api/axios';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as Popover from '@radix-ui/react-popover';
 import {
-    Play, ChevronLeft, ChevronRight, Database,
-    ChevronsLeft, Loader2, X, AlertCircle, Filter, History, Clock, Trash2, Copy, Check
+    Play, ListChecks, StepForward, RotateCcw, Square, Database,
+    History, Star, StarOff, Clock, Trash2, Copy, Check, Pencil, X, AlertTriangle,
 } from 'lucide-react';
+import axios from '../api/axios';
 import useQueryHistory from '../hooks/useQueryHistory';
+import useQueryFavorites from '../hooks/useQueryFavorites';
+import { splitStatements, statementAtOffset, leadingVerb, extractFromTarget } from '../utils/dql';
+import { PageHeader, Button, Badge, CustomSelect, useToast } from '../components/ui';
+import DqlEditor from '../components/query/DqlEditor';
+import ResultsGrid from '../components/query/ResultsGrid';
+import { syncUserGroups } from '../utils/userGroupSync.js';
+
+const LIMIT_OPTIONS = [
+    { value: 100, label: '100' },
+    { value: 500, label: '500' },
+    { value: 1000, label: '1,000' },
+    { value: 5000, label: '5,000' },
+    { value: 10000, label: '10,000' },
+];
+
+const PLACEHOLDER = `SELECT r_object_id, object_name FROM dm_user WHERE user_state = 0;
+SELECT r_object_id, object_name, r_creation_date FROM dm_cabinet;`;
+
+const panelCls = 'z-[99999] w-[22rem] max-w-[90vw] rounded-lg border border-line bg-surface shadow-pop';
+
+// cms_user_profile fields editable directly in the grid, and how — see
+// ResultsGrid.jsx's editorKindFor()/fieldEditors doc for the kinds.
+// 'text'/'boolean' are single-cell PATCHes (handleSaveCell below).
+// 'designation'/'location' are grouped edits — every field of a kind
+// shares one popover and one handleSaveGroup call, which also runs the
+// same group-membership sync EditUserProfileModal.jsx does on submit
+// (see syncUserGroups, userGroupSync.js).
+const FIELD_EDITORS = {
+    uin: 'text', user_email_address: 'text', primary_mobile_number: 'text',
+    hindi_user_name: 'text', hindi_designation: 'text', user_role: 'text',
+    is_active: 'boolean',
+    designation: 'designation', user_grade: 'designation', grade_level: 'designation',
+    office_type: 'location', location: 'location', ro_short_code: 'location',
+    department_name: 'location',
+};
+const REQUIRED_TEXT_FIELDS = new Set(['uin', 'user_email_address', 'hindi_user_name', 'hindi_designation']);
+
+function upsert(arr, idx, patch) {
+    const copy = arr.slice();
+    copy[idx] = { ...(copy[idx] || {}), ...patch };
+    return copy;
+}
+
+function relativeTime(ts) {
+    const diff = Date.now() - ts;
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return 'Just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    if (d < 7) return `${d}d ago`;
+    return new Date(ts).toLocaleDateString();
+}
 
 const QueryPage = () => {
-    const [allRows, setAllRows] = useState([]); // Store all fetched rows
-    const [columns, setColumns] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(25);
-    const [resultLimit, setResultLimit] = useState(10000); // DQL RETURN_TOP limit
-    const [hasExecuted, setHasExecuted] = useState(false);
-    const [error, setError] = useState(null);
-    const [columnFilters, setColumnFilters] = useState({});
+    const toast = useToast();
+    const { history, addQuery, clearHistory } = useQueryHistory();
+    const { favorites, addFavorite, removeFavorite, renameFavorite } = useQueryFavorites();
 
     const [query, setQuery] = useState('');
-    const [activeQuery, setActiveQuery] = useState('');
+    const [cursorOffset, setCursorOffset] = useState(0);
+    const [resultLimit, setResultLimit] = useState(1000);
 
-    // Query history
-    const { history, addQuery, clearHistory } = useQueryHistory();
-    const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
-    const [copiedId, setCopiedId] = useState(null);
-    const historyButtonRef = useRef(null);
-    const historyDropdownRef = useRef(null);
+    const [loading, setLoading] = useState(false);
+    const [results, setResults] = useState([]); // per-statement { status, rowCount, error }
+    const [activeResult, setActiveResult] = useState({ columns: [], rows: [] });
+    const [activeObjectType, setActiveObjectType] = useState(null);
+    const [hasRun, setHasRun] = useState(false);
+    const [highlightRange, setHighlightRange] = useState(null);
+    const [stepIndex, setStepIndex] = useState(0);
+    const [runId, setRunId] = useState(0);
 
-    // Selective execution
-    const textareaRef = useRef(null);
-    const [hasSelection, setHasSelection] = useState(false);
+    const abortRef = useRef(null);
+    // Last statement actually executed — lets a successful edit re-run the
+    // same query to refresh the grid, independent of where the caret is now.
+    const lastRunRef = useRef(null);
 
-    const executeQuery = useCallback(async (dql, limit) => {
-        if (!dql || dql.trim() === '') {
-            setError('Please enter a DQL query');
+    const statements = useMemo(() => splitStatements(query), [query]);
+    const currentStatement = useMemo(
+        () => statementAtOffset(statements, cursorOffset),
+        [statements, cursorOffset],
+    );
+    const currentVerb = currentStatement ? leadingVerb(currentStatement) : '';
+    const nonSelectWarning = currentStatement && currentVerb && currentVerb !== 'SELECT';
+
+    // Editing the query invalidates the step cursor and the running marker.
+    useEffect(() => {
+        setStepIndex(0);
+        setHighlightRange(null);
+    }, [query]);
+
+    const lastError = useMemo(() => {
+        for (let i = results.length - 1; i >= 0; i--) {
+            if (results[i]?.status === 'error') return results[i].error;
+        }
+        return null;
+    }, [results]);
+
+    const runOne = useCallback(
+        async (statement, idx) => {
+            const dql = (typeof statement === 'string' ? statement : statement?.text || '').trim();
+            if (!dql) return { ok: false, error: 'Empty statement' };
+
+            lastRunRef.current = { statement, idx };
+
+            if (statement && statement.from != null) {
+                setHighlightRange({ from: statement.from, to: statement.to });
+            }
+            setResults((prev) => upsert(prev, idx, { status: 'running', error: null }));
+            // Drop the previous statement's rows immediately — otherwise the grid
+            // keeps showing stale data underneath the "running…" badge above it.
+            setActiveResult({ columns: [], rows: [] });
+
+            const controller = new AbortController();
+            abortRef.current = controller;
+            try {
+                const res = await axios.post(
+                    '/query/execute',
+                    { dql, limit: resultLimit },
+                    { signal: controller.signal },
+                );
+                const data = res.data || {};
+                if (data.error) {
+                    setResults((prev) => upsert(prev, idx, { status: 'error', error: data.error, rowCount: 0 }));
+                    return { ok: false, error: data.error };
+                }
+                const rows = data.rows || [];
+                setActiveResult({ columns: data.columns || [], rows });
+                setActiveObjectType(extractFromTarget(statement));
+                setResults((prev) => upsert(prev, idx, { status: 'ok', rowCount: rows.length, error: null }));
+                return { ok: true, rows: rows.length };
+            } catch (err) {
+                const canceled = err.code === 'ERR_CANCELED' || err.name === 'CanceledError';
+                const msg = canceled
+                    ? 'Stopped'
+                    : err.response?.data?.message || err.message || 'Query failed';
+                setResults((prev) => upsert(prev, idx, { status: 'error', error: msg, rowCount: 0 }));
+                return { ok: false, error: msg, canceled };
+            } finally {
+                abortRef.current = null;
+            }
+        },
+        [resultLimit],
+    );
+
+    // Single-field inline save from the results grid itself — reuses the same
+    // PATCH endpoint as EditUserProfileModal, but for one whitelisted "plain
+    // data" or boolean field at a time (see FIELD_EDITORS above). Updates the
+    // grid's local row state directly instead of re-running the query, so
+    // sort/filter/page position survives the edit.
+    const handleSaveCell = useCallback(async (row, col, newValue) => {
+        try {
+            await axios.patch(`/users/profiles/${row.r_object_id}`, { [col]: newValue });
+            setActiveResult((prev) => ({
+                ...prev,
+                rows: prev.rows.map((r) => (r.r_object_id === row.r_object_id ? { ...r, [col]: newValue } : r)),
+            }));
+            toast.success(`${col} updated`);
+            return true;
+        } catch (err) {
+            toast.error(err.response?.data?.message || `Failed to update ${col}`);
+            return false;
+        }
+    }, [toast]);
+
+    // Snapshot of a row's current group-relevant fields, in the shape
+    // syncUserGroups()/EditUserProfileModal.jsx's originalGroupInfoRef uses —
+    // deptCodes empty for a DDM profile, same as the modal's initForm().
+    const buildOldGroupInfo = (row) => {
+        const isDDMProfile = row.department_name === 'DDM';
+        const multiCodes = Array.isArray(row.department_short_code_multi)
+            ? row.department_short_code_multi
+            : (row.department_short_code ? [row.department_short_code] : []);
+        return {
+            officeType: row.office_type || '',
+            roShortCode: row.ro_short_code || '',
+            deptCodes: isDDMProfile ? [] : multiCodes,
+            designation: row.designation || '',
+            location: row.location || '',
+            departmentName: row.department_name || '',
+            deptShortCode: row.department_short_code || '',
+        };
+    };
+
+    // Grouped inline save from the results grid — 'designation' or 'location'
+    // fields (see FIELD_EDITORS above). PATCHes just that group's fields, then
+    // runs the same client-side group-membership sync
+    // EditUserProfileModal.jsx's handleSubmit does, so a moved user comes out
+    // correctly (de-)provisioned instead of silently under-provisioned.
+    const handleSaveGroup = useCallback(async (kind, row, draft) => {
+        if (!row.user_login_name) {
+            toast.error('user_login_name is required to edit this field — add it to the SELECT');
+            return false;
+        }
+        const old = buildOldGroupInfo(row);
+        let payload;
+        let form;
+        if (kind === 'designation') {
+            payload = {
+                designation: draft.designation,
+                user_grade: draft.user_grade,
+                grade_level: draft.grade_level,
+                hindi_designation: draft.hindi_designation,
+            };
+            form = { ...row, ...payload };
+        } else {
+            payload = {
+                office_type: draft.office_type,
+                location: draft.location,
+                ro_short_code: draft.ro_short_code,
+                department_name: draft.department_name,
+                department_short_code: draft.department_short_code,
+                department_short_code_multi: draft.department_short_code_multi,
+            };
+            form = { ...row, ...payload };
+        }
+        try {
+            await axios.patch(`/users/profiles/${row.r_object_id}`, payload);
+            const { settled } = await syncUserGroups({ old, form, payload, memberName: row.user_login_name });
+            const results = await Promise.allSettled(settled);
+            if (results.some((r) => r.value?.ok === false)) {
+                toast.error('Saved, but one or more group updates failed — check the user\'s groups');
+            } else {
+                toast.success(`${kind === 'designation' ? 'Designation' : 'Location'} updated`);
+            }
+            setActiveResult((prev) => ({
+                ...prev,
+                rows: prev.rows.map((r) => (r.r_object_id === row.r_object_id ? { ...r, ...payload } : r)),
+            }));
+            return true;
+        } catch (err) {
+            toast.error(err.response?.data?.message || `Failed to update ${kind}`);
+            return false;
+        }
+    }, [toast]);
+
+    // History stores the full editor buffer as-run (all statements, as typed),
+    // not each executed statement. Deduped by exact text in the hook.
+    const recordHistory = useCallback(() => {
+        if (query.trim()) addQuery(query, resultLimit);
+    }, [query, resultLimit, addQuery]);
+
+    const runStatement = useCallback(async () => {
+        if (loading) return;
+        if (!currentStatement) {
+            toast.error('Nothing to run — write a DQL statement first');
             return;
         }
-
+        const idx = statements.indexOf(currentStatement);
+        recordHistory();
         setLoading(true);
-        setHasExecuted(true);
-        setError(null);
+        setHasRun(true);
+        setResults([]);
+        setRunId((n) => n + 1);
+        await runOne(currentStatement, idx < 0 ? 0 : idx);
+        setLoading(false);
+        setHighlightRange(null);
+    }, [loading, currentStatement, statements, runOne, recordHistory, toast]);
 
-        try {
-            // Send query with RETURN_TOP limit hint
-            const response = await axios.post('/query/execute', {
-                dql: dql.trim(),
-                limit: limit
-            });
-
-            const data = response.data;
-
-            if (data.error) {
-                setError(data.error);
-                setAllRows([]);
-                setColumns([]);
-            } else {
-                setAllRows(data.rows || []);
-                setColumns(data.columns || []);
-                setColumnFilters({}); // Reset filters on new query
-                setCurrentPage(1); // Reset to first page
-
-                // Add to query history after successful execution
-                addQuery(dql.trim(), limit);
+    const runAll = useCallback(async () => {
+        if (loading || statements.length === 0) return;
+        recordHistory();
+        setLoading(true);
+        setHasRun(true);
+        setResults([]);
+        setRunId((n) => n + 1);
+        for (let i = 0; i < statements.length; i++) {
+            const r = await runOne(statements[i], i);
+            if (!r.ok) {
+                if (!r.canceled) toast.error(`Statement ${i + 1}: ${r.error}`);
+                break;
             }
-        } catch (err) {
-            console.error("Error executing query", err);
-            setError(err.response?.data?.message || err.message || 'Query execution failed');
-            setAllRows([]);
-            setColumns([]);
-        } finally {
-            setLoading(false);
         }
-    }, [addQuery]);
+        setLoading(false);
+        setHighlightRange(null);
+    }, [loading, statements, runOne, recordHistory, toast]);
 
-    // Close history dropdown when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (showHistoryDropdown &&
-                historyDropdownRef.current &&
-                !historyDropdownRef.current.contains(event.target) &&
-                historyButtonRef.current &&
-                !historyButtonRef.current.contains(event.target)) {
-                setShowHistoryDropdown(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [showHistoryDropdown]);
-
-    // Track selection changes
-    const handleSelectionChange = () => {
-        if (textareaRef.current) {
-            const start = textareaRef.current.selectionStart;
-            const end = textareaRef.current.selectionEnd;
-            setHasSelection(start !== end);
+    const step = useCallback(async () => {
+        if (loading || statements.length === 0) return;
+        const i = stepIndex >= statements.length ? 0 : stepIndex;
+        if (i === 0) {
+            setResults([]);
+            recordHistory();
         }
-    };
-
-    // Handle keyboard shortcuts
-    const handleKeyDown = (e) => {
-        // Ctrl+Enter or Cmd+Enter to execute
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-            e.preventDefault();
-            handleExecuteWithSelection();
+        setLoading(true);
+        setHasRun(true);
+        setRunId((n) => n + 1);
+        const r = await runOne(statements[i], i);
+        setLoading(false);
+        setStepIndex(i + 1);
+        if (statements[i]?.from != null) {
+            setHighlightRange({ from: statements[i].from, to: statements[i].to });
         }
-    };
+        if (!r.ok && !r.canceled) toast.error(`Statement ${i + 1}: ${r.error}`);
+    }, [loading, statements, stepIndex, runOne, recordHistory, toast]);
 
-    // Execute selected text or full query
-    const handleExecuteWithSelection = () => {
-        if (!textareaRef.current) return;
+    const resetStep = useCallback(() => {
+        setStepIndex(0);
+        setHighlightRange(null);
+    }, []);
 
-        const start = textareaRef.current.selectionStart;
-        const end = textareaRef.current.selectionEnd;
-
-        let queryToExecute;
-        if (start !== end) {
-            // Text is selected - execute only selection
-            queryToExecute = query.substring(start, end).trim();
-        } else {
-            // No selection - execute full query
-            queryToExecute = query.trim();
-        }
-
-        if (queryToExecute) {
-            setActiveQuery(queryToExecute);
-            executeQuery(queryToExecute, resultLimit);
-        }
-    };
-
-    // Load query from history
-    const loadQueryFromHistory = (historyQuery) => {
-        setQuery(historyQuery);
-        setShowHistoryDropdown(false);
-    };
-
-    // Copy query to clipboard
-    const copyQueryToClipboard = async (queryText, itemId, e) => {
-        e.stopPropagation(); // Prevent loading query when clicking copy button
-        try {
-            await navigator.clipboard.writeText(queryText);
-            setCopiedId(itemId);
-            // Reset copied state after 2 seconds
-            setTimeout(() => setCopiedId(null), 2000);
-        } catch (err) {
-            console.error('Failed to copy query:', err);
-        }
-    };
-
-    // Format timestamp for display
-    const formatTimestamp = (timestamp) => {
-        const date = new Date(timestamp);
-        const now = new Date();
-        const diffMs = now - date;
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        if (diffMins < 1) return 'Just now';
-        if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-        if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-        if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    };
-
-    // Truncate query text for display
-    const truncateQuery = (text, maxLength = 60) => {
-        if (text.length <= maxLength) return text;
-        return text.substring(0, maxLength) + '...';
-    };
-
-    // Client-side filtering
-    const filteredRows = useMemo(() => {
-        if (allRows.length === 0) return [];
-
-        return allRows.filter(row => {
-            return Object.entries(columnFilters).every(([column, filterValue]) => {
-                if (!filterValue || filterValue.trim() === '') return true;
-                const cellValue = row[column];
-                if (cellValue === null || cellValue === undefined) return false;
-                return String(cellValue).toLowerCase().includes(filterValue.toLowerCase());
-            });
-        });
-    }, [allRows, columnFilters]);
-
-    // Client-side pagination
-    const paginatedRows = useMemo(() => {
-        const startIndex = (currentPage - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        return filteredRows.slice(startIndex, endIndex);
-    }, [filteredRows, currentPage, pageSize]);
-
-    const totalPages = Math.ceil(filteredRows.length / pageSize);
-
-    const handleExecute = (e) => {
-        e.preventDefault();
-        if (query.trim()) {
-            setActiveQuery(query.trim());
-            executeQuery(query.trim(), resultLimit);
-        }
-    };
-
-    const handlePageChange = (newPage) => {
-        setCurrentPage(newPage);
-    };
-
-    const handleFilterChange = (column, value) => {
-        setColumnFilters(prev => ({
-            ...prev,
-            [column]: value
-        }));
-        setCurrentPage(1); // Reset to first page when filtering
-    };
-
-    const clearAllFilters = () => {
-        setColumnFilters({});
-        setCurrentPage(1);
-    };
-
-    const clearQuery = () => {
-        setQuery('');
-        setActiveQuery('');
-        setAllRows([]);
-        setColumns([]);
-        setHasExecuted(false);
-        setError(null);
-        setCurrentPage(1);
-        setColumnFilters({});
-    };
-
-    const handlePageSizeChange = (newSize) => {
-        setPageSize(Number(newSize));
-        setCurrentPage(1); // Reset to first page when changing page size
-    };
-
-    const rangeStart = paginatedRows.length > 0 ? (currentPage - 1) * pageSize + 1 : 0;
-    const rangeEnd = (currentPage - 1) * pageSize + paginatedRows.length;
-    const hasActiveFilters = Object.values(columnFilters).some(v => v && v.trim() !== '');
+    const stop = useCallback(() => {
+        abortRef.current?.abort();
+    }, []);
 
     return (
-        <div className="p-6 max-w-full mx-auto">
-            {/* Header */}
-            <div className="mb-4">
-                <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <Database size={20} className="text-[#0A66C2]" />
-                    Query
-                </h1>
-            </div>
+        <div className="flex flex-1 flex-col">
+            <PageHeader title="Query" icon={Database} description="Run read-only DQL against the repository." />
 
-            {/* Query Input */}
-            <form onSubmit={handleExecute} className="bg-white border border-slate-200 rounded-lg shadow-sm p-4 mb-4">
-                <div className="mb-3">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">DQL Query</label>
-                    <div className="relative">
-                        <textarea
-                            ref={textareaRef}
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            onSelect={handleSelectionChange}
-                            onKeyDown={handleKeyDown}
-                            placeholder="SELECT r_object_id, object_name FROM dm_document WHERE folder('/Temp')"
-                            rows={3}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-[#0A66C2] resize-y"
-                        />
-                        {query && (
-                            <button
-                                type="button"
-                                onClick={clearQuery}
-                                className="absolute right-2 top-2 text-slate-400 hover:text-slate-600"
-                            >
-                                <X size={16} />
-                            </button>
-                        )}
-                    </div>
-                    <div className="flex items-start justify-between gap-2 text-xs mt-1">
-                        <p className="text-slate-400">
-                            <span className="font-medium">Note:</span> r_object_id and r_object_type will be automatically included.
-                            <span className="ml-1">ENABLE(RETURN_TOP n) hint is automatically added to limit database results.</span>
-                        </p>
-                        <p className="text-slate-500 shrink-0">
-                            <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-xs font-mono">
-                                {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Enter
-                            </kbd>
-                            <span className="ml-1">to execute{hasSelection ? ' selection' : ''}</span>
-                        </p>
+            <div className="mb-4 rounded-card border border-line bg-surface p-4 shadow-card">
+                <DqlEditor
+                    value={query}
+                    onChange={setQuery}
+                    onCursorChange={setCursorOffset}
+                    highlightRange={highlightRange}
+                    disabled={loading}
+                    onExecute={runStatement}
+                />
+
+                {query.trim() === '' && (
+                    <p className="mt-2 whitespace-pre-wrap font-mono text-caption text-slate-400">{PLACEHOLDER}</p>
+                )}
+
+                {/* Toolbar */}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Button size="sm" onClick={runStatement} loading={loading} disabled={statements.length === 0}>
+                        <Play size={13} /> Run{statements.length > 1 ? ' statement' : ''}
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={runAll} disabled={loading || statements.length < 2}>
+                        <ListChecks size={13} /> Run all
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={step} disabled={loading || statements.length === 0}>
+                        <StepForward size={13} /> Step{statements.length > 1 ? ` ${Math.min(stepIndex + 1, statements.length)}/${statements.length}` : ''}
+                    </Button>
+                    {stepIndex > 0 && (
+                        <Button size="sm" variant="ghost" onClick={resetStep} disabled={loading}>
+                            <RotateCcw size={13} /> Reset
+                        </Button>
+                    )}
+                    {loading && (
+                        <Button size="sm" variant="danger" onClick={stop}>
+                            <Square size={13} /> Stop
+                        </Button>
+                    )}
+
+                    <div className="mx-1 h-6 w-px bg-line" />
+
+                    <HistoryMenu
+                        history={history}
+                        onPick={(q) => setQuery(q)}
+                        onClear={clearHistory}
+                    />
+                    <FavoritesMenu
+                        favorites={favorites}
+                        currentQuery={query}
+                        onPick={(q) => setQuery(q)}
+                        onAdd={addFavorite}
+                        onRemove={removeFavorite}
+                        onRename={renameFavorite}
+                        notify={toast}
+                    />
+
+                    <div className="ml-auto flex items-center gap-2">
+                        <span className="text-caption text-slate-500">Max rows</span>
+                        <div className="w-28">
+                            <CustomSelect
+                                value={resultLimit}
+                                onChange={(v) => setResultLimit(Number(v))}
+                                options={LIMIT_OPTIONS}
+                                ariaLabel="Maximum rows per statement"
+                            />
+                        </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                    <button
-                        type="submit"
-                        disabled={!query.trim() || loading}
-                        className="px-4 py-2 bg-[#0A66C2] text-white rounded-lg text-sm font-medium hover:bg-[#094d92] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-                        title={`Execute query (${navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl'}+Enter)`}
-                    >
-                        {loading ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                        Execute
-                    </button>
 
-                    {/* History Button */}
-                    <div className="relative">
-                        <button
-                            ref={historyButtonRef}
-                            type="button"
-                            onClick={() => setShowHistoryDropdown(!showHistoryDropdown)}
-                            className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 flex items-center gap-1.5"
-                            title="Query History"
-                        >
-                            <History size={14} />
-                            History
-                            {history.length > 0 && (
-                                <span className="ml-1 px-1.5 py-0.5 bg-[#0A66C2] text-white text-xs rounded-full">
-                                    {history.length}
-                                </span>
-                            )}
-                        </button>
-
-                        {/* History Dropdown */}
-                        {showHistoryDropdown && (
-                            <div
-                                ref={historyDropdownRef}
-                                className="absolute top-full mt-2 right-0 w-96 bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-96 overflow-hidden flex flex-col"
-                            >
-                                {/* Header */}
-                                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                                    <span className="text-sm font-semibold text-slate-700">
-                                        Recent Queries ({history.length})
-                                    </span>
-                                    {history.length > 0 && (
-                                        <button
-                                            onClick={() => {
-                                                if (window.confirm('Clear all query history?')) {
-                                                    clearHistory();
-                                                }
-                                            }}
-                                            className="text-xs text-red-600 hover:text-red-700 flex items-center gap-1"
-                                        >
-                                            <Trash2 size={12} />
-                                            Clear All
-                                        </button>
-                                    )}
-                                </div>
-
-                                {/* History List */}
-                                <div className="overflow-y-auto flex-1">
-                                    {history.length === 0 ? (
-                                        <div className="py-8 text-center text-slate-400">
-                                            <History className="mx-auto h-8 w-8 text-slate-300 mb-2" />
-                                            <p className="text-sm">No queries yet</p>
-                                        </div>
-                                    ) : (
-                                        history.map((item) => (
-                                            <div
-                                                key={item.id}
-                                                className="w-full px-4 py-3 hover:bg-slate-50 border-b border-slate-100 transition-colors flex items-start gap-2 group"
-                                            >
-                                                <Database size={14} className="text-slate-400 mt-0.5 shrink-0" />
-                                                <button
-                                                    onClick={() => loadQueryFromHistory(item.query)}
-                                                    className="flex-1 min-w-0 text-left"
-                                                >
-                                                    <p className="text-sm text-slate-700 font-mono truncate">
-                                                        {truncateQuery(item.query)}
-                                                    </p>
-                                                    <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
-                                                        <Clock size={10} />
-                                                        <span>{formatTimestamp(item.executedAt)}</span>
-                                                        {item.limit && (
-                                                            <>
-                                                                <span>•</span>
-                                                                <span>Limit: {item.limit.toLocaleString()}</span>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </button>
-                                                <button
-                                                    onClick={(e) => copyQueryToClipboard(item.query, item.id, e)}
-                                                    className="px-2 py-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                                                    title="Copy query"
-                                                >
-                                                    {copiedId === item.id ? (
-                                                        <Check size={14} className="text-green-600" />
-                                                    ) : (
-                                                        <Copy size={14} />
-                                                    )}
-                                                </button>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        )}
+                {/* Per-statement status strip */}
+                {results.some(Boolean) && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                        {statements.map((s, i) => {
+                            const r = results[i];
+                            if (!r) return null;
+                            const tone = r.status === 'ok' ? 'canopy' : r.status === 'error' ? 'danger' : 'neutral';
+                            return (
+                                <Badge key={i} tone={tone}>
+                                    <span className="font-mono">{i + 1}</span>
+                                    {r.status === 'running' && ' running…'}
+                                    {r.status === 'ok' && ` ✓ ${r.rowCount}`}
+                                    {r.status === 'error' && ` ✗ ${r.error}`}
+                                </Badge>
+                            );
+                        })}
                     </div>
+                )}
 
-                    <div className="flex items-center gap-2">
-                        <label className="text-xs text-slate-600 font-medium">Max Results:</label>
-                        <select
-                            value={resultLimit}
-                            onChange={(e) => setResultLimit(Number(e.target.value))}
-                            className="text-sm border border-slate-200 rounded-lg px-2 py-2 bg-white"
-                            title="DQL ENABLE(RETURN_TOP n) hint"
-                        >
-                            <option value={100}>100</option>
-                            <option value={500}>500</option>
-                            <option value={1000}>1,000</option>
-                            <option value={5000}>5,000</option>
-                            <option value={10000}>10,000</option>
-                        </select>
+                {nonSelectWarning && (
+                    <div className="mt-3 flex items-start gap-2 rounded-lg border border-harvest/20 bg-harvest/10 px-3 py-2 text-caption text-harvest">
+                        <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                        <span>
+                            The statement under the cursor starts with <span className="font-mono font-semibold">{currentVerb}</span>.
+                            Only <span className="font-mono">SELECT</span> statements run from here — the server rejects anything else.
+                        </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <label className="text-xs text-slate-600 font-medium">Rows/Page:</label>
-                        <select
-                            value={pageSize}
-                            onChange={(e) => handlePageSizeChange(e.target.value)}
-                            className="text-sm border border-slate-200 rounded-lg px-2 py-2 bg-white"
-                        >
-                            <option value={10}>10</option>
-                            <option value={25}>25</option>
-                            <option value={50}>50</option>
-                            <option value={100}>100</option>
-                            <option value={500}>500</option>
-                        </select>
-                    </div>
-                </div>
-            </form>
+                )}
 
-            {/* Error Display */}
-            {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 text-red-700 text-sm">
-                    <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                    <span>{error}</span>
-                </div>
-            )}
-
-            {/* Results */}
-            <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-                {!hasExecuted ? (
-                    <div className="py-16 text-center text-slate-400">
-                        <Database className="mx-auto h-10 w-10 text-slate-300 mb-2" />
-                        <p className="text-sm">Enter a DQL query and click Execute</p>
+                {lastError && !nonSelectWarning && (
+                    <div className="mt-3 flex items-start gap-2 rounded-lg border border-danger/20 bg-danger-tint px-3 py-2 text-caption text-danger">
+                        <X size={14} className="mt-0.5 shrink-0" />
+                        <span>{lastError}</span>
                     </div>
-                ) : loading ? (
-                    <div className="py-16 text-center text-slate-400">
-                        <Loader2 className="mx-auto h-8 w-8 text-[#0A66C2] animate-spin mb-2" />
-                        <p className="text-sm">Executing query...</p>
-                    </div>
-                ) : allRows.length === 0 && !error ? (
-                    <div className="py-16 text-center text-slate-400">
-                        <Database className="mx-auto h-10 w-10 text-slate-300 mb-2" />
-                        <p className="text-sm">No results found</p>
-                    </div>
-                ) : allRows.length > 0 && (
-                    <>
-                        {/* Count and Filter Controls */}
-                        <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-sm flex-wrap gap-2">
-                            <div className="flex items-center gap-3">
-                                <span className="text-slate-600">
-                                    <span className="font-semibold text-[#0A66C2]">{allRows.length}</span> total rows
-                                    {filteredRows.length < allRows.length && (
-                                        <span className="ml-1">
-                                            (<span className="font-semibold text-amber-600">{filteredRows.length}</span> filtered)
-                                        </span>
-                                    )}
-                                </span>
-                                <span className="text-slate-400">•</span>
-                                <span className="text-slate-600">
-                                    Showing {rangeStart}-{rangeEnd}
-                                </span>
-                            </div>
-                            {hasActiveFilters && (
-                                <button
-                                    onClick={clearAllFilters}
-                                    className="text-xs px-2 py-1 bg-white border border-slate-200 rounded hover:bg-slate-50 text-slate-600 flex items-center gap-1"
-                                >
-                                    <X size={12} />
-                                    Clear Filters
-                                </button>
-                            )}
-                        </div>
-
-                        {/* Table with fixed height */}
-                        <div className="overflow-auto max-h-[calc(100vh-28rem)] min-h-[400px]">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
-                                    <tr>
-                                        <th className="px-3 py-2 font-semibold text-slate-700 bg-slate-50 sticky left-0 z-20 w-12">#</th>
-                                        {columns.map((col) => (
-                                            <th key={col} className="px-3 py-2 font-semibold text-slate-700 bg-slate-50">
-                                                <div className="flex flex-col gap-1.5 min-w-[120px]">
-                                                    <span className="whitespace-nowrap">{col}</span>
-                                                    <div className="relative">
-                                                        <Filter size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-                                                        <input
-                                                            type="text"
-                                                            value={columnFilters[col] || ''}
-                                                            onChange={(e) => handleFilterChange(col, e.target.value)}
-                                                            placeholder="Filter..."
-                                                            className="w-full pl-7 pr-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500/30 focus:border-[#0A66C2] bg-white"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 bg-white">
-                                    {paginatedRows.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={columns.length + 1} className="px-3 py-12 text-center text-slate-400">
-                                                <Filter className="mx-auto h-8 w-8 text-slate-300 mb-2" />
-                                                <p className="text-sm">No results match the current filters</p>
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        paginatedRows.map((row, idx) => (
-                                            <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                                <td className="px-3 py-2.5 text-slate-400 font-mono text-xs bg-slate-50/50 sticky left-0 border-r border-slate-100">
-                                                    {(currentPage - 1) * pageSize + idx + 1}
-                                                </td>
-                                                {columns.map((col) => (
-                                                    <td key={col} className="px-3 py-2.5 text-slate-600 max-w-xs truncate" title={String(row[col] ?? '')}>
-                                                        {row[col] !== null && row[col] !== undefined ? String(row[col]) : '-'}
-                                                    </td>
-                                                ))}
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Pagination */}
-                        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/50 text-sm">
-                            <span className="text-slate-500">
-                                Page <span className="font-semibold text-slate-700">{currentPage}</span> of <span className="font-semibold text-slate-700">{totalPages}</span>
-                            </span>
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => handlePageChange(1)}
-                                    disabled={currentPage === 1}
-                                    className="p-1.5 border border-slate-200 rounded hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed text-slate-600"
-                                    title="First page"
-                                >
-                                    <ChevronsLeft size={14} />
-                                </button>
-                                <button
-                                    onClick={() => handlePageChange(currentPage - 1)}
-                                    disabled={currentPage === 1}
-                                    className="p-1.5 border border-slate-200 rounded hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed text-slate-600"
-                                    title="Previous page"
-                                >
-                                    <ChevronLeft size={14} />
-                                </button>
-                                <span className="px-3 text-slate-700 font-medium min-w-[3rem] text-center">{currentPage}</span>
-                                <button
-                                    onClick={() => handlePageChange(currentPage + 1)}
-                                    disabled={currentPage >= totalPages}
-                                    className="p-1.5 border border-slate-200 rounded hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed text-slate-600"
-                                    title="Next page"
-                                >
-                                    <ChevronRight size={14} />
-                                </button>
-                            </div>
-                        </div>
-                    </>
                 )}
             </div>
+
+            {hasRun ? (
+                <ResultsGrid
+                    columns={activeResult.columns}
+                    rows={activeResult.rows}
+                    loading={loading}
+                    runId={runId}
+                    emptyLabel={loading ? 'Running…' : 'No rows returned'}
+                    fieldEditors={activeObjectType === 'cms_user_profile' ? FIELD_EDITORS : {}}
+                    requiredColumns={REQUIRED_TEXT_FIELDS}
+                    onSaveCell={activeObjectType === 'cms_user_profile' ? handleSaveCell : undefined}
+                    onSaveGroup={activeObjectType === 'cms_user_profile' ? handleSaveGroup : undefined}
+                />
+            ) : (
+                <div className="rounded-card border border-line bg-surface py-16 text-center text-slate-400 shadow-card">
+                    <Database className="mx-auto mb-2 h-10 w-10 text-slate-300" />
+                    <p className="text-body">Write DQL above and press Run (⌘/Ctrl+Enter)</p>
+                </div>
+            )}
         </div>
     );
 };
+
+// ─── History dropdown ────────────────────────────────────────────────────────
+function HistoryMenu({ history, onPick, onClear }) {
+    const [copiedId, setCopiedId] = useState(null);
+    const [confirmClear, setConfirmClear] = useState(false);
+
+    const copy = async (text, id) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedId(id);
+            setTimeout(() => setCopiedId(null), 1500);
+        } catch (err) {
+            console.error('Copy failed', err);
+        }
+    };
+
+    return (
+        <Popover.Root onOpenChange={() => setConfirmClear(false)}>
+            <Popover.Trigger asChild>
+                <Button size="sm" variant="secondary">
+                    <History size={13} /> History
+                    {history.length > 0 && <span className="ml-1 font-mono text-[11px] text-slate-400">{history.length}</span>}
+                </Button>
+            </Popover.Trigger>
+            <Popover.Portal>
+                <Popover.Content align="start" sideOffset={4} className={panelCls}>
+                    <div className="flex items-center justify-between border-b border-line px-3 py-2">
+                        <span className="text-caption font-medium text-slate-500">Recent queries</span>
+                        {history.length > 0 && (
+                            confirmClear ? (
+                                <button
+                                    type="button"
+                                    onClick={() => { onClear(); setConfirmClear(false); }}
+                                    className="text-[11px] font-medium text-danger"
+                                >
+                                    Confirm clear
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmClear(true)}
+                                    className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-danger"
+                                >
+                                    <Trash2 size={11} /> Clear
+                                </button>
+                            )
+                        )}
+                    </div>
+                    <div className="max-h-72 overflow-y-auto scrollbar-thin">
+                        {history.length === 0 ? (
+                            <p className="px-3 py-6 text-center text-caption text-slate-400">No queries yet</p>
+                        ) : (
+                            history.map((item) => (
+                                <div key={item.id} className="group flex items-start gap-2 border-b border-line px-3 py-2 last:border-0 hover:bg-paper">
+                                    <button type="button" onClick={() => onPick(item.query)} className="min-w-0 flex-1 text-left">
+                                        <p className="line-clamp-3 whitespace-pre-wrap break-words font-mono text-caption text-slate-700">{item.query}</p>
+                                        <span className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-400">
+                                            <Clock size={10} /> {relativeTime(item.executedAt)}
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => copy(item.query, item.id)}
+                                        className="shrink-0 rounded p-1 text-slate-400 opacity-0 hover:bg-canopy-tint hover:text-canopy group-hover:opacity-100"
+                                        title="Copy"
+                                    >
+                                        {copiedId === item.id ? <Check size={13} className="text-canopy" /> : <Copy size={13} />}
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </Popover.Content>
+            </Popover.Portal>
+        </Popover.Root>
+    );
+}
+
+// ─── Favorites dropdown ──────────────────────────────────────────────────────
+function FavoritesMenu({ favorites, currentQuery, onPick, onAdd, onRemove, onRename, notify }) {
+    const [name, setName] = useState('');
+    const [editingId, setEditingId] = useState(null);
+    const [editName, setEditName] = useState('');
+    const [confirmId, setConfirmId] = useState(null);
+
+    const save = () => {
+        if (!name.trim() || !currentQuery.trim()) {
+            notify.error('Give the query a name first');
+            return;
+        }
+        onAdd(name.trim(), currentQuery);
+        notify.success(`Saved "${name.trim()}"`);
+        setName('');
+    };
+
+    const commitRename = (id) => {
+        if (editName.trim()) onRename(id, editName.trim());
+        setEditingId(null);
+        setEditName('');
+    };
+
+    return (
+        <Popover.Root
+            onOpenChange={(open) => {
+                if (!open) { setEditingId(null); setConfirmId(null); setName(''); }
+            }}
+        >
+            <Popover.Trigger asChild>
+                <Button size="sm" variant="secondary">
+                    <Star size={13} /> Favorites
+                    {favorites.length > 0 && <span className="ml-1 font-mono text-[11px] text-slate-400">{favorites.length}</span>}
+                </Button>
+            </Popover.Trigger>
+            <Popover.Portal>
+                <Popover.Content align="start" sideOffset={4} className={panelCls}>
+                    <div className="flex items-center gap-1.5 border-b border-line p-2">
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && save()}
+                            placeholder="Save current query as…"
+                            className="min-w-0 flex-1 rounded border border-line px-2 py-1.5 text-body focus:border-canopy focus:outline-none focus:ring-2 focus:ring-canopy/20"
+                        />
+                        <Button size="sm" onClick={save} disabled={!name.trim() || !currentQuery.trim()}>
+                            Save
+                        </Button>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto scrollbar-thin">
+                        {favorites.length === 0 ? (
+                            <p className="px-3 py-6 text-center text-caption text-slate-400">No saved queries</p>
+                        ) : (
+                            favorites.map((fav) => (
+                                <div key={fav.id} className="group border-b border-line px-3 py-2 last:border-0 hover:bg-paper">
+                                    {editingId === fav.id ? (
+                                        <div className="flex items-center gap-1.5">
+                                            <input
+                                                autoFocus
+                                                type="text"
+                                                value={editName}
+                                                onChange={(e) => setEditName(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && commitRename(fav.id)}
+                                                className="min-w-0 flex-1 rounded border border-line px-2 py-1 text-body focus:border-canopy focus:outline-none"
+                                            />
+                                            <button type="button" onClick={() => commitRename(fav.id)} className="rounded p-1 text-canopy hover:bg-canopy-tint">
+                                                <Check size={13} />
+                                            </button>
+                                            <button type="button" onClick={() => setEditingId(null)} className="rounded p-1 text-slate-400 hover:bg-paper">
+                                                <X size={13} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-start gap-2">
+                                            <button type="button" onClick={() => onPick(fav.query)} className="min-w-0 flex-1 text-left">
+                                                <p className="truncate text-body font-medium text-slate-700">{fav.name}</p>
+                                                <p className="line-clamp-2 whitespace-pre-wrap break-words font-mono text-[11px] text-slate-400">{fav.query}</p>
+                                            </button>
+                                            <div className="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setEditingId(fav.id); setEditName(fav.name); }}
+                                                    className="rounded p-1 text-slate-400 hover:bg-canopy-tint hover:text-canopy"
+                                                    title="Rename"
+                                                >
+                                                    <Pencil size={12} />
+                                                </button>
+                                                {confirmId === fav.id ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { onRemove(fav.id); setConfirmId(null); }}
+                                                        className="rounded px-1 py-1 text-[11px] font-medium text-danger"
+                                                    >
+                                                        Delete?
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setConfirmId(fav.id)}
+                                                        className="rounded p-1 text-slate-400 hover:bg-danger-tint hover:text-danger"
+                                                        title="Delete"
+                                                    >
+                                                        <StarOff size={12} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </Popover.Content>
+            </Popover.Portal>
+        </Popover.Root>
+    );
+}
 
 export default QueryPage;
